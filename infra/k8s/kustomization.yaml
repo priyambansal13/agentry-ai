@@ -1,0 +1,33 @@
+# Agentry on k3s (Oracle Cloud Ampere = arm64). Render: kubectl kustomize infra/k8s   Apply: infra/k8s/deploy.sh
+# Before the first deploy: copy infra/prod.env.example to infra/k8s/agentry.env (gitignored), fill it in,
+# set your domains in ingress.yaml and your image registry below.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: agentry
+labels:
+  - pairs: { app.kubernetes.io/part-of: agentry }
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - migrate-job.yaml
+  - api.yaml
+  - worker.yaml
+  - recordings-pvc.yaml
+  # - voice.yaml   # enable once AGENTRY_LIVEKIT_* are in agentry.env (docs/DEPLOY.md, Voice)
+  - dashboard.yaml
+  - web.yaml
+  - ingress.yaml
+  - cronjobs.yaml
+secretGenerator:
+  - name: agentry-env
+    envs: [agentry.env]
+configMapGenerator:
+  - name: postgres-init
+    files: [init-prod.sh=postgres-init.sh]
+generatorOptions:
+  disableNameSuffixHash: false
+images:
+  - { name: agentry-backend, newName: ghcr.io/YOUR_GITHUB_USER/agentry-backend, newTag: latest }
+  - { name: agentry-dashboard, newName: ghcr.io/YOUR_GITHUB_USER/agentry-dashboard, newTag: latest }
+  - { name: agentry-dashboard-tools, newName: ghcr.io/YOUR_GITHUB_USER/agentry-dashboard-tools, newTag: latest }
+  - { name: agentry-web, newName: ghcr.io/YOUR_GITHUB_USER/agentry-web, newTag: latest }

@@ -1,0 +1,24 @@
+# Voice worker (LiveKit Agents): joins one room per call. Enable in kustomization.yaml once AGENTRY_LIVEKIT_* are set
+# in agentry.env (LiveKit Cloud recommended to start, docs/PHASE-4-VOICE.md §6). Scale replicas with concurrent calls.
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: voice }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: voice } }
+  template:
+    metadata: { labels: { app: voice } }
+    spec:
+      terminationGracePeriodSeconds: 600  # a rollout lets calls in progress finish
+      securityContext: { fsGroup: 10001 }
+      volumes: [{ name: recordings, persistentVolumeClaim: { claimName: recordings } }]
+      containers:
+        - name: voice
+          image: agentry-backend
+          command: ["agentry", "voice"]
+          envFrom: [{ secretRef: { name: agentry-env } }]
+          env:
+            - { name: AGENTRY_DB_HOST, value: postgres }
+            - { name: AGENTRY_DB_PORT, value: "5432" }
+          volumeMounts: [{ name: recordings, mountPath: /srv/var/recordings }]
+          resources: { requests: { cpu: 500m, memory: 1Gi }, limits: { memory: 3Gi } }

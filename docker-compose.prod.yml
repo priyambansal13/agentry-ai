@@ -1,0 +1,109 @@
+# Production-like stack on one machine: the same images k3s runs, for verifying a release locally
+# (or for a single-VM deployment). Usage:
+#   cp infra/prod.env.example infra/.env.prod   # fill in
+#   docker compose -f docker-compose.prod.yml --env-file infra/.env.prod up -d --build
+# Ports: web 13200, dashboard 13201, API 18801 (put a TLS proxy in front for real traffic). Postgres is not exposed.
+x-backend: &backend
+  image: agentry-backend:${AGENTRY_TAG:-local}
+  build: { context: ., dockerfile: infra/docker/backend.Dockerfile }
+  env_file: infra/.env.prod
+  environment: &backend-env
+    AGENTRY_DB_HOST: postgres
+    AGENTRY_DB_PORT: "5432"
+    AGENTRY_AUTH_JWKS_URL: http://dashboard:3000/api/auth/jwks
+  volumes: ["recordings:/srv/var/recordings"]
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    env_file: infra/.env.prod
+    environment: { POSTGRES_USER: postgres, POSTGRES_DB: agentry }
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/k8s/postgres-init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U postgres -d agentry"], interval: 3s, timeout: 3s, retries: 30 }
+    restart: unless-stopped
+
+  migrate:        # one-shot: app schema (Alembic). After auth-migrate: migration 0002 grants on Better Auth's tables.
+    <<: *backend
+    command: ["agentry", "migrate"]
+    restart: "no"
+    depends_on: { auth-migrate: { condition: service_completed_successfully } }
+
+  auth-migrate:   # one-shot: Better Auth tables in schema auth
+    image: agentry-dashboard-tools:${AGENTRY_TAG:-local}
+    build: { context: ., dockerfile: infra/docker/next.Dockerfile, target: tools, args: { APP: dashboard } }
+    env_file: infra/.env.prod
+    environment:
+      AUTH_DATABASE_URL: postgres://agentry_auth:${AGENTRY_DB_AUTH_PASSWORD}@postgres:5432/agentry
+    restart: "no"
+    depends_on: { postgres: { condition: service_healthy } }
+
+  api:
+    <<: *backend
+    command: ["agentry", "api", "--host", "0.0.0.0", "--no-reload"]
+    ports: ["18801:8801"]
+    healthcheck: { test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8801/ready')"], interval: 10s, timeout: 5s, retries: 5 }
+    depends_on: { migrate: { condition: service_completed_successfully } }
+
+  worker:
+    <<: *backend
+    command: ["agentry", "worker"]
+    depends_on: { migrate: { condition: service_completed_successfully } }
+
+  # Phone/browser calls (PHASE-4-VOICE.md). Needs AGENTRY_LIVEKIT_* (LiveKit Cloud or your own server) and OPENAI_API_KEY
+  # for speech. Start with:  docker compose -f docker-compose.prod.yml --env-file infra/.env.prod --profile voice up -d
+  voice:
+    <<: *backend
+    profiles: [voice]
+    command: ["agentry", "voice"]
+    stop_grace_period: 10m   # let calls in progress finish
+    depends_on: { migrate: { condition: service_completed_successfully } }
+
+  dashboard:
+    image: agentry-dashboard:${AGENTRY_TAG:-local}
+    build:
+      context: .
+      dockerfile: infra/docker/next.Dockerfile
+      args: { APP: dashboard, NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://localhost:18801}",
+              NEXT_PUBLIC_DASHBOARD_URL: "${NEXT_PUBLIC_DASHBOARD_URL:-http://localhost:13201}", NEXT_PUBLIC_WEB_URL: "${NEXT_PUBLIC_WEB_URL:-http://localhost:13200}" }
+    env_file: infra/.env.prod
+    environment:
+      AGENTRY_API_URL: http://api:8801
+      AUTH_DATABASE_URL: postgres://agentry_auth:${AGENTRY_DB_AUTH_PASSWORD}@postgres:5432/agentry
+    ports: ["13201:3000"]
+    restart: unless-stopped
+    depends_on: { migrate: { condition: service_completed_successfully } }
+
+  web:
+    image: agentry-web:${AGENTRY_TAG:-local}
+    build:
+      context: .
+      dockerfile: infra/docker/next.Dockerfile
+      args: { APP: web, NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://localhost:18801}",
+              NEXT_PUBLIC_DASHBOARD_URL: "${NEXT_PUBLIC_DASHBOARD_URL:-http://localhost:13201}", NEXT_PUBLIC_WEB_URL: "${NEXT_PUBLIC_WEB_URL:-http://localhost:13200}" }
+    environment: { AGENTRY_API_URL: http://api:8801 }
+    ports: ["13200:3000"]
+    restart: unless-stopped
+
+  # Nightly backups and health alerts run as k3s CronJobs; here, run them by hand:
+  #   docker compose -f docker-compose.prod.yml --env-file infra/.env.prod run --rm backup
+  #   docker compose -f docker-compose.prod.yml --env-file infra/.env.prod run --rm alerts
+  backup:
+    image: pgvector/pgvector:pg16
+    profiles: [jobs]
+    env_file: infra/.env.prod
+    environment: { PGHOST: postgres, PGUSER: postgres, PGDATABASE: agentry }
+    entrypoint: ["sh", "-c", "PGPASSWORD=$$POSTGRES_PASSWORD pg_dump -Fc -f /backups/agentry-$$(date +%Y%m%d-%H%M).dump && ls -lh /backups | tail -3"]
+    volumes: ["./backups:/backups"]
+    depends_on: { postgres: { condition: service_healthy } }
+  alerts:
+    <<: *backend
+    profiles: [jobs]
+    command: ["agentry", "alerts", "--minutes", "10"]
+    restart: "no"
+
+volumes:
+  pgdata:
+  recordings:

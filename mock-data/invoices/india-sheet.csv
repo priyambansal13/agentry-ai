@@ -1,0 +1,16 @@
+Invoice,Company,Contact,Email,Phone,Amount,Amount paid,Invoice date,Due date,WhatsApp consent,Notes
+MSR-1001,Lotus Interiors,Priya Nair,priya@lotusinteriors.example,+91-90010-10001,38500,0,2026-09-18,2026-10-18,yes,Step 1 (day 7) due today
+MSR-1002,Om Sai Hardware,Ramesh Patil,ramesh@omsaihardware.example,+91-90010-10002,12750,0,2026-09-11,2026-10-11,yes,Step 2 (day 14) due today: email + WhatsApp
+MSR-1003,Bluebell Cafe,Sneha Kulkarni,sneha@bluebellcafe.example,+91-90010-10003,64200,0,2026-09-04,2026-10-04,no,"Step 3 (day 21), WhatsApp not agreed: email only"
+MSR-1004,Ganga Traders,Mohit Agarwal,accounts@gangatraders.example,+91-90010-10004,215000,0,2026-08-28,2026-09-27,yes,Final reminder (day 28) due today
+MSR-1005,Silverline Clinic,Dr. Kavita Rao,kavita@silverlineclinic.example,+91-90010-10005,91800,0,2026-08-16,2026-09-15,yes,Past the final step: 'time for a call' card once the final reminder is sent
+MSR-1006,Peacock Prints,Arjun Mehra,arjun@peacockprints.example,+91-90010-10006,47300,20000,2026-09-15,2026-10-15,yes,"Part paid: reminders ask only for the Rs 27,300 balance"
+MSR-1007,Sunrise Bakers,Fatima Sheikh,fatima@sunrisebakers.example,+91-90010-10007,18900,0,2026-09-30,2026-10-30,yes,Not due yet: no reminder until day 7 after 30 Oct
+MSR-1008,Vedanta Labs,Karan Joshi,karan@vedantalabs.example,+91-90010-10008,156000,0,2026-09-25,2026-10-25,no,Due today
+MSR-1009,Kumar & Sons,,,,26400,0,2026-09-10,2026-10-10,,No email or phone: shows 'no reminders' on the Invoices page
+MSR-1010,Royal Caterers,Imran Khan,imran@royalcaterers.example,+91-90010-10010,33000,33000,2026-09-05,2026-10-05,yes,Already paid: ignored
+MSR-1011,Lotus Interiors,Priya Nair,priya@lotusinteriors.example,+91-90010-10001,14200,0,2026-09-16,2026-10-16,yes,"Same customer as MSR-1001: one contact, two invoices"
+MSR-1012,Green Valley School,Anil Deshpande,fees@greenvalleyschool.example,+91-90010-10012,72000,0,2026-09-08,2026-10-08,yes,Use for a dispute reply (wrong amount)
+MSR-1013,Trident Logistics,Neha Gupta,neha@tridentlogistics.example,+91-90010-10013,54600,0,2026-09-13,2026-10-13,yes,"Use for an 'already paid, UTR ...' reply, then Confirm paid"
+MSR-1014,Coastal Fisheries,Joseph D'Souza,joseph@coastalfisheries.example,+91-90010-10014,41250,0,2026-09-07,2026-10-07,yes,Use for a WhatsApp reply in Hindi/Hinglish
+MSR-1015,Mehta Textiles,Rakesh Mehta,rakesh@mehtatextiles.example,+91-90010-10015,88800,0,2026-09-02,2026-10-02,yes,"Exact amount for a weak payment match (Rs 88,800 from this customer)"

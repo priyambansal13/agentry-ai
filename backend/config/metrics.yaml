@@ -1,0 +1,41 @@
+# Metric registry: one definition per number shown anywhere (dashboard, reports, billing).
+# Order here = order on the client dashboard. Synced into app.metric_definitions by `agentry sync-metrics`.
+# aggregation: count of events, or sum of a numeric payload field (value_path).
+metrics:
+  - key: amount_recovered
+    name: Money recovered
+    automation_key: invoice_follow_up
+    event_type: payment.received
+    aggregation: sum
+    value_path: amount
+    unit: currency
+  - key: appointments_booked
+    name: Appointments booked
+    automation_key: lead_engine
+    event_type: booking.created
+    aggregation: count
+    unit: count
+  - key: calls_answered
+    name: Calls answered
+    automation_key: ai_receptionist
+    event_type: call.completed
+    aggregation: count
+    unit: count
+  - key: leads_captured
+    name: Leads captured
+    automation_key: lead_engine
+    event_type: lead.created
+    aggregation: count
+    unit: count
+  - key: emails_triaged
+    name: Emails triaged
+    automation_key: inbox_triage
+    event_type: email.triaged
+    aggregation: count
+    unit: count
+  - key: messages_sent
+    name: Messages sent
+    automation_key: null
+    event_type: message.sent
+    aggregation: count
+    unit: count

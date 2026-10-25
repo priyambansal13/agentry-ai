@@ -1,0 +1,9 @@
+# Call recordings (PHASE-4-VOICE.md 4.2): written by voice, served by api, cleaned up by worker after each client's
+# retention period. ReadWriteOnce on k3s local-path works because all three run on the one node; move recordings to
+# Object Storage before running more than one node.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: recordings }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 20Gi } }

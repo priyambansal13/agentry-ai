@@ -1,0 +1,54 @@
+{
+  "anchorDate": "2026-10-24",
+  "id": "t_smilecraft",
+  "name": "SmileCraft Dental Clinic",
+  "market": "IN",
+  "city": "Pune",
+  "timezone": "Asia/Kolkata",
+  "currency": "INR",
+  "website": "https://smilecraft.example",
+  "phone": "+91-20-0000-1000",
+  "hours": { "MON-SAT": "10:00-20:00", "SUN": "closed" },
+  "holidays": ["2026-11-08", "2026-11-09"],
+  "languages": ["en", "hi", "mr"],
+  "persona": { "name": "Asha", "tone": "warm, reassuring, concise", "voice": "female, Indian English", "discloseAI": true },
+  "services": [
+    { "key": "consult", "name": "Consultation + X-ray", "minutes": 30, "price": 500, "bookableBy": "any" },
+    { "key": "cleaning", "name": "Scaling & polishing", "minutes": 45, "price": 1500, "bookableBy": "any" },
+    { "key": "rct", "name": "Root canal (first sitting)", "minutes": 60, "price": 6500, "bookableBy": "after_consult" },
+    { "key": "aligners", "name": "Clear aligners assessment", "minutes": 45, "price": 0, "bookableBy": "any", "highValue": true },
+    { "key": "implant", "name": "Implant consultation", "minutes": 45, "price": 1000, "bookableBy": "any", "highValue": true }
+  ],
+  "staff": [
+    { "id": "dr_kulkarni", "name": "Dr. Neha Kulkarni", "services": ["consult", "rct", "implant"], "calendar": "google:neha@smilecraft.example" },
+    { "id": "dr_desai", "name": "Dr. Amit Desai", "services": ["consult", "aligners", "cleaning"], "calendar": "google:amit@smilecraft.example" },
+    { "id": "hyg_patil", "name": "Sneha Patil (hygienist)", "services": ["cleaning"], "calendar": "google:sneha@smilecraft.example" }
+  ],
+  "qualification": [
+    { "key": "concern", "q": "What would you like help with?", "required": true },
+    { "key": "pain", "q": "Are you in pain right now?", "type": "bool", "routing": "pain=true → earliest slot today/tomorrow" },
+    { "key": "area", "q": "Which area of Pune are you in?", "disqualifyIf": "outside Pune metro" },
+    { "key": "timeline", "q": "When would you like to come in?" }
+  ],
+  "faqs": [
+    { "q": "Do you accept insurance?", "a": "We provide bills for reimbursement; cashless only with Star Health and HDFC Ergo." },
+    { "q": "Is parking available?", "a": "Yes, free basement parking." },
+    { "q": "How much do aligners cost?", "a": "Usually ₹60,000–₹1,80,000 depending on the case. The assessment is free." },
+    { "q": "Do you do emergencies?", "a": "Yes, same-day emergency slots during clinic hours." }
+  ],
+  "sources": {
+    "websiteChat": true,
+    "speedToLead": { "formWebhooks": ["website_form", "meta_lead_ads"], "firstTouch": "call_then_whatsapp", "callingHours": "10:00-19:30" },
+    "receptionist": { "forwardWhenBusy": true, "transferTo": "+91-20-0000-1001" },
+    "reactivation": { "file": "old-leads.csv", "channel": "whatsapp" },
+    "coldEmail": { "enabled": false, "note": "B2C clinic: cold email off; shows a bundle with a source disabled" }
+  },
+  "ownershipPriority": ["receptionist", "website_chat", "speed_to_lead", "reactivation", "cold_email"],
+  "pricingPlan": {
+    "label": "Boring Machine: base + per booking",
+    "baseFee": { "amount": 799900, "currency": "INR" },
+    "usage": [ { "meter": "call_minutes", "included": 500, "overage": { "amount": 600, "currency": "INR" } } ],
+    "outcomes": [ { "outcome": "appointment_booked", "price": { "amount": 25000, "currency": "INR" } }, { "outcome": "appointment_booked", "where": "service.highValue", "price": { "amount": 100000, "currency": "INR" } } ],
+    "attributionWindowDays": 30
+  }
+}

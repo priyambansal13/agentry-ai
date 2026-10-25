@@ -1,0 +1,24 @@
+# First deploy only (not part of kustomization.yaml). Creates your Agentry admin login; prints a one-time password.
+#   SECRET=$(kubectl -n agentry get secrets --sort-by=.metadata.creationTimestamp -o name | grep agentry-env | tail -1 | cut -d/ -f2)
+#   sed -e 's#ADMIN_EMAIL_HERE#you@agentry.example#' -e 's#ADMIN_NAME_HERE#Your Name#' -e "s#SECRET_HERE#$SECRET#" \
+#       -e 's#IMAGE_HERE#ghcr.io/you/agentry-dashboard-tools:TAG#' infra/k8s/one-off/create-admin.yaml | kubectl -n agentry apply -f -
+#   kubectl -n agentry wait --for=condition=complete job/create-admin && kubectl -n agentry logs job/create-admin
+#   kubectl -n agentry delete job create-admin
+apiVersion: batch/v1
+kind: Job
+metadata: { name: create-admin }
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: create-admin
+          image: IMAGE_HERE
+          command: ["pnpm", "exec", "tsx", "scripts/create-admin.ts"]
+          envFrom: [{ secretRef: { name: SECRET_HERE } }]
+          env:
+            - { name: AGENTRY_DB_AUTH_PASSWORD, valueFrom: { secretKeyRef: { name: SECRET_HERE, key: AGENTRY_DB_AUTH_PASSWORD } } }
+            - { name: ADMIN_EMAIL, value: "ADMIN_EMAIL_HERE" }
+            - { name: ADMIN_NAME, value: "ADMIN_NAME_HERE" }
+            - { name: AUTH_DATABASE_URL, value: "postgres://agentry_auth:$(AGENTRY_DB_AUTH_PASSWORD)@postgres:5432/agentry" }

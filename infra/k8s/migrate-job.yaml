@@ -1,0 +1,27 @@
+# Runs on every release (deploy.sh deletes and re-creates it): Better Auth tables first, then the app schema
+# (migration 0002 grants on Better Auth's tables). Both are idempotent.
+apiVersion: batch/v1
+kind: Job
+metadata: { name: migrate }
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-db
+          image: pgvector/pgvector:pg16
+          command: ["sh", "-c", "until pg_isready -h postgres -U postgres; do sleep 2; done"]
+        - name: auth-migrate
+          image: agentry-dashboard-tools
+          envFrom: [{ secretRef: { name: agentry-env } }]
+          env:
+            - { name: AGENTRY_DB_AUTH_PASSWORD, valueFrom: { secretKeyRef: { name: agentry-env, key: AGENTRY_DB_AUTH_PASSWORD } } }
+            - { name: AUTH_DATABASE_URL, value: "postgres://agentry_auth:$(AGENTRY_DB_AUTH_PASSWORD)@postgres:5432/agentry" }
+      containers:
+        - name: migrate
+          image: agentry-backend
+          command: ["agentry", "migrate"]
+          envFrom: [{ secretRef: { name: agentry-env } }]
+          env: [{ name: AGENTRY_DB_HOST, value: postgres }, { name: AGENTRY_DB_PORT, value: "5432" }]

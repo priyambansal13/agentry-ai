@@ -1,0 +1,53 @@
+{
+  "$comment": "Single source of truth for client roles and permissions (docs/CLIENT-PORTAL.md §1.3). Read by the dashboard (Better Auth access control) and the API (agentry.permissions).",
+  "statements": {
+    "organization": ["update", "delete"],
+    "member": ["create", "update", "delete"],
+    "invitation": ["create", "cancel"],
+    "team": ["create", "update", "delete"],
+    "ac": ["create", "read", "update", "delete"],
+    "dashboard": ["read"],
+    "conversation": ["read", "act"],
+    "calendar": ["read", "act"],
+    "invoice": ["read", "act"],
+    "automation": ["read", "pause", "configure"],
+    "connection": ["manage"],
+    "billing": ["read", "manage"],
+    "audit": ["read"],
+    "data": ["export"]
+  },
+  "roles": {
+    "owner": {
+      "label": "Owner",
+      "permissions": {
+        "organization": ["update"], "member": ["create", "update", "delete"], "invitation": ["create", "cancel"],
+        "dashboard": ["read"], "conversation": ["read", "act"], "calendar": ["read", "act"], "invoice": ["read", "act"],
+        "automation": ["read", "pause", "configure"], "connection": ["manage"], "billing": ["read", "manage"],
+        "audit": ["read"], "data": ["export"]
+      }
+    },
+    "manager": {
+      "label": "Manager",
+      "permissions": {
+        "dashboard": ["read"], "conversation": ["read", "act"], "calendar": ["read", "act"], "invoice": ["read", "act"],
+        "automation": ["read", "pause", "configure"], "connection": ["manage"], "audit": ["read"]
+      }
+    },
+    "staff": {
+      "label": "Front desk",
+      "permissions": { "dashboard": ["read"], "conversation": ["read", "act"], "calendar": ["read", "act"], "automation": ["read"] }
+    },
+    "finance": {
+      "label": "Finance",
+      "permissions": { "dashboard": ["read"], "invoice": ["read", "act"], "billing": ["read", "manage"], "automation": ["read"] }
+    },
+    "viewer": {
+      "label": "Viewer",
+      "permissions": { "dashboard": ["read"], "calendar": ["read"], "invoice": ["read"], "automation": ["read"] }
+    }
+  },
+  "platformRoles": {
+    "$comment": "Agentry staff, stored on the user (Better Auth admin plugin). They can act in any organisation; every action is audited as agentry_staff.",
+    "admin": "Agentry admin"
+  }
+}

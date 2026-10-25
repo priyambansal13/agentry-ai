@@ -1,0 +1,78 @@
+{
+  "anchorDate": "2026-10-24",
+  "tenants": [
+    {
+      "id": "t_sharma_digital",
+      "name": "Sharma Digital Agency",
+      "market": "IN",
+      "city": "New Delhi",
+      "timezone": "Asia/Kolkata",
+      "currency": "INR",
+      "invoiceSource": { "type": "google_sheets", "file": "sharma-digital-sheet.csv" },
+      "emailProvider": "gmail",
+      "sender": { "name": "Riya Sharma", "email": "accounts@sharmadigital.example" },
+      "channels": ["email", "whatsapp"],
+      "paymentGateway": "razorpay",
+      "approvalMode": "all_steps",
+      "quietHours": { "start": "20:00", "end": "09:00" },
+      "businessDays": ["MON", "TUE", "WED", "THU", "FRI", "SAT"],
+      "languages": ["en", "hi", "hinglish"],
+      "pricingPlan": {
+        "label": "Hybrid (Growth)",
+        "baseFee": { "amount": 499900, "currency": "INR" },
+        "includedInvoices": 1000,
+        "commission": { "basis": "overdue_only", "rate": 0.015, "capPerMonth": { "amount": 2500000, "currency": "INR" }, "attributionWindowDays": 30, "strongAttributionOnly": false },
+        "whatsappCost": "bundled"
+      }
+    },
+    {
+      "id": "t_kaveri_industrial",
+      "name": "Kaveri Industrial Supplies Pvt Ltd",
+      "market": "IN",
+      "city": "Coimbatore",
+      "timezone": "Asia/Kolkata",
+      "currency": "INR",
+      "invoiceSource": { "type": "tally", "files": ["kaveri-tally-bills-receivable.csv", "kaveri-tally-parties.csv"] },
+      "emailProvider": "outlook",
+      "sender": { "name": "S. Natarajan (Accounts)", "email": "accounts@kaverisupplies.example" },
+      "channels": ["email", "whatsapp"],
+      "paymentGateway": "razorpay",
+      "approvalMode": "final_steps_only",
+      "quietHours": { "start": "19:00", "end": "09:30" },
+      "businessDays": ["MON", "TUE", "WED", "THU", "FRI", "SAT"],
+      "languages": ["en", "ta"],
+      "sequenceOverride": { "steps": [ { "day": 0, "tone": "heads_up" }, { "day": 15, "tone": "friendly" }, { "day": 30, "tone": "polite" }, { "day": 45, "tone": "firm" }, { "day": 60, "tone": "final" } ], "note": "B2B credit terms are 45 days; customers expect slower cadence" },
+      "pricingPlan": {
+        "label": "Commission only",
+        "baseFee": null,
+        "includedInvoices": 200,
+        "commission": { "basis": "overdue_only", "rate": 0.04, "minPerInvoice": { "amount": 20000, "currency": "INR" }, "attributionWindowDays": 45, "strongAttributionOnly": true },
+        "whatsappCost": "pass_through"
+      }
+    },
+    {
+      "id": "t_brightpath",
+      "name": "Brightpath Consulting LLC",
+      "market": "US",
+      "city": "Austin, TX",
+      "timezone": "America/Chicago",
+      "currency": "USD",
+      "invoiceSource": { "type": "quickbooks", "file": "brightpath-qbo-open-invoices.csv" },
+      "emailProvider": "gmail",
+      "sender": { "name": "Jordan Ellis", "email": "billing@brightpath.example" },
+      "channels": ["email"],
+      "paymentGateway": "stripe",
+      "approvalMode": "off",
+      "quietHours": { "start": "18:00", "end": "08:00" },
+      "businessDays": ["MON", "TUE", "WED", "THU", "FRI"],
+      "languages": ["en"],
+      "pricingPlan": {
+        "label": "Subscription (Pro)",
+        "baseFee": { "amount": 19900, "currency": "USD" },
+        "includedInvoices": 10000,
+        "commission": { "basis": "none", "rate": 0, "attributionWindowDays": 30, "strongAttributionOnly": false },
+        "whatsappCost": "bundled"
+      }
+    }
+  ]
+}

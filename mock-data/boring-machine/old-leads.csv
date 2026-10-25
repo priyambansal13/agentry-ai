@@ -1,0 +1,10 @@
+name,phone,email,last_contact,last_interest,status,notes,consent
+Rahul Joshi,+91-90000-20001,rahul.j@mail.example,2026-03-12,aligners,quoted,Said price too high,whatsapp_optin
+Sunita Pawar,+91-90000-20002,,2025-12-02,cleaning,no_show,Missed cleaning appointment,whatsapp_optin
+Farhan Qureshi,+91-90000-20003,farhan.q@mail.example,2026-05-20,implant,consulted,Consulted; wanted to think about it,whatsapp_optin
+Priya Menon,+91-90000-20004,priya.m@mail.example,2026-01-15,rct,treated,Completed RCT; crown pending,whatsapp_optin
+Aditya Rane,+91-90000-20005,,2025-10-30,consult,enquiry,Enquired on Instagram,none
+Kavya Shetty,+91-90000-20006,kavya.s@mail.example,2026-07-02,cleaning,treated,Due for 6-month cleaning,whatsapp_optin
+Manoj Gaikwad,+91-90000-20007,,2026-02-18,aligners,enquiry,,whatsapp_optin
+Elena Fernandes,+91-90000-20008,elena.f@mail.example,2026-04-09,implant,quoted,,opted_out
+Rahul Joshi,+91 9000020001,rahul.joshi@work.example,2026-06-01,aligners,enquiry,Duplicate via website form with different email,whatsapp_optin

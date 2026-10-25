@@ -1,0 +1,21 @@
+# Traefik (bundled with k3s). TLS: install cert-manager and a "letsencrypt" ClusterIssuer (docs/DEPLOY.md), or remove the
+# tls/annotation lines and terminate TLS elsewhere. Replace agentry.example with your domain (three DNS A records -> the VM).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: agentry
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts: [agentry.example, app.agentry.example, api.agentry.example]
+      secretName: agentry-tls
+  rules:
+    - host: agentry.example
+      http: { paths: [{ path: /, pathType: Prefix, backend: { service: { name: web, port: { number: 3000 } } } }] }
+    - host: app.agentry.example
+      http: { paths: [{ path: /, pathType: Prefix, backend: { service: { name: dashboard, port: { number: 3000 } } } }] }
+    - host: api.agentry.example
+      http: { paths: [{ path: /, pathType: Prefix, backend: { service: { name: api, port: { number: 8801 } } } }] }

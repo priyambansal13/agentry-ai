@@ -1,0 +1,111 @@
+/*
+ * Agentry design tokens. Brand: hand-drawn sketch strokes + lime highlighter (docs/DESIGN.md).
+ * Light is the default; dark follows the OS unless the page sets data-theme.
+ * Apps import this file after `@import "tailwindcss";` and get bg-paper, text-ink, bg-lime, etc.
+ */
+:root {
+  --ink: #111111;
+  --ink-soft: #2a2a27;
+  --paper: #fafaf7;
+  --card: #ffffff;
+  --card-raised: #ffffff;
+  --line: #e4e4dc;
+  --muted: #6b6b66;
+  --lime: #c9f24b;
+  --lime-ink: #111111;
+  --lime-soft: #eefbc4;
+  --success: #1f8f4e;
+  --warning: #b26b00;
+  --danger: #c2372b;
+  --focus: #5b8def;
+  --shadow: 0 1px 2px rgb(17 17 17 / 0.06), 0 8px 24px -12px rgb(17 17 17 / 0.18);
+  --series-1: #3d6e00; /* chart line: passes lightness, chroma and 3:1 contrast on --card */
+  --series-1-fill: rgb(61 110 0 / 0.10);
+  --grid: #ececE4;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #f4f4f0;
+    --ink-soft: #d8d8d0;
+    --paper: #0e0f0c;
+    --card: #171812;
+    --card-raised: #1f2019;
+    --line: #2c2d25;
+    --muted: #9a9a92;
+    --lime-soft: #2b3510;
+    --success: #4ccb7f;
+    --warning: #f0a73a;
+    --danger: #ff6b5e;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+    --series-1: #76a300;
+    --series-1-fill: rgb(118 163 0 / 0.16);
+    --grid: #26271f;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ink: #f4f4f0;
+  --ink-soft: #d8d8d0;
+  --paper: #0e0f0c;
+  --card: #171812;
+  --card-raised: #1f2019;
+  --line: #2c2d25;
+  --muted: #9a9a92;
+  --lime-soft: #2b3510;
+  --success: #4ccb7f;
+  --warning: #f0a73a;
+  --danger: #ff6b5e;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  --series-1: #76a300;
+  --series-1-fill: rgb(118 163 0 / 0.16);
+  --grid: #26271f;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-paper: var(--paper);
+  --color-card: var(--card);
+  --color-card-raised: var(--card-raised);
+  --color-line: var(--line);
+  --color-muted: var(--muted);
+  --color-lime: var(--lime);
+  --color-lime-ink: var(--lime-ink);
+  --color-lime-soft: var(--lime-soft);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --font-display: var(--font-display-family), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-sans-family), ui-sans-serif, system-ui, sans-serif;
+  --font-hand: var(--font-hand-family), "Comic Sans MS", cursive;
+  --shadow-card: var(--shadow);
+  --color-series-1: var(--series-1);
+  --color-grid: var(--grid);
+}
+
+html { background: var(--paper); color: var(--ink); }
+body { background: var(--paper); color: var(--ink); -webkit-font-smoothing: antialiased; }
+::selection { background: var(--lime); color: var(--lime-ink); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Highlighter: a slightly uneven lime band behind text, like the reference sketches. */
+.highlight {
+  background: linear-gradient(104deg, transparent 0.6%, var(--lime) 2.4%, var(--lime) 97%, transparent 99%);
+  background-size: 100% 62%;
+  background-position: 0 70%;
+  background-repeat: no-repeat;
+  padding: 0 0.15em;
+  color: var(--ink);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+:root[data-theme="dark"] .highlight { color: var(--lime-ink); background-size: 100% 100%; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .highlight { color: var(--lime-ink); background-size: 100% 100%; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

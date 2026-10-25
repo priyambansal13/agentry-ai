@@ -1,0 +1,24 @@
+key: home-services
+name: Home services
+for: Solar, interiors, real estate, renovation
+featured: [speed_to_lead, lead_reactivation, ai_receptionist, website_chat]
+ladder: [speed_to_lead, lead_reactivation, ai_receptionist]
+customer_value: {INR: 150000, USD: 6000}
+persona:
+  name: Sam
+  tone: helpful, practical, upbeat
+  greeting: "Hi, I'm Sam, {business}'s AI assistant. Thinking about a project? I can answer questions and book a free site visit."
+qualification:
+  - {key: need, question: "What kind of project are you planning?", required: true}
+  - {key: location, question: "Which area is the property in?"}
+  - {key: budget, question: "Do you have a budget range in mind?"}
+  - {key: timeline, question: "When are you hoping to get it done?"}
+qualified_when: "the project is a service the business offers, in its service area"
+services:
+  - {key: site_visit, name: "Free site visit", minutes: 60}
+  - {key: phone_consult, name: "Phone consultation", minutes: 20}
+staff:
+  - {name: "Project consultant", services: [site_visit, phone_consult],
+     hours: {mon: [["09:00", "18:00"]], tue: [["09:00", "18:00"]], wed: [["09:00", "18:00"]], thu: [["09:00", "18:00"]], fri: [["09:00", "18:00"]], sat: [["10:00", "16:00"]]}}
+faqs:
+  - {q: "Is the site visit really free?", a: "Yes. A consultant visits, measures and gives you a written quote with no obligation."}

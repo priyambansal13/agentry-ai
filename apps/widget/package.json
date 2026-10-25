@@ -1,0 +1,12 @@
+{
+  "name": "@agentry/widget",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/widget.ts --bundle --minify --format=iife --target=es2019 --outfile=../web/public/widget.js && cp ../web/public/widget.js ../dashboard/public/widget.js",
+    "dev": "esbuild src/widget.ts --bundle --format=iife --target=es2019 --outfile=../web/public/widget.js --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": { "esbuild": "^0.28.0", "typescript": "^5.9.0" }
+}

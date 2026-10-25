@@ -1,0 +1,25 @@
+key: dental-clinic
+name: Clinics & appointment businesses
+for: Dental and skin clinics, physios, salons, coaching institutes
+featured: [website_chat, ai_receptionist, lead_reactivation, speed_to_lead]
+ladder: [website_chat, lead_reactivation, ai_receptionist]
+customer_value: {INR: 8000, USD: 400}
+persona:
+  name: Asha
+  tone: warm, reassuring, concise
+  greeting: "Hi, I'm Asha, {business}'s AI assistant. I can answer questions or book you an appointment. How can I help?"
+qualification:
+  - {key: need, question: "What would you like help with?", required: true}
+  - {key: urgency, question: "Are you in any pain or discomfort right now?"}
+  - {key: timeline, question: "When would you like to come in?"}
+qualified_when: "they want a treatment or consultation the clinic offers"
+safety: "Never give medical advice or diagnoses. For severe pain, swelling, bleeding or trauma, advise an emergency visit and offer the earliest slot; for life-threatening symptoms, tell them to call 112."
+services:
+  - {key: consult, name: "Consultation", minutes: 30, price: 500}
+  - {key: cleaning, name: "Cleaning", minutes: 45, price: 1500}
+staff:
+  - {name: "Doctor", services: [consult, cleaning],
+     hours: {mon: [["10:00", "13:00"], ["16:00", "20:00"]], tue: [["10:00", "13:00"], ["16:00", "20:00"]], wed: [["10:00", "13:00"], ["16:00", "20:00"]], thu: [["10:00", "13:00"], ["16:00", "20:00"]], fri: [["10:00", "13:00"], ["16:00", "20:00"]], sat: [["10:00", "14:00"]]}}
+faqs:
+  - {q: "Do you take walk-ins?", a: "We see walk-ins when there's a free slot, but booking ahead guarantees your time."}
+  - {q: "Do you handle emergencies?", a: "Yes, we keep same-day slots for dental emergencies during clinic hours."}

@@ -1,0 +1,9 @@
+@import "tailwindcss";
+@import "@agentry/ui/tokens.css";
+@source "../../../../packages/ui/src";
+
+@media print {
+  aside, nav[aria-label="Main"], .lg\:hidden { display: none !important; }
+  main { max-width: none !important; padding: 0 !important; }
+  body { background: #fff; }
+}

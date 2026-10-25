@@ -1,0 +1,7 @@
+Num,Customer,Customer email,Date,Due date,Terms,Amount,Open balance,Memo
+BRK-301,Northwind Dental,billing@northwinddental.example,2026-09-17,2026-10-17,Net 30,1850.00,1850.00,Step 1 due
+BRK-302,Cedar Lane Realty,ap@cedarlanerealty.example,2026-09-10,2026-10-10,Net 30,4200.00,4200.00,Step 2
+BRK-303,Blue Harbor Yoga,owner@blueharboryoga.example,2026-08-26,2026-09-25,Net 30,960.00,460.00,Part paid: $460 open
+BRK-304,Summit Legal LLP,accounts@summitlegal.example,2026-10-05,2026-11-04,Net 30,7500.00,7500.00,Not due yet
+BRK-305,Pine & Oak Studio,hello@pineoakstudio.example,2026-08-11,2026-09-10,Net 30,2300.00,2300.00,Past final step
+BRK-306,Riverbend Vet,frontdesk@riverbendvet.example,2026-09-20,2026-10-20,Net 30,640.00,0.00,Paid

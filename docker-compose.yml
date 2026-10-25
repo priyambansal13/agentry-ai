@@ -1,0 +1,33 @@
+# Local development services for Agentry.
+# Non-default host ports so this stack can run beside other projects.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: agentry
+    ports: ["55432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d agentry"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  mailpit:
+    # Catches every email in development (magic links, invites, notifications). UI: http://localhost:58025
+    image: axllent/mailpit:latest
+    ports: ["51025:1025", "58025:8025"]
+
+  livekit:
+    # Real-time voice (Phase 4): the voice worker and the browser "talk to your agent" console meet here.
+    # Dev mode: API key "devkey", secret "secret". ICE over TCP 7881 / UDP 7882, advertised on 127.0.0.1.
+    image: livekit/livekit-server:v1.13.10
+    command: ["--dev", "--bind", "0.0.0.0", "--node-ip", "127.0.0.1"]
+    ports: ["7880:7880", "7881:7881", "7882:7882/udp"]
+
+volumes:
+  pgdata:

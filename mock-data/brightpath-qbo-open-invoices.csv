@@ -1,0 +1,8 @@
+Num,Customer,Customer email,Date,Due date,Terms,Amount,Open balance,Memo
+BP-1107,Harbor Logistics Inc.,ap@harborlogistics.example,2026-09-10,2026-10-10,Net 30,8400.00,8400.00,Q3 ops review
+BP-1108,Maple & Finch Bakery,owner@mapleandfinch.example,2026-09-17,2026-10-17,Net 30,1250.00,1250.00,
+BP-1109,Redwood Dental Group,billing@redwooddental.example,2026-08-27,2026-09-26,Net 30,4600.00,2300.00,Partial payment received 10/05
+BP-1110,Summit Outdoor Co.,finance@summitoutdoor.example,2026-09-03,2026-10-03,Net 30,12750.00,12750.00,
+BP-1111,Lakeside Property Mgmt,ap@lakesidepm.example,2026-09-24,2026-10-24,Net 30,3200.00,3200.00,Due today
+BP-1112,Harbor Logistics Inc.,ap@harborlogistics.example,2026-10-08,2026-11-07,Net 30,5100.00,5100.00,
+BP-1113,Copperline Studios,hello@copperline.example,2026-08-20,2026-09-19,Net 30,2950.00,2950.00,

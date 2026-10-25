@@ -1,0 +1,64 @@
+# Nightly database backup (kept 14 days on its own volume; copy off the VM too, see docs/DEPLOY.md) and
+# a health check every 10 minutes that emails/Telegrams ops about failed workflows, a stuck worker or model errors.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: backups }
+spec: { accessModes: [ReadWriteOnce], resources: { requests: { storage: 20Gi } } }
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata: { name: backup }
+spec:
+  schedule: "30 21 * * *"   # 03:00 IST
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: pg-dump
+              image: pgvector/pgvector:pg16
+              env:
+                - { name: PGHOST, value: postgres }
+                - { name: PGUSER, value: postgres }
+                - { name: PGDATABASE, value: agentry }
+                - { name: PGPASSWORD, valueFrom: { secretKeyRef: { name: agentry-env, key: POSTGRES_PASSWORD } } }
+              command:
+                - sh
+                - -c
+                - |
+                  set -e
+                  f=/backups/agentry-$(date +%Y%m%d-%H%M).dump
+                  pg_dump -Fc -f "$f.tmp" && mv "$f.tmp" "$f"
+                  pg_restore --list "$f" > /dev/null   # the dump is readable
+                  find /backups -name 'agentry-*.dump' -mtime +14 -delete
+                  ls -lh /backups
+              volumeMounts: [{ name: backups, mountPath: /backups }]
+          volumes: [{ name: backups, persistentVolumeClaim: { claimName: backups } }]
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata: { name: alerts }
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: alerts
+              image: agentry-backend
+              command: ["agentry", "alerts", "--minutes", "10"]
+              envFrom: [{ secretRef: { name: agentry-env } }]
+              env:
+                - { name: AGENTRY_DB_HOST, value: postgres }
+                - { name: AGENTRY_DB_PORT, value: "5432" }

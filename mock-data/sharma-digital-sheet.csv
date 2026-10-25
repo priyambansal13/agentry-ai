@@ -1,0 +1,13 @@
+Invoice,Company,Contact,Email,Phone,Amount,Amount paid,Status,Invoice date,Due date,Notes
+SDA-2041,Northstar Realty,Rohan Mehta,rohan@northstarrealty.example,+91-90000-00001,45000,0,Overdue,2026-09-17,2026-10-17,
+SDA-2042,Chai Point Express,Ananya Iyer,ananya@chaipointexpress.example,+91-90000-00002,18500,0,Overdue,2026-09-10,2026-10-10,
+SDA-2043,GreenRoots Organics,Vikram Singh,vikram@greenroots.example,+91-90000-00003,72000,30000,Partially paid,2026-09-03,2026-10-03,Paid 30k via UPI on 12 Oct
+SDA-2044,Pixel Dental Clinic,Dr. Kavita Rao,kavita@pixeldental.example,+91-90000-00004,26000,0,Overdue,2026-08-27,2026-09-26,
+SDA-2045,UrbanFit Gym,Arjun Kapoor,arjun@urbanfit.example,+91-90000-00005,54000,0,Overdue,2026-08-20,2026-09-20,
+SDA-2046,Lotus Boutique,Meera Joshi,meera@lotusboutique.example,+91-90000-00006,12000,0,Due,2026-09-27,2026-10-27,
+SDA-2047,Spice Route Restaurants,Imran Sheikh,imran@spiceroute.example,+91-90000-00007,38000,0,Overdue,2026-09-15,2026-10-15,
+SDA-2048,BrightKids Academy,Pooja Nair,pooja@brightkids.example,+91-90000-00008,22000,22000,Paid,2026-08-30,2026-09-30,
+SDA-2049,Northstar Realty,Rohan Mehta,rohan@northstarrealty.example,+91-90000-00001,30000,0,Overdue,2026-09-12,2026-10-12,Second open invoice for same customer
+SDA-2050,Nimbus Travels,Sameer Gupta,sameer@nimbustravels.example,+91-90000-00009,64000,0,Due,2026-10-10,2026-11-10,
+SDA-2051,Chai Point Express,Ananya Iyer,ananya@chaipointexpress.example,+91-90000-00002,9500,0,Overdue,2026-09-26,2026-10-17,
+SDA-2052,Saffron Weddings,Kabir Malhotra,kabir@saffronweddings.example,+91-90000-00010,110000,0,Overdue,2026-09-03,2026-10-03,

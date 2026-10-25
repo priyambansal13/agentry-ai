@@ -1,0 +1,17 @@
+**/node_modules
+**/.next
+**/.turbo
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/*.tsbuildinfo
+.env
+.env.*
+!.env.example
+backend/tests
+eval-results
+mock-data
+docs
+infra/k8s
+.git

@@ -1,0 +1,17 @@
+node_modules/
+.next/
+.turbo/
+dist/
+.env
+.env.local
+*.log
+backend/.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+eval-results/
+infra/.env.prod
+backups/
+infra/k8s/agentry.env
+backend/var/
+var/

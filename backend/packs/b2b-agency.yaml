@@ -1,0 +1,23 @@
+key: b2b-agency
+name: Agencies & professional firms
+for: Digital agencies, CA and accounting firms, consultancies, IT services
+featured: [inbox_triage, invoice_follow_up, website_chat]
+ladder: [inbox_triage, invoice_follow_up, website_chat]
+customer_value: {INR: 60000, USD: 3000}
+persona:
+  name: Ava
+  tone: friendly, professional and concise
+  greeting: "Hi! I'm Ava, {business}'s AI assistant. Are you looking for help with a project?"
+qualification:
+  - {key: need, question: "What do you need help with?", required: true}
+  - {key: budget, question: "Do you have a rough monthly or project budget in mind?"}
+  - {key: timeline, question: "When would you like to get started?"}
+qualified_when: "need is a service the business offers, and a budget or timeline was given"
+services:
+  - {key: discovery_call, name: "Discovery call", minutes: 30}
+staff:
+  - {name: "Founder", services: [discovery_call],
+     hours: {mon: [["10:00", "18:00"]], tue: [["10:00", "18:00"]], wed: [["10:00", "18:00"]], thu: [["10:00", "18:00"]], fri: [["10:00", "17:00"]]}}
+faqs:
+  - {q: "How do your engagements work?", a: "We start with a free 30-minute discovery call, then send a proposal with scope, timeline and a fixed monthly or project price."}
+  - {q: "Do you sign NDAs?", a: "Yes, we're happy to sign an NDA before discussing details."}
