@@ -1,0 +1,46 @@
+# Handoff: where Agentry stands (2026-10-25)
+
+Code: https://github.com/priyambansal13/agentry-ai (`main`). Everything below is built and tested unless marked open.
+
+## Running it locally
+
+| What | Port | Start |
+|---|---|---|
+| Postgres, Mailpit, LiveKit (dev) | 55432, 58025 | `docker compose up -d` |
+| API | 8801 | `cd backend && uv run agentry api --no-reload` (logs: `var/log/api.log`) |
+| Worker (DBOS jobs) | – | `cd backend && uv run agentry worker` (logs: `var/log/worker.log`) |
+| Dashboard (portal + HQ) | 3201 | `cd apps/dashboard && pnpm dev --port 3201` |
+| Website | 3200 | `cd apps/web && pnpm dev --port 3200` |
+
+- Database: `postgresql://postgres:postgres@localhost:55432/agentry` (superuser, sees every company).
+- Tests: `cd backend && uv run pytest -q` → 160 passed, 2 skipped. Stop the dev worker first if tests get flaky.
+- The API and worker don't auto-reload: restart them after backend changes.
+
+## Built this session (latest first)
+
+1. **Forgot password + show-password eye** — `/forgot-password`, `/reset-password` (Better Auth `sendResetPassword`, 1-hour single-use link, works for link-only users, signs out other devices); `PasswordInput` in `packages/ui` used on every password field.
+2. **Unsendable reminder cards** — `outbound.channel_problem()`: no WhatsApp card when WhatsApp isn't connected / no template; old cards show a warning and can't be approved (409).
+3. **Invoice follow-up audit** — 20 fixes (`tests/test_invoice_e2e.py`, migration 0015), live-verified.
+4. **Inbox triage** — 20 improvements + urgent escalation; Outlook; Gmail push.
+5. **Sales pipeline** — demo requests, proposals with private links, IMAP reply detection; one-click invitations.
+6. **Voice (Phase 4)** — LiveKit Cloud receptionist, recordings, call summaries, callback cards, phone number +1 484 336 2025 (SmileCraft).
+
+Flow docs for every role: `docs/flows/`.
+
+## Test companies
+
+- **Content gneration** (org `e7affc4c-f300-41e5-9eb7-1228ef443155`): owner pooja, finance "Anil" (shown as Priyam). Gmail + Razorpay (test) connected, **no WhatsApp**. Invoices MSR-1014 (email reminder card pending), MSR-1015 (card assigned to pooja).
+- **Kaveri** (invoice-only), **Mehta & Co** (inbox-only, demo logins `*@mehtaco.example`), **SmileCraft** (voice), **Swarm-ai**. Demo password `agentry-demo-123`.
+
+## Open items
+
+| Item | Waiting on | Next step |
+|---|---|---|
+| Razorpay webhook (connection `fa7cb590-41c5-45ea-be9f-eefe7535c028`) | User | Run `cloudflared tunnel --no-autoupdate --url http://localhost:8801` in own Terminal; in Razorpay set `https://<tunnel>/webhooks/razorpay/fa7cb590-41c5-45ea-be9f-eefe7535c028`, events `payment.captured` + `payment_link.paid`, same secret; then set `AGENTRY_API_PUBLIC_URL`, restart API, check a bad signature gets 401. Until then: **Confirm paid** by hand |
+| Stale tunnel block at the end of `.env` | – | `AGENTRY_WEB_URL` / `AGENTRY_CORS_ORIGINS` point at a dead trycloudflare address: demo and proposal links are dead until replaced or removed |
+| Production deploy (Oracle k3s, `docs/DEPLOY.md`) | User | Offered next to SwarmAI on the same VM with its own DuckDNS names; postponed |
+| Phase 5 cold email (`docs/PHASE-5-COLD-EMAIL.md`) | User's go | 5.1–5.3 need nothing external |
+| Real phone call test | Parked | US number can't be dialled from India |
+| Outbound calls / SMS | User | Twilio or Plivo account (Plivo needs Indian business KYC) |
+| Optional setup | User | Outlook (`AGENTRY_MICROSOFT_*`), Gmail Pub/Sub (`AGENTRY_GMAIL_PUBSUB_TOPIC`, `AGENTRY_GMAIL_PUSH_TOKEN`), WhatsApp alert template, rename "swarm-ai" → Agentry on the Google OAuth consent screen |
+| Idea offered | User | Auto-assign every card for an invoice/client to one person (like inbox routing) |
