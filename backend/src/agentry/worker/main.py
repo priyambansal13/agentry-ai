@@ -10,6 +10,7 @@ from dbos import DBOS, DBOSConfig, SetWorkflowID
 from sqlalchemy import text
 
 from agentry.automations import load_all
+from agentry.automations.cold_email.sending import send_cold_emails
 from agentry.automations.inbox_triage.digest import schedule_digests
 from agentry.config import settings
 from agentry.db import system_session
@@ -118,6 +119,8 @@ async def run() -> None:
          "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
         {"schedule_name": "finalize-statements", "workflow_fn": finalize_statements, "schedule": "0 15 7 * * *",
          "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
+        {"schedule_name": "cold-email-send", "workflow_fn": send_cold_emails, "schedule": "0 */5 * * * *",
+         "context": None, "automatic_backfill": False, "cron_timezone": None, "queue_name": None},
         {"schedule_name": "sequence-watchdog", "workflow_fn": sequence_watchdog, "schedule": "30 */10 * * * *",
          "context": None, "automatic_backfill": False, "cron_timezone": None, "queue_name": None},
         {"schedule_name": "gmail-watch-renewal", "workflow_fn": renew_gmail_watches, "schedule": "0 0 5 * * *",

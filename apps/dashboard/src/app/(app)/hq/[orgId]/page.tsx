@@ -1,6 +1,7 @@
 import { Badge, Card, CardBody, CardHeader, CardTitle } from "@agentry/ui";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { type SendingMailbox, SendingMailboxes } from "@/components/cold-email";
 import { AutomationSwitches, InviteMember, OpenPortal, PhoneAssign, type PhoneNumber } from "@/components/hq-client";
 import { GenerateStatement, type PlanIn, PlanEditor } from "@/components/hq-billing";
 import type { CatalogItem } from "@/components/new-client-form";
@@ -36,6 +37,8 @@ export default async function HqClient({ params, searchParams }: { params: Promi
   }
   const [{ automations: catalog }, invites] = await Promise.all([api<{ automations: CatalogItem[] }>("/hq/catalog"), pendingInvitations(orgId)]);
   const receptionist = d.automations.some((a) => a.template_key === "ai_receptionist");
+  const coldEmail = d.automations.some((a) => a.template_key === "cold_email");
+  const mailboxes = coldEmail ? await api<{ items: SendingMailbox[] }>(`/hq/orgs/${orgId}/sending-mailboxes`).then((r) => r.items) : [];
   const phones = receptionist ? await api<{ items: PhoneNumber[] }>("/hq/phone-numbers").then((r) => r.items).catch(() => null) : null;
   const m = d.margin;
   const mLabel = new Date(`${m.month}-01T00:00:00`).toLocaleDateString("en-IN", { month: "long" });
@@ -108,6 +111,12 @@ export default async function HqClient({ params, searchParams }: { params: Promi
             <div className="mt-4 border-t border-line pt-4">
               <p className="mb-2 font-semibold">Phone number</p>
               {phones ? <PhoneAssign orgId={orgId} numbers={phones} /> : <p className="text-sm text-danger">Couldn&apos;t reach LiveKit to list numbers.</p>}
+            </div>
+          )}
+          {coldEmail && (
+            <div className="mt-4 border-t border-line pt-4">
+              <p className="mb-2 font-semibold">Cold email sending mailboxes</p>
+              <SendingMailboxes orgId={orgId} items={mailboxes} />
             </div>
           )}
         </CardBody></Card>

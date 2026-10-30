@@ -14,7 +14,9 @@ from sqlalchemy import text
 
 from agentry import audit
 from agentry.auth import OrgContext, client_ip, require
+from agentry.automations.cold_email import replies, sending
 from agentry.automations.cold_email.pipeline import create_campaign, funnel
+from agentry.config import settings
 from agentry.db import tenant_session
 from agentry.features import require_page
 from agentry.invoices import parse_file
@@ -91,17 +93,19 @@ async def list_campaigns(ctx: Viewer) -> dict:
     async with tenant_session(ctx.org_id) as conn:
         await _config(conn)
         rows = (await conn.execute(text("""
-            select c.id, c.name, c.settings, c.build_status, c.build_error, c.stats, c.created_at,
+            select c.id, c.name, c.status, c.settings, c.build_status, c.build_error, c.stats, c.created_at,
                    (select count(*) from app.prospect_companies pc where pc.campaign_id = c.id) as found,
                    (select count(*) from app.prospects p where p.campaign_id = c.id) as verified,
                    (select count(*) from app.prospects p where p.campaign_id = c.id and p.review = 'approved') as approved,
-                   (select count(*) from app.prospects p where p.campaign_id = c.id and p.review in ('pending','needs_attention')) as to_review
+                   (select count(*) from app.prospects p where p.campaign_id = c.id and p.review in ('pending','needs_attention')) as to_review,
+                   (select count(distinct prospect_id) from app.email_events ev where ev.campaign_id = c.id and ev.kind = 'sent') as emailed,
+                   (select count(*) from app.prospects p where p.campaign_id = c.id and p.reply_kind = 'interested') as interested
             from app.campaigns c where c.kind = 'cold_email' order by c.created_at desc"""))).mappings().all()
     return {"items": [dict(r) for r in rows], "can_edit": ctx.can("automation", "configure")}
 
 
 async def _campaign(conn, cid: str) -> dict:
-    c = (await conn.execute(text("""select id, name, settings, build_status, build_error, stats, created_at from app.campaigns
+    c = (await conn.execute(text("""select id, name, status, settings, build_status, build_error, stats, created_at from app.campaigns
         where id = cast(:c as uuid) and kind = 'cold_email'"""), {"c": cid})).mappings().first()
     if not c:
         raise HTTPException(404, "campaign not found")
@@ -112,11 +116,31 @@ async def _campaign(conn, cid: str) -> dict:
 async def get_campaign(cid: str, ctx: Viewer) -> dict:
     async with tenant_session(ctx.org_id) as conn:
         c = await _campaign(conn, cid)
-        return {**c, "funnel": await funnel(conn, cid), "can_edit": ctx.can("automation", "configure")}
+        return {**c, "funnel": await funnel(conn, cid), "sending": await _sending(conn, cid), "can_edit": ctx.can("automation", "configure"),
+                "mock": settings.cold_email_providers == "mock"}
+
+
+async def _sending(conn, cid: str) -> dict:
+    ev = dict((await conn.execute(text("""select kind, count(distinct prospect_id) from app.email_events where campaign_id = cast(:c as uuid)
+        group by kind"""), {"c": cid})).all())
+    replies_by = dict((await conn.execute(text("""select reply_kind, count(*) from app.prospects where campaign_id = cast(:c as uuid)
+        and reply_kind is not null group by reply_kind"""), {"c": cid})).all())
+    st = dict((await conn.execute(text("select status, count(*) from app.prospects where campaign_id = cast(:c as uuid) group by status"),
+                                  {"c": cid})).all())
+    emails = (await conn.execute(text("select count(*) from app.email_events where campaign_id = cast(:c as uuid) and kind = 'sent'"),
+                                 {"c": cid})).scalar_one()
+    booked = (await conn.execute(text("""select count(*) from app.prospects p join app.leads l on l.id = p.lead_id
+        where p.campaign_id = cast(:c as uuid) and l.stage in ('booked','showed','won')"""), {"c": cid})).scalar_one()
+    boxes = (await conn.execute(text("select address, status, paused_reason from app.sending_mailboxes order by created_at"))).mappings().all()
+    return {"people_emailed": ev.get("sent", 0), "emails_sent": emails, "replied": ev.get("reply", 0), "interested": replies_by.get("interested", 0),
+            "bounced": ev.get("bounce", 0), "unsubscribed": ev.get("unsubscribe", 0), "booked": booked, "replies": replies_by,
+            "in_sequence": st.get("active", 0), "approved_not_started": st.get("waiting", 0),
+            "mailboxes": [dict(b) for b in boxes]}
 
 
 PROSPECT_SQL = """select p.id, p.name, p.role, p.email, p.email_source, p.verify_status, p.snippets, p.first_line, p.line_snippet,
-    p.fact_check, p.review, p.edited, p.reviewed_at, co.name as company, co.website, co.city, co.rating, co.reviews,
+    p.fact_check, p.review, p.edited, p.reviewed_at, p.status, p.next_step, p.next_send_at, p.stop_reason, p.reply_kind,
+    p.conversation_id, co.name as company, co.website, co.city, co.rating, co.reviews,
     u.name as reviewed_by_name
     from app.prospects p join app.prospect_companies co on co.id = p.company_id left join auth."user" u on u.id = p.reviewed_by
     where p.campaign_id = cast(:c as uuid)"""
@@ -154,6 +178,8 @@ async def review_prospect(pid: str, body: Review, request: Request, ctx: Editor)
             fact_check = case when :ed then fact_check || '{"ok": true, "reason": "written by a person"}'::jsonb else fact_check end,
             reviewed_by = :u, reviewed_at = now(), updated_at = now() where id = cast(:p as uuid)"""),
             {"s": status, "l": line if edited else None, "ed": edited, "u": ctx.principal.user_id, "p": pid})
+        if status == "dropped":
+            await sending.stop_prospect(conn, pid, "dropped in review")
         await audit.record(conn, org_id=ctx.org_id, actor_type=ctx.actor_type, actor_user_id=ctx.principal.user_id,
                            action=f"cold_email.prospect_{status}", target_type="prospect", target_id=pid, ip=client_ip(request),
                            metadata={"edited": edited})
@@ -191,3 +217,48 @@ async def export(cid: str, ctx: Editor, review: Literal["approved", "all"] = "al
     slug = "".join(ch if ch.isalnum() else "-" for ch in c["name"].lower()).strip("-")[:40] or "campaign"
     return Response(buf.getvalue(), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="{slug}-prospects.csv"'})
+
+
+# ---------- sending (5.4) and replies (5.5) ----------
+
+@router.post("/campaigns/{cid}/start")
+async def start(cid: str, request: Request, ctx: Editor) -> dict:
+    """Start sending (or add newly approved people to a running campaign)."""
+    async with tenant_session(ctx.org_id) as conn:
+        try:
+            r = await sending.start_campaign(conn, cid)
+        except sending.CannotStart as e:
+            raise HTTPException(409, str(e)) from e
+        await audit.record(conn, org_id=ctx.org_id, actor_type=ctx.actor_type, actor_user_id=ctx.principal.user_id,
+                           action="cold_email.campaign_started", target_type="campaign", target_id=cid, ip=client_ip(request), metadata=r)
+    return r
+
+
+@router.post("/campaigns/{cid}/{action}")
+async def pause_resume(cid: str, action: Literal["pause", "resume"], request: Request, ctx: Editor) -> dict:
+    async with tenant_session(ctx.org_id) as conn:
+        await _campaign(conn, cid)
+        await sending.set_paused(conn, cid, action == "pause")
+        await audit.record(conn, org_id=ctx.org_id, actor_type=ctx.actor_type, actor_user_id=ctx.principal.user_id,
+                           action=f"cold_email.campaign_{action}d", target_type="campaign", target_id=cid, ip=client_ip(request))
+        return {"status": (await _campaign(conn, cid))["status"]}
+
+
+class FakeReply(BaseModel):
+    text: Annotated[str, Field(min_length=2, max_length=4000)]
+    complaint: bool = False
+
+
+@router.post("/prospects/{pid}/simulate-reply")
+async def simulate_reply(pid: str, body: FakeReply, ctx: Editor) -> dict:
+    """Mock mode only, Agentry staff only: pretend this person replied (or marked us as spam) to see what happens."""
+    if settings.cold_email_providers != "mock" or not ctx.principal.is_staff:
+        raise HTTPException(404, "not available")
+    async with tenant_session(ctx.org_id) as conn:
+        email = (await conn.execute(text("select email from app.prospects where id = cast(:p as uuid)"), {"p": pid})).scalar_one_or_none()
+    if not email:
+        raise HTTPException(404, "prospect not found")
+    r = await (replies.complaint(ctx.org_id, email) if body.complaint else replies.ingest_reply(ctx.org_id, email, body.text))
+    if not r["matched"]:
+        raise HTTPException(409, "nothing has been sent to this person yet")
+    return r

@@ -53,6 +53,7 @@ class Providers(Protocol):
     async def read_site(self, website: str) -> list[SitePage]: ...
     async def find_people(self, domain: str) -> list[FoundPerson]: ...
     async def verify(self, email: str) -> Verdict: ...
+    async def send(self, mailbox: dict, to: str, subject: str, body: str, headers: dict) -> str: ...
 
 
 @lru_cache
@@ -67,8 +68,12 @@ def _domain(url: str | None) -> str | None:
     return host.removeprefix("www.") or None
 
 
+MOCK_OUTBOX: list[dict] = []  # what the mock sender "sent" (tests read it; nothing leaves the machine)
+
+
 class MockProviders:
-    """Deterministic, free, offline: the reference funnel (50 -> 49 -> 8) on a sample of Pune dental clinics."""
+    """Deterministic, free, offline: the reference funnel (50 -> 49 -> 8) on a sample of Pune dental clinics.
+    The mock sender records each email instead of sending it."""
 
     async def search(self, query: str, city: str, limit: int) -> list[Business]:
         keep = ("place_id", "name", "website", "category", "rating", "reviews", "city", "address", "phone")
@@ -89,6 +94,11 @@ class MockProviders:
             if e in r["verify"]:
                 return r["verify"][e]
         return "unknown"
+
+    async def send(self, mailbox: dict, to: str, subject: str, body: str, headers: dict) -> str:
+        msg_id = f"mock-{len(MOCK_OUTBOX) + 1}@{mailbox['address'].split('@', 1)[-1]}"
+        MOCK_OUTBOX.append({"id": msg_id, "from": mailbox["address"], "to": to, "subject": subject, "body": body, "headers": headers})
+        return msg_id
 
 
 def get() -> Providers:

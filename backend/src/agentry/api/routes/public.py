@@ -97,3 +97,40 @@ async def public_proposal(token: str) -> dict:
         async with system_session() as conn:
             await emit(conn, None, "proposal.viewed", {"proposal_id": str(p["id"])})
     return {"snapshot": p["snapshot"], "sent_at": p["sent_at"], "reply_to": settings.smtp_user or settings.ops_email}
+
+
+# ---------- cold email unsubscribe (Phase 5.4): the link in every email, and one-click List-Unsubscribe ----------
+
+async def _unsub_target(token: str) -> tuple[str, str]:
+    from agentry.secrets import SecretError, verify_state
+    try:
+        data = verify_state(token)
+    except (SecretError, ValueError, KeyError) as e:
+        raise HTTPException(404, "this unsubscribe link isn't valid") from e
+    if data.get("t") != "unsub":
+        raise HTTPException(404, "this unsubscribe link isn't valid")
+    return data["org"], data["p"]
+
+
+@router.get("/unsubscribe/{token}")
+async def unsubscribe_info(token: str) -> dict:
+    org_id, pid = await _unsub_target(token)
+    from agentry.db import tenant_session
+    async with tenant_session(org_id) as conn:
+        row = (await conn.execute(text("""select o.name, p.email, p.status, p.stop_reason from app.prospects p
+            join auth.organization o on o.id = p.org_id where p.id = cast(:p as uuid)"""), {"p": pid})).mappings().first()
+    if not row:
+        raise HTTPException(404, "this unsubscribe link isn't valid")
+    return {"business": row["name"], "email": row["email"], "unsubscribed": row["stop_reason"] == "unsubscribed"}
+
+
+@router.post("/unsubscribe/{token}")
+async def unsubscribe(token: str) -> dict:
+    """No sign-in, no questions: the address is never emailed again by this business (RFC 8058 one-click)."""
+    from agentry.automations.cold_email.replies import unsubscribe as do_unsubscribe
+    from agentry.db import tenant_session
+    org_id, pid = await _unsub_target(token)
+    async with tenant_session(org_id) as conn:
+        if not await do_unsubscribe(conn, org_id, pid, "unsubscribe_link"):
+            raise HTTPException(404, "this unsubscribe link isn't valid")
+    return {"unsubscribed": True}

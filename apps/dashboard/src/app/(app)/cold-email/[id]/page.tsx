@@ -1,21 +1,24 @@
 import { Badge, buttonClasses, Card, CardBody, CardHeader, CardTitle } from "@agentry/ui";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ApproveReady, type Prospect, ProspectCard, RefreshWhileBuilding } from "@/components/cold-email";
-import { api, ApiError, requirePage } from "@/lib/session";
+import { ApproveReady, type Prospect, ProspectCard, RefreshWhileBuilding, SendingControls } from "@/components/cold-email";
+import { api, ApiError, getMe, requirePage } from "@/lib/session";
 
 export const metadata = { title: "Cold email list" };
 
 type Funnel = { steps: { key: string; label: string; count: number }[]; dropped: { reason: string; count: number }[];
                 review: { pending: number; needs_attention: number; approved: number; dropped: number } };
-type Campaign = { id: string; name: string; settings: { source?: string; query?: string; city?: string; min_rating?: number; min_reviews?: number };
+type Sending = { people_emailed: number; emails_sent: number; replied: number; interested: number; bounced: number; unsubscribed: number;
+                booked: number; in_sequence: number; approved_not_started: number;
+                mailboxes: { address: string; status: string; paused_reason: string | null }[] };
+type Campaign = { id: string; name: string; status: string; sending: Sending; mock: boolean; settings: { source?: string; query?: string; city?: string; min_rating?: number; min_reviews?: number };
                   build_status: string | null; build_error: string | null; stats: { total?: number; processed?: number };
                   funnel: Funnel; can_edit: boolean };
 
 const TABS = [["to_review", "To review"], ["approved", "Approved"], ["dropped", "Dropped"], ["all", "All"]] as const;
 
 export default async function ColdEmailCampaignPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ review?: string }> }) {
-  const active = await requirePage("cold-email");
+  const [active, me] = await Promise.all([requirePage("cold-email"), getMe()]);
   const { id } = await params;
   const asked = (await searchParams).review;
   const review = TABS.find(([k]) => k === asked)?.[0] ?? "to_review";
@@ -74,6 +77,39 @@ export default async function ColdEmailCampaignPage({ params, searchParams }: { 
         </CardBody>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Sending</CardTitle>
+          <Badge tone={c.status === "running" ? "lime" : c.status === "paused" ? "warning" : "neutral"}>
+            {{ draft: "Not started", running: "Sending", paused: "Paused", completed: "Finished" }[c.status] ?? c.status}
+          </Badge>
+          {c.can_edit && <span className="ml-auto"><SendingControls campaignId={id} status={c.status} approvedWaiting={c.sending.approved_not_started} /></span>}
+        </CardHeader>
+        <CardBody className="space-y-4">
+          <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4 lg:grid-cols-7">
+            {([["People emailed", c.sending.people_emailed], ["Emails sent", c.sending.emails_sent], ["Replied", c.sending.replied],
+               ["Interested", c.sending.interested], ["Meetings booked", c.sending.booked], ["Bounced", c.sending.bounced],
+               ["Unsubscribed", c.sending.unsubscribed]] as const).map(([l, v]) => (
+              <div key={l}><dt className="text-muted">{l}</dt><dd className="text-xl font-semibold tabular-nums">{v}</dd></div>
+            ))}
+          </dl>
+          <p className="text-sm text-muted">
+            4 plain-text emails over 2 weeks (days 0, 3, 7, 14) in one thread, weekdays 9:30–5:30, each with your postal address and a one-click
+            unsubscribe. A reply stops the sequence; interested replies become leads and land in Needs you.
+          </p>
+          {c.sending.mailboxes.length === 0 ? (
+            <p className="text-sm text-warning">No sending mailbox yet. Agentry sets these up on separate domains (never your main domain).</p>
+          ) : (
+            <p className="flex flex-wrap gap-2 text-xs">
+              {c.sending.mailboxes.map((m) => (
+                <Badge key={m.address} tone={m.status === "active" ? "neutral" : "danger"}>{m.address}{m.status !== "active" ? ` · paused: ${m.paused_reason ?? ""}` : ""}</Badge>
+              ))}
+              {c.mock && <span className="text-muted">Test mode: emails are recorded, not sent.</span>}
+            </p>
+          )}
+        </CardBody>
+      </Card>
+
       <div className="flex flex-wrap items-center gap-3">
         <nav className="flex flex-wrap gap-1 rounded-xl border-2 border-line p-1 text-sm" aria-label="Review state">
           {TABS.map(([k, label]) => (
@@ -84,7 +120,7 @@ export default async function ColdEmailCampaignPage({ params, searchParams }: { 
           ))}
         </nav>
         <div className="ml-auto flex flex-wrap items-center gap-3">
-          {c.can_edit && <ApproveReady campaignId={id} count={c.funnel.review.pending} />}
+          {c.can_edit && c.funnel.review.pending > 0 && <ApproveReady campaignId={id} count={c.funnel.review.pending} />}
           {c.can_edit && counts.all > 0 && (
             <a href={`/api/cold-email/${id}/export`} className={buttonClasses("secondary", "md")}>Export sheet (CSV)</a>
           )}
@@ -98,7 +134,7 @@ export default async function ColdEmailCampaignPage({ params, searchParams }: { 
         <p className="text-muted">{building ? "People appear here as they're found." : "Nothing here."}</p>
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
-          {items.map((p) => <ProspectCard key={p.id} p={p} canEdit={c.can_edit} />)}
+          {items.map((p) => <ProspectCard key={p.id} p={p} canEdit={c.can_edit} canSimulate={me.is_staff && c.mock} />)}
         </div>
       )}
     </div>

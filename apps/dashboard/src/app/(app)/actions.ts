@@ -512,3 +512,24 @@ export async function setCardRouting(scope: "contact" | "automation", key: strin
   return run<{ items: RoutingRule[]; cards_assigned: number }>("/org/card-routing", { method: "PUT", body: { scope, key, assign_to: assignTo } },
     ["/needs-you", "/invoices", "/automations"]);
 }
+
+export async function startColdCampaign(campaignId: string) {
+  return run<{ queued: number }>(`/org/cold-email/campaigns/${campaignId}/start`, { method: "POST" }, [`/cold-email/${campaignId}`, "/cold-email"]);
+}
+
+export async function pauseColdCampaign(campaignId: string, action: "pause" | "resume") {
+  return run<{ status: string }>(`/org/cold-email/campaigns/${campaignId}/${action}`, { method: "POST" }, [`/cold-email/${campaignId}`, "/cold-email"]);
+}
+
+export async function simulateColdReply(prospectId: string, replyText: string, complaint = false) {
+  return run<{ kind?: string; mailbox_paused?: string | null }>(`/org/cold-email/prospects/${prospectId}/simulate-reply`,
+    { method: "POST", body: { text: replyText || "spam", complaint } }, ["/needs-you"]);
+}
+
+export async function addSendingMailbox(orgId: string, address: string, senderName: string, dailyCap: number) {
+  return hq<{ id: string }>(`/hq/orgs/${orgId}/sending-mailboxes`, { method: "POST", body: { address, sender_name: senderName, daily_cap: dailyCap } }, [`/hq/${orgId}`]);
+}
+
+export async function changeSendingMailbox(orgId: string, mailboxId: string, status: "active" | "paused") {
+  return hq<{ id: string }>(`/hq/orgs/${orgId}/sending-mailboxes/${mailboxId}`, { method: "PATCH", body: { status } }, [`/hq/${orgId}`]);
+}

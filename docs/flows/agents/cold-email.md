@@ -1,6 +1,6 @@
 # Personal cold email
 
-Finds businesses that fit, the person who decides, verifies their email and writes **one honest first line from a fact on their own website**. A person reviews every line. **Sending isn't built yet** (Phase 5.4): today it builds and reviews lists only.
+Finds businesses that fit, the person who decides, verifies their email and writes **one honest first line from a fact on their own website**. A person reviews every line, then it sends a short sequence from separate sending mailboxes and sorts the replies. **Today it runs in test mode:** the business list is a sample and emails are recorded, not delivered, until Agentry connects real providers (Instantly for sending, Google Places, Hunter and MillionVerifier for data).
 
 Plan and milestones: [PHASE-5-COLD-EMAIL.md](../../PHASE-5-COLD-EMAIL.md). Spec: [automations/cold-email.md](../../automations/cold-email.md).
 
@@ -32,7 +32,16 @@ flowchart TD
   FC2 -- yes --> RV
   RV --> AP["Approve (as is or edited), Drop,<br/>or Approve all checked lines"]
   NA --> AP
-  AP --> EX["Export sheet (CSV) · sending: 5.4"]
+  AP --> EX["Export sheet (CSV)"]
+  AP --> ST["Start sending"]
+  ST --> SEQ["Day 0, 3, 7, 14 · same thread · weekdays 9:30-5:30<br/>per-mailbox cap with ramp-up"]
+  SEQ --> RP{"Reply?"}
+  RP -- interested --> LD["Lead (engaged) + Needs-you card<br/>+ conversation with the thread"]
+  RP -- not now --> NU["Nurture: back in ~75 days"]
+  RP -- unsubscribe / link --> SP["Do-not-contact, every channel"]
+  RP -- out of office --> WK["Next email waits a week"]
+  RP -- referral / wrong person --> CD["Card for a person"]
+  RP -- bounce --> BN["Suppressed; mailbox health checked"]
 ```
 
 ## The funnel
@@ -44,6 +53,35 @@ The campaign page shows how many businesses reached each step and why the others
 | 50 | 49 | 46 | 45 | 15–16 | **8** | 8 |
 
 Measured on 30 Oct with the real AI models: the same 8, every line passed the fact check, and 2 needed one rewrite.
+
+## Sending (5.4)
+
+- **Mailboxes:** Agentry adds them in HQ (client page → Cold email sending mailboxes), always on a separate domain; the
+  business's own domain is refused. Each ramps up: 5 emails on day one, +3 a day, up to its daily limit (default 30).
+- **Start:** needs approved lines, *what you offer* and *postal address* in the agent's settings, and an active mailbox.
+  "Add N approved" puts later approvals into a running campaign. Pause / Resume any time; dropping a person stops them.
+- **The emails:** plain text. Day 0: their first line, what you offer, "worth a 15-minute call?". Day 3: a short bump.
+  Day 7: one more reason. Day 14: "I'll stop here". All in one thread from the same mailbox; each has the sender, the
+  business, the postal address and an unsubscribe link, plus the one-click `List-Unsubscribe` header.
+- **When:** the worker checks every 5 minutes; emails go out on weekdays, 9:30–17:30 in the business's timezone.
+- **Health:** a mailbox pauses itself on any spam complaint, or over 3 % bounces after 20 sends. Its threads wait
+  rather than jump to another mailbox. Agentry can resume it from HQ.
+
+## Replies (5.5)
+
+The `fast` model reads each reply (with a keyword fallback) and the reply stops the sequence, except out-of-office:
+
+| Reply | What happens |
+|---|---|
+| Interested | Contact + lead (engaged, owned by cold email) in the lead engine, a conversation with our emails and their reply, and a Needs-you card "Interested: …" |
+| Not now | Lead in nurture; back in about 75 days |
+| Unsubscribe (reply or link) | Do-not-contact for email, WhatsApp, SMS and calls, immediately |
+| Out of office | The next email waits a week |
+| Referral / wrong person | A card so a person can reach the right contact |
+| Bounce | Address suppressed (bounce); mailbox health checked |
+
+The campaign page counts people emailed, emails sent, replies, interested, meetings booked, bounces and unsubscribes.
+**Test mode:** Agentry staff see *Simulate a reply* on each emailed person, to show a client what happens.
 
 ## Safeguards
 
@@ -60,10 +98,12 @@ Measured on 30 Oct with the real AI models: the same 8, every line passed the fa
 | See lists, funnel, people and lines | ✓ | ✓ | ✓ | | | ✓ |
 | Approve, edit, drop lines; approve all checked | ✓ | ✓ | | | | ✓ |
 | Export the sheet (has business emails) | ✓ | ✓ | | | | ✓ |
-| Switch it on, allow catch-all / EU-UK | | | | | | ✓ |
+| Start, pause, resume sending; stop a person | ✓ | ✓ | | | | ✓ |
+| Reply to interested people (Needs you) | ✓ | ✓ | ✓ | | | ✓ |
+| Switch it on, sending mailboxes, allow catch-all / EU-UK | | | | | | ✓ |
 
 Every create, approve, drop and bulk approve is in the audit log.
 
 ## What's next
 
-5.4 sending (sending domains, mailboxes, caps, unsubscribe), 5.5 replies into the lead engine, 5.6 real data providers, 5.7 Agentry's own live campaign and auto-pause guardrails.
+Connect the real providers: Instantly for sending (and its reply/bounce/complaint webhook into `replies.py`), then Google Places, Hunter and MillionVerifier (5.6). Then Agentry's own live campaign (5.7).

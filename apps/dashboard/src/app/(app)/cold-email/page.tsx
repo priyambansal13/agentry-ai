@@ -7,7 +7,7 @@ export const metadata = { title: "Cold email" };
 
 type Campaign = { id: string; name: string; settings: { source?: string; query?: string; city?: string }; build_status: string | null;
                   build_error: string | null; stats: { total?: number; processed?: number }; created_at: string;
-                  found: number; verified: number; approved: number; to_review: number };
+                  found: number; verified: number; approved: number; to_review: number; status: string; emailed: number; interested: number };
 
 export default async function ColdEmailPage() {
   const active = await requirePage("cold-email");
@@ -19,8 +19,8 @@ export default async function ColdEmailPage() {
         <p className="mt-1 text-muted">Find businesses that fit, the person who decides, and one honest first line from their own website.</p>
       </header>
       <p className="rounded-xl border-2 border-dashed border-line px-4 py-3 text-sm text-muted">
-        Building and reviewing lists works today. <span className="font-medium text-ink">Sending isn&apos;t switched on yet</span>: it
-        needs separate sending domains, set up by Agentry. Searches use a sample list of Pune dental clinics until Google Places is connected.
+        Searches use a sample list of Pune dental clinics until Google Places is connected, and emails go through a test sender
+        (recorded, not delivered) until Agentry connects your sending domains.
       </p>
       {d.can_edit && (
         <Card>
@@ -37,6 +37,7 @@ export default async function ColdEmailPage() {
               <th className="px-4 py-3 font-medium">List</th><th className="px-4 py-3 text-right font-medium">Businesses</th>
               <th className="px-4 py-3 text-right font-medium">Verified people</th><th className="px-4 py-3 text-right font-medium">To review</th>
               <th className="px-4 py-3 text-right font-medium">Approved</th>
+              <th className="px-4 py-3 text-right font-medium">Emailed</th><th className="px-4 py-3 text-right font-medium">Interested</th>
             </tr></thead>
             <tbody className="divide-y divide-line">
               {d.items.map((c) => (
@@ -48,12 +49,15 @@ export default async function ColdEmailPage() {
                       · {new Date(c.created_at).toLocaleDateString("en-IN")}
                       {c.build_status === "building" && <Badge tone="lime">Building {c.stats.processed ?? 0}/{c.stats.total ?? "…"}</Badge>}
                       {c.build_status === "failed" && <Badge tone="danger">Stopped</Badge>}
+                      {c.status === "running" && <Badge tone="lime">Sending</Badge>}{c.status === "paused" && <Badge tone="warning">Paused</Badge>}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums">{c.found}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{c.verified}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{c.to_review}</td>
-                  <td className="px-4 py-3 text-right font-semibold tabular-nums">{c.approved}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{c.approved}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{c.emailed}</td>
+                  <td className="px-4 py-3 text-right font-semibold tabular-nums">{c.interested}</td>
                 </tr>
               ))}
             </tbody>

@@ -91,6 +91,10 @@ async def test_follow_up_escalates_only_when_unanswered(team_org, monkeypatch):
     async def no_wait(seconds: float) -> None:
         waits.append(seconds)
     monkeypatch.setattr(DBOS, "sleep_async", no_wait)
+
+    async def daytime(org_id: str) -> float:  # the first part happens in the day, whatever time the tests run
+        return 0
+    monkeypatch.setattr(escalation, "quiet_wait", daytime)
     oid, _h = await team_org(["inbox_triage"])
     # nobody answered: after 30 min the owner hears about it
     e = await urgent_email(oid)

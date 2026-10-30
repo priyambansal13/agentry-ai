@@ -302,3 +302,61 @@ async def unassign_phone(org_id: str, number: str, staff: Annotated[Principal, D
         await audit.record(conn, org_id=org_id, actor_type="agentry_staff", actor_user_id=staff.user_id,
                            action="phone.unassigned", target_type="connection", target_id=number)
     return {"number": number, "assigned": False}
+
+
+# ---------- cold email sending mailboxes (Phase 5.4): set up by Agentry on separate domains ----------
+
+class Mailbox(BaseModel):
+    address: EmailStr
+    sender_name: Annotated[str, Field(min_length=2, max_length=80)]
+    daily_cap: Annotated[int, Field(ge=1, le=100)] = 30
+    provider: Literal["mock", "instantly"] = "mock"
+
+
+class MailboxChange(BaseModel):
+    status: Literal["active", "paused"] | None = None
+    daily_cap: Annotated[int | None, Field(ge=1, le=100)] = None
+
+
+@router.get("/orgs/{org_id}/sending-mailboxes")
+async def list_mailboxes(org_id: str, _: Annotated[Principal, Depends(require_staff)]) -> dict:
+    async with tenant_session(org_id) as conn:
+        rows = (await conn.execute(text("""select m.*, (select count(*) from app.email_events e where e.mailbox_id = m.id and e.kind = 'sent'
+            and e.at > now() - interval '1 day') as sent_24h from app.sending_mailboxes m order by m.created_at"""))).mappings().all()
+    return {"items": [dict(r) for r in rows]}
+
+
+@router.post("/orgs/{org_id}/sending-mailboxes", status_code=201)
+async def add_mailbox(org_id: str, body: Mailbox, staff: Annotated[Principal, Depends(require_staff)]) -> dict:
+    from agentry.automations.cold_email.pipeline import domain_of
+    from agentry.config import settings
+    if body.provider == "mock" and settings.cold_email_providers != "mock":
+        raise HTTPException(422, "mock mailboxes are only for mock mode")
+    if body.provider == "instantly":
+        raise HTTPException(422, "Instantly isn't connected yet (Phase 5.4 needs an Instantly account)")
+    domain = body.address.split("@", 1)[1].lower()
+    async with tenant_session(org_id) as conn:
+        site = (await conn.execute(text("select website from app.org_settings"))).scalar_one_or_none()
+        if site and domain_of(site) == domain:
+            raise HTTPException(422, "never send cold email from the business's main domain: use a separate sending domain")
+        mid = (await conn.execute(text("""insert into app.sending_mailboxes (org_id, address, provider, sender_name, daily_cap)
+            values (:o, :a, :p, :n, :c) on conflict (org_id, address) do nothing returning id"""),
+            {"o": org_id, "a": body.address.lower(), "p": body.provider, "n": body.sender_name, "c": body.daily_cap})).scalar_one_or_none()
+        if not mid:
+            raise HTTPException(409, "that mailbox is already added")
+        await audit.record(conn, org_id=org_id, actor_type="agentry_staff", actor_user_id=staff.user_id, action="cold_email.mailbox_added",
+                           target_type="mailbox", target_id=str(mid), metadata={"address": body.address})
+    return {"id": str(mid)}
+
+
+@router.patch("/orgs/{org_id}/sending-mailboxes/{mailbox_id}")
+async def change_mailbox(org_id: str, mailbox_id: str, body: MailboxChange, staff: Annotated[Principal, Depends(require_staff)]) -> dict:
+    async with tenant_session(org_id) as conn:
+        n = (await conn.execute(text("""update app.sending_mailboxes set status = coalesce(:s, status), daily_cap = coalesce(:c, daily_cap),
+            paused_reason = case when :s = 'active' then null when :s = 'paused' then 'paused by Agentry' else paused_reason end
+            where id = cast(:m as uuid)"""), {"s": body.status, "c": body.daily_cap, "m": mailbox_id})).rowcount
+        if not n:
+            raise HTTPException(404, "mailbox not found")
+        await audit.record(conn, org_id=org_id, actor_type="agentry_staff", actor_user_id=staff.user_id, action="cold_email.mailbox_changed",
+                           target_type="mailbox", target_id=mailbox_id, metadata=body.model_dump(exclude_none=True))
+    return {"id": mailbox_id}
