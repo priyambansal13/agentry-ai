@@ -1,6 +1,9 @@
 import { Badge, Card, CardBody, CardHeader, CardTitle, Stat } from "@agentry/ui";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import type { RoutingRule } from "@/app/(app)/actions";
+import type { Assignee } from "@/components/approval-card";
+import { AgentRouting } from "@/components/card-routing";
 import { ConfigForm } from "@/components/config-form";
 import { type InboxInsights, InboxInsightsCards } from "@/components/inbox-insights";
 import { WritingStyleCard } from "@/components/writing-style";
@@ -32,6 +35,12 @@ export default async function AutomationPage({ params }: { params: Promise<{ key
   const tiles = overview.tiles.filter((t) => a.metrics.includes(t.key));
   const canConfigure = me.is_staff || can(active.role, "automation", "configure");
   const canPause = me.is_staff || can(active.role, "automation", "pause");
+  const routes = canConfigure && key !== "cold_email";  // cold email has no Needs-you cards
+  const [rules, people] = routes ? await Promise.all([
+    api<{ items: RoutingRule[] }>("/org/card-routing", { orgId: active.id }).then((r) => r.items),
+    api<{ items: Assignee[] }>("/org/assignees", { orgId: active.id })
+      .then((r) => r.items.filter((p) => (key === "invoice_follow_up" ? p.invoices : p.conversations))),
+  ]) : [[], []];
   const insights = key === "inbox_triage" ? await api<InboxInsights>("/org/inbox/insights", { orgId: active.id }).catch(() => null) : null;
 
   return (
@@ -79,6 +88,15 @@ export default async function AutomationPage({ params }: { params: Promise<{ key
             ))}
           </CardBody>
         </Card>
+        {routes && (
+          <Card>
+            <CardHeader><CardTitle>Who handles its cards</CardTitle></CardHeader>
+            <CardBody>
+              <AgentRouting automationKey={key} people={people}
+                current={rules.find((r) => r.scope === "automation" && r.key === key)?.assign_to ?? null} />
+            </CardBody>
+          </Card>
+        )}
         {a.config_schema && (
           <Card>
             <CardHeader><CardTitle>Settings</CardTitle></CardHeader>

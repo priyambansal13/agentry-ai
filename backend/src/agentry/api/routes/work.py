@@ -358,6 +358,72 @@ async def assign(approval_id: str, body: Assign, request: Request, ctx: Annotate
     return {"id": approval_id, "assigned_to": body.user_id}
 
 
+# ---------- auto-assign rules: every card for a client, or for an agent, goes to one person ----------
+
+class Routing(BaseModel):
+    scope: Literal["contact", "automation"]
+    key: Annotated[str, Field(min_length=1, max_length=64)]  # contact id or automation key
+    assign_to: str | None  # None = remove the rule
+
+
+async def _routing_rules(conn) -> list[dict]:
+    rows = (await conn.execute(text("""select r.scope, r.key, r.assign_to, r.resources, u.name as assign_name,
+            case when r.scope = 'contact' then coalesce(k.company, k.name) end as contact_name
+        from app.card_routing r left join auth."user" u on u.id = r.assign_to
+        left join app.contacts k on r.scope = 'contact' and k.id::text = r.key order by r.scope, r.key"""))).mappings().all()
+    return [dict(r) for r in rows]
+
+
+@router.get("/card-routing")
+async def card_routing(ctx: Annotated[OrgContext, Depends(require("automation", "configure"))]) -> dict:
+    async with tenant_session(ctx.org_id) as conn:
+        return {"items": await _routing_rules(conn)}
+
+
+@router.put("/card-routing")
+async def set_card_routing(body: Routing, request: Request, ctx: Annotated[OrgContext, Depends(require("automation", "configure"))]) -> dict:
+    """Set or remove a rule. Waiting cards that a rule placed, or that nobody has, follow the rules as they now stand;
+    hand-assigned cards are never touched."""
+    from agentry.permissions import can
+    async with tenant_session(ctx.org_id) as conn:
+        enabled = set((await conn.execute(text("select template_key from app.automation_instances"))).scalars())
+        if body.scope == "automation":
+            if body.key not in enabled:
+                raise HTTPException(404, "that agent isn't switched on for this business")
+            needs = {_resource(body.key)}
+        else:
+            if not (await conn.execute(text("select 1 from app.contacts where id::text = :k"), {"k": body.key})).first():
+                raise HTTPException(404, "contact not found")
+            needs = {_resource(k) for k in enabled}  # a client's cards can come from any of the business's agents
+        if body.assign_to:
+            role = (await conn.execute(text("""select m.role from auth.member m where m."organizationId" = :o and m."userId" = :u"""),
+                                       {"o": ctx.org_id, "u": body.assign_to})).scalar_one_or_none()
+            covers = sorted(r for r in needs if role and can(role, r, "act"))
+            # an agent rule needs someone who can work that agent's cards; a client rule covers the kinds they can work
+            if not covers or (body.scope == "automation" and len(covers) < len(needs)):
+                raise HTTPException(422, "that person can't handle these cards")
+            await conn.execute(text("""insert into app.card_routing (org_id, scope, key, assign_to, resources, set_by)
+                values (:o, :s, :k, :u, :res, :by)
+                on conflict (org_id, scope, key) do update set assign_to = excluded.assign_to, resources = excluded.resources,
+                  set_by = excluded.set_by, created_at = now()"""),
+                               {"o": ctx.org_id, "s": body.scope, "k": body.key, "u": body.assign_to, "res": covers, "by": ctx.principal.user_id})
+        else:
+            await conn.execute(text("delete from app.card_routing where scope = :s and key = :k"), {"s": body.scope, "k": body.key})
+        # every waiting card that a rule placed (or nobody has) is decided again, so a new client rule beats an
+        # earlier agent-wide one; cards someone assigned by hand stay where they are
+        moved = (await conn.execute(text("""
+            with decided as (select id, app.card_assignee(payload, conversation_id, automation_key) as who from app.approvals
+                             where status = 'pending' and (assigned_by = 'rule' or assigned_to is null))
+            update app.approvals a set assigned_to = d.who, assigned_by = case when d.who is null then null else 'rule' end
+            from decided d where a.id = d.id and a.assigned_to is distinct from d.who
+            returning d.who"""))).scalars().all()
+        moved = sum(1 for w in moved if w)
+        await audit.record(conn, org_id=ctx.org_id, actor_type=ctx.actor_type, actor_user_id=ctx.principal.user_id,
+                           action="card_routing.set" if body.assign_to else "card_routing.removed", target_type=body.scope,
+                           target_id=body.key, ip=client_ip(request), metadata={"to": body.assign_to, "cards_assigned": moved})
+        return {"items": await _routing_rules(conn), "cards_assigned": moved}
+
+
 # ---------- saved replies (#12) ----------
 
 class Template(BaseModel):

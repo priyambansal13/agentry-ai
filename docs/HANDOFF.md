@@ -13,11 +13,12 @@ Code: https://github.com/priyambansal13/agentry-ai (`main`). Everything below is
 | Website | 3200 | `cd apps/web && pnpm dev --port 3200` |
 
 - Database: `postgresql://postgres:postgres@localhost:55432/agentry` (superuser, sees every company).
-- Tests: `cd backend && uv run pytest -q` → 168 passed, 2 skipped. Stop the dev worker first if tests get flaky.
+- Tests: `cd backend && uv run pytest -q` → 172 passed, 2 skipped. Stop the dev worker first if tests get flaky.
 - The API and worker don't auto-reload: restart them after backend changes.
 
 ## Built this session (latest first)
 
+- **Auto-assign rules** (2026-10-30) — client rule (Invoices → Who handles each client) and agent rule (agent page → Who handles its cards); applied by a DB trigger on new cards (migration 0017, `app.card_routing`), waiting cards re-decided on change, hand-assigned cards untouched. See `docs/flows/README.md`.
 0. **Cold email 5.1–5.3** (2026-10-30) — prospect lists (search or CSV), decision maker, verified email, fact-checked first line from their own site, review/approve/export in the portal (`/cold-email`), migration 0016. Mock providers (`mock-data/cold-email/`). Switched on for Agentry's own company; sample list "Pune dental clinics (sample)" built with the real AI: 50 → 49 → 8, all lines passed. Flow: `docs/flows/agents/cold-email.md`.
 1. **Forgot password + show-password eye** — `/forgot-password`, `/reset-password` (Better Auth `sendResetPassword`, 1-hour single-use link, works for link-only users, signs out other devices); `PasswordInput` in `packages/ui` used on every password field.
 2. **Unsendable reminder cards** — `outbound.channel_problem()`: no WhatsApp card when WhatsApp isn't connected / no template; old cards show a warning and can't be approved (409).
@@ -43,4 +44,3 @@ Flow docs for every role: `docs/flows/`.
 | Real phone call test | Parked | US number can't be dialled from India |
 | Outbound calls / SMS | User | Twilio or Plivo account (Plivo needs Indian business KYC) |
 | Optional setup | User | Outlook (`AGENTRY_MICROSOFT_*`), Gmail Pub/Sub (`AGENTRY_GMAIL_PUBSUB_TOPIC`, `AGENTRY_GMAIL_PUSH_TOKEN`), WhatsApp alert template, rename "swarm-ai" → Agentry on the Google OAuth consent screen |
-| Idea offered | User | Auto-assign every card for an invoice/client to one person (like inbox routing) |

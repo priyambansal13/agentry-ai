@@ -31,4 +31,15 @@ Read in this order:
 | **Finance** | Invoices, payments, statements |
 | **Viewer** | Reads reports only |
 
+**Who gets which Needs-you card.** Cards wait for anyone allowed to act on them, unless someone is named:
+1. **Assigned by hand** on the card (the person gets an email). Never changed by rules.
+2. **Inbox routing:** everything arriving at one mailbox goes to one person (Connections → the inbox).
+3. **Client rule** (Invoices → *Who handles each client*): every card about that client goes to one person. It only
+   covers the cards that person can work: a client given to Finance sends Finance their invoice cards, while their
+   emails stay with the people who handle conversations.
+4. **Agent rule** (Automations → the agent → *Who handles its cards*): everything that agent creates goes to one person.
+
+Rules are set by owners and managers (and Agentry). New cards follow them straight away; cards already waiting are
+re-decided when a rule changes. Assigned cards show "for <name>" and appear under Needs you → **Mine**.
+
 Source of truth for details: [CLIENT-ONBOARDING.md](../CLIENT-ONBOARDING.md) (role tables per agent), the agent specs in [automations/](../automations/), and the phase plans.

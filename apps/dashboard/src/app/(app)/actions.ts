@@ -502,3 +502,13 @@ export async function reviewProspect(id: string, action: "approve" | "drop" | "r
 export async function approveReadyLines(campaignId: string) {
   return run<{ approved: number }>(`/org/cold-email/campaigns/${campaignId}/approve-ready`, { method: "POST" }, [`/cold-email/${campaignId}`]);
 }
+
+// ---------- auto-assign rules ----------
+
+export type RoutingRule = { scope: "contact" | "automation"; key: string; assign_to: string; resources: string[]; assign_name: string | null;
+                            contact_name: string | null };
+
+export async function setCardRouting(scope: "contact" | "automation", key: string, assignTo: string | null) {
+  return run<{ items: RoutingRule[]; cards_assigned: number }>("/org/card-routing", { method: "PUT", body: { scope, key, assign_to: assignTo } },
+    ["/needs-you", "/invoices", "/automations"]);
+}

@@ -40,7 +40,7 @@ async def list_invoices(ctx: Annotated[OrgContext, Depends(require("invoice", "r
         rows = (await conn.execute(text("""
             select i.id, i.number, i.currency, i.amount, i.amount_paid, i.amount - i.amount_paid as balance, i.issued_on, i.due_on,
                    i.status, i.source, i.payment_link, i.notes, current_date - i.due_on as days_overdue,
-                   k.name as contact_name, k.company, k.email, (k.email is not null or k.phone_e164 is not null) as contactable,
+                   i.contact_id, k.name as contact_name, k.company, k.email, (k.email is not null or k.phone_e164 is not null) as contactable,
                    e.status as reminders, e.last_step, e.paused_until, e.stop_reason,
                    (select count(*) from jsonb_array_elements(coalesce(e.log, '[]')) st, jsonb_array_elements(st->'results') r
                      where r->>'status' in ('sent','recorded')) as reminders_sent,

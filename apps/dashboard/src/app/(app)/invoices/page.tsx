@@ -1,5 +1,8 @@
 import { Badge, Card, CardBody, CardHeader, CardTitle, Stat } from "@agentry/ui";
 import { redirect } from "next/navigation";
+import type { RoutingRule } from "@/app/(app)/actions";
+import type { Assignee } from "@/components/approval-card";
+import { ClientRouting } from "@/components/card-routing";
 import { InvoiceActions, InvoiceImport } from "@/components/invoice-tools";
 import { formatMetric } from "@/lib/format";
 import { can } from "@/lib/permissions";
@@ -9,7 +12,7 @@ export const metadata = { title: "Invoices" };
 
 type Inv = {
   id: string; number: string; currency: string; amount: number; balance: number; due_on: string; status: string; days_overdue: number;
-  contact_name: string | null; company: string | null; email: string | null; contactable: boolean; reminders: string | null; reminders_sent: number | null;
+  contact_id: string | null; contact_name: string | null; company: string | null; email: string | null; contactable: boolean; reminders: string | null; reminders_sent: number | null;
   reminders_awaiting: number | null;
   paused_until: string | null; stop_reason: string | null; notes: string | null;
 };
@@ -32,6 +35,14 @@ export default async function InvoicesPage() {
     throw e;
   }
   const canAct = me.is_staff || can(active.role, "invoice", "act");
+  const canRoute = me.is_staff || can(active.role, "automation", "configure");
+  const [rules, people] = canRoute ? await Promise.all([
+    api<{ items: RoutingRule[] }>("/org/card-routing", { orgId: active.id }).then((r) => r.items),
+    api<{ items: Assignee[] }>("/org/assignees", { orgId: active.id }).then((r) => r.items.filter((p) => p.invoices)),
+  ]) : [[], []];
+  const handledBy = new Map(rules.filter((r) => r.scope === "contact").map((r) => [r.key, r.assign_name]));
+  const clients = [...new Map(d.items.filter((i) => i.contact_id).map((i) => [i.contact_id!, i.company ?? i.contact_name ?? i.email ?? "?"])).entries()]
+    .map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
   const currency = d.items[0]?.currency ?? "INR";
   const ageing = d.ageing.find((a) => a.currency === currency) ?? {};
   const outstanding = BUCKETS.reduce((s, [k]) => s + Number(ageing[k] ?? 0), 0);
@@ -64,6 +75,12 @@ export default async function InvoicesPage() {
         </CardBody>
       </Card>
       {canAct && <Card className="p-5"><InvoiceImport /></Card>}
+      {canRoute && clients.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Who handles each client</CardTitle><span className="text-sm text-muted">every card for that client goes to them</span></CardHeader>
+          <CardBody><ClientRouting clients={clients} people={people} rules={rules} /></CardBody>
+        </Card>
+      )}
       <Card className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-line text-muted"><tr>
@@ -77,6 +94,7 @@ export default async function InvoicesPage() {
               <tr key={i.id} className="align-top">
                 <td className="px-4 py-3 font-mono text-xs">{i.number}</td>
                 <td className="px-4 py-3"><div className="font-medium">{i.company ?? i.contact_name ?? "—"}</div><div className="text-xs text-muted">{i.email}</div>
+                  {i.contact_id && handledBy.get(i.contact_id) && <div className="text-xs text-muted">handled by {handledBy.get(i.contact_id)}</div>}
                   {!i.contactable && ["open", "partially_paid"].includes(i.status) && <div className="mt-1"><Badge tone="warning">no email or phone: no reminders</Badge></div>}
                   {i.notes && <div className="mt-1 max-w-xs text-xs whitespace-pre-line text-ink-soft">{i.notes.split("\n").slice(-1)[0]}</div>}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{formatMetric(Number(i.balance), "currency", i.currency)}</td>
