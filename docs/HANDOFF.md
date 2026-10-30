@@ -13,11 +13,12 @@ Code: https://github.com/priyambansal13/agentry-ai (`main`). Everything below is
 | Website | 3200 | `cd apps/web && pnpm dev --port 3200` |
 
 - Database: `postgresql://postgres:postgres@localhost:55432/agentry` (superuser, sees every company).
-- Tests: `cd backend && uv run pytest -q` → 177 passed, 2 skipped. Stop the dev worker first if tests get flaky.
+- Tests: `cd backend && uv run pytest -q` → 185 passed, 2 skipped. Stop the dev worker first if tests get flaky.
 - The API and worker don't auto-reload: restart them after backend changes.
 
 ## Built this session (latest first)
 
+- **Content repurposing 6.1–6.4** (2026-10-30) — upload (streamed via `/api/content-upload`) or sample podcast → OpenAI transcription (ffmpeg splits long files) → 10 moments (exact quotes) → LinkedIn/Instagram/X posts via a LangGraph draft/critic loop → Pillow quote cards from the brand kit → review board → calendar → test-mode publishing every 5 min (migration 0019, `automations/content/`, portal `/content`). Switched on for SmileCraft with a sample run scheduled. Flow: `docs/flows/agents/content-repurposing.md`.
 - **Cold email 5.4–5.5 in test mode** (2026-10-30) — sending mailboxes (HQ), start/pause, 4-step sequence with office hours, ramp-up caps, one-click unsubscribe (`/unsubscribe/<token>` on the website), auto-pause on bounces/complaints; replies classified into lead engine / nurture / do-not-contact / cards (migration 0018, `automations/cold_email/sending.py`, `replies.py`). Agentry's sample campaign is running in test mode with a mock mailbox; its postal address is a **placeholder** to replace in the cold email settings.
 - **Auto-assign rules** (2026-10-30) — client rule (Invoices → Who handles each client) and agent rule (agent page → Who handles its cards); applied by a DB trigger on new cards (migration 0017, `app.card_routing`), waiting cards re-decided on change, hand-assigned cards untouched. See `docs/flows/README.md`.
 0. **Cold email 5.1–5.3** (2026-10-30) — prospect lists (search or CSV), decision maker, verified email, fact-checked first line from their own site, review/approve/export in the portal (`/cold-email`), migration 0016. Mock providers (`mock-data/cold-email/`). Switched on for Agentry's own company; sample list "Pune dental clinics (sample)" built with the real AI: 50 → 49 → 8, all lines passed. Flow: `docs/flows/agents/cold-email.md`.
@@ -42,6 +43,7 @@ Flow docs for every role: `docs/flows/`.
 | Razorpay webhook (connection `fa7cb590-41c5-45ea-be9f-eefe7535c028`) | User | Run `cloudflared tunnel --no-autoupdate --url http://localhost:8801` in own Terminal; in Razorpay set `https://<tunnel>/webhooks/razorpay/fa7cb590-41c5-45ea-be9f-eefe7535c028`, events `payment.captured` + `payment_link.paid`, same secret; then set `AGENTRY_API_PUBLIC_URL`, restart API, check a bad signature gets 401. Until then: **Confirm paid** by hand |
 | Production deploy (Oracle k3s, `docs/DEPLOY.md`) | User | Offered next to SwarmAI on the same VM with its own DuckDNS names; postponed |
 | Cold email going live | User: accounts in `PHASE-5-COLD-EMAIL.md` §6 | Instantly account + 2 sending domains (2–3 weeks warm-up) → I add the Instantly sender and reply webhook; Google Places / Hunter / MillionVerifier keys → real lists (5.6); real postal address in Agentry's cold email settings |
+| Content: real publishing (6.5) and results (6.6) | User: which platforms | LinkedIn + Instagram first (Meta app exists; LinkedIn needs an app with posting permission); X API is paid |
 | Real phone call test | Parked | US number can't be dialled from India |
 | Outbound calls / SMS | User | Twilio or Plivo account (Plivo needs Indian business KYC) |
 | Optional setup | User | Outlook (`AGENTRY_MICROSOFT_*`), Gmail Pub/Sub (`AGENTRY_GMAIL_PUBSUB_TOPIC`, `AGENTRY_GMAIL_PUSH_TOKEN`), WhatsApp alert template, rename "swarm-ai" → Agentry on the Google OAuth consent screen |

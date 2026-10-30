@@ -20,7 +20,8 @@ class ProvisionError(ValueError):
 
 # shown next to an automation in HQ while part of it is still being built
 NOTES = {"ai_receptionist": "Assign it a phone number on the client page (US numbers on LiveKit for now)",
-         "cold_email": "Builds and reviews prospect lists only: sending isn't built yet (Phase 5.4)"}
+         "cold_email": "Test mode: sample prospect lists and a test sender until Instantly and data providers are connected",
+         "content_repurposing": "Test mode: posts are scheduled and recorded, not posted, until social accounts are connected"}
 
 
 def catalog() -> list[dict]:

@@ -66,3 +66,6 @@ export const DEMO_STATUS: Record<string, { label: string; tone: "lime" | "neutra
   new: { label: "New", tone: "lime" }, demo_built: { label: "Demo built", tone: "neutral" }, demo_sent: { label: "Demo sent", tone: "warning" },
   in_talks: { label: "In talks", tone: "success" }, won: { label: "Won", tone: "success" }, lost: { label: "Lost", tone: "neutral" },
 };
+
+/** Social platforms content repurposing posts to (shared by server pages and client components). */
+export const PLATFORM = { linkedin: "LinkedIn", instagram: "Instagram", x: "X" } as const;

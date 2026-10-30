@@ -257,7 +257,10 @@ async def compose(conn: AsyncConnection, org_id: str, e: dict, subj: dict, step:
 
 @DBOS.step()
 async def send_step(org_id: str, enrollment_id: str, step_index: int) -> dict:
-    from agentry.outbound import channel_problem, deliver_outbound  # late import: outbound depends on connectors
+    from agentry.outbound import (  # late import: outbound depends on connectors
+        channel_problem,
+        deliver_outbound,
+    )
     async with tenant_session(org_id) as conn:
         e = await _load(conn, enrollment_id)
         subj = await _subject(conn, e)

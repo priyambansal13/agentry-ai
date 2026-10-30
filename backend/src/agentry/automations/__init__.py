@@ -35,6 +35,7 @@ def load_all() -> None:
     from agentry.automations import (  # noqa: F401
         ai_receptionist,
         cold_email,
+        content,
         inbox_triage,
         invoice_follow_up,
         lead_reactivation,

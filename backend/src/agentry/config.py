@@ -72,6 +72,12 @@ class Settings(BaseSettings):
     sales_inbox_minutes: int = 2  # how often the sales inbox is checked for replies (0 = never)
     # Cold email (Phase 5): "mock" runs prospecting on mock-data/cold-email/ (no keys, no cost). Real providers: 5.6.
     cold_email_providers: str = "mock"
+    # Content repurposing (Phase 6): uploads, transcripts and images; transcription with the OpenAI key ("mock" = the
+    # sample podcast, used by tests); publishing is "mock" (recorded at the slot time) until social accounts are connected
+    content_dir: str = str(ROOT / "var" / "content")
+    content_transcriber: str = "openai"
+    content_transcribe_model: str = "whisper-1"  # gives timestamped segments
+    content_publisher: str = "mock"
     google_client_id: str | None = None
     google_client_secret: str | None = None
     gmail_poll_seconds: int = 60

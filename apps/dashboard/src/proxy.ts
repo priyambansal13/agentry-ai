@@ -12,6 +12,7 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Public files are never behind sign-in: widget.js is loaded by every client's website visitors.
-  matcher: ["/((?!api/auth|sign-in|forgot-password|reset-password|accept-invitation|invite/|_next|favicon.ico|.*\\.(?:js|svg|png|jpg|ico|txt|webmanifest)$).*)"],
+  // Public files are never behind sign-in: widget.js is loaded by every client's website visitors. Video uploads skip
+  // this proxy (it would buffer the body); that route checks the session itself.
+  matcher: ["/((?!api/auth|api/content-upload|sign-in|forgot-password|reset-password|accept-invitation|invite/|_next|favicon.ico|.*\\.(?:js|svg|png|jpg|ico|txt|webmanifest)$).*)"],
 };

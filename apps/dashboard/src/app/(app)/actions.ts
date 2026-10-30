@@ -533,3 +533,49 @@ export async function addSendingMailbox(orgId: string, address: string, senderNa
 export async function changeSendingMailbox(orgId: string, mailboxId: string, status: "active" | "paused") {
   return hq<{ id: string }>(`/hq/orgs/${orgId}/sending-mailboxes/${mailboxId}`, { method: "PATCH", body: { status } }, [`/hq/${orgId}`]);
 }
+
+// ---------- content repurposing (Phase 6) ----------
+
+export async function sampleContent() {
+  return run<{ id: string }>("/org/content/sources/sample", { method: "POST" }, ["/content"]);
+}
+
+export async function retryContent(id: string) {
+  return run<{ id: string }>(`/org/content/sources/${id}/retry`, { method: "POST" }, [`/content/${id}`]);
+}
+
+export async function deleteContent(id: string) {
+  return run<{ deleted: boolean }>(`/org/content/sources/${id}`, { method: "DELETE" }, ["/content"]);
+}
+
+export async function reviewContentPost(id: string, action: "approve" | "drop" | "reopen" | "regenerate", body?: string) {
+  return run<{ review: string; edited?: boolean }>(`/org/content/posts/${id}`, { method: "POST", body: { action, body: body || null } }, []);
+}
+
+export async function dropContentMoment(id: string) {
+  return run<{ dropped_posts: number }>(`/org/content/moments/${id}/drop`, { method: "POST" }, []);
+}
+
+export async function approveContentReady(sourceId: string) {
+  return run<{ approved: number }>(`/org/content/sources/${sourceId}/approve-ready`, { method: "POST" }, [`/content/${sourceId}`]);
+}
+
+export async function scheduleContent(sourceId?: string) {
+  return run<{ scheduled: number }>("/org/content/schedule", { method: "POST", body: { source_id: sourceId ?? null } }, ["/content", "/content/calendar"]);
+}
+
+export async function moveContentPost(id: string, scheduledAt: string | null) {
+  return run<{ id: string }>(`/org/content/posts/${id}/slot`, { method: "PATCH", body: { scheduled_at: scheduledAt } }, ["/content/calendar"]);
+}
+
+export async function saveBrandKit(changes: Record<string, unknown>) {
+  return run<{ saved: string[]; images_redrawn: number }>("/org/content/brand", { method: "PUT", body: changes }, ["/content/brand"]);
+}
+
+export async function uploadBrandLogo(form: FormData) {
+  return upload<{ images_redrawn: number }>("/org/content/brand/logo", form, ["/content/brand"]);
+}
+
+export async function learnBrandVoice(posts: string) {
+  return run<{ learned: boolean; samples: number; voice?: string; reason?: string }>("/org/content/brand/voice", { method: "POST", body: { posts } }, ["/content/brand"]);
+}

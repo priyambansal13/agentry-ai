@@ -66,7 +66,7 @@ async def cleanup_test_rows():
             delete from app.contacts where id in (select contact_id from lead_contacts) and source in ('email', 'inbox', 'web_chat')"""))
 
 
-TABLES = ["statement_lines", "statements", "outcomes", "pricing_plans", "notification_preferences", "approvals", "messages", "bookings", "sequence_enrollments", "prospects", "prospect_companies", "campaigns", "sequences", "payments", "invoices",
+TABLES = ["statement_lines", "statements", "outcomes", "pricing_plans", "notification_preferences", "approvals", "content_posts", "content_moments", "content_sources", "brand_kits", "messages", "bookings", "sequence_enrollments", "prospects", "prospect_companies", "campaigns", "sequences", "payments", "invoices",
           "lead_sources", "leads", "consents", "suppressions", "conversations", "events", "connections", "automation_instances",
           "audit_log", "llm_calls", "kb_chunks", "kb_documents", "staff", "services", "onboarding_progress", "metrics_daily"]
 

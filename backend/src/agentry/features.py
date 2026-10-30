@@ -41,7 +41,8 @@ FEATURES: dict[str, Feature] = {
                                steps=("knowledge", "settings", "persona", "test"), go_live=("knowledge", "test", "phone")),
     # 5.1-5.3: lists, research and reviewed first lines; nothing is sent until sending (5.4) is built
     "cold_email": Feature(pages=("cold-email",), connections=(), steps=("settings", "compliance"), go_live=()),
-    "content_repurposing": Feature(pages=(), connections=(), steps=(), go_live=(), available=False),
+    # 6.1-6.4: uploads, moments, posts with quote cards, review and calendar; publishing is test mode until 6.5
+    "content_repurposing": Feature(pages=("content",), connections=(), steps=("settings",), go_live=()),
 }
 ALWAYS_PAGES = ("home", "automations", "reports", "team", "audit", "billing", "notifications")
 ALWAYS_STEPS = ("profile", "plan", "team")
