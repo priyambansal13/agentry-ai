@@ -25,7 +25,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 
 export type PlanForm = {
   currency: string; setup_fee: string; retainer: string; tax_pct: string; pilot_until: string;
-  inc_messages: string; ovr_messages: string; inc_emails: string; ovr_emails: string; inc_minutes: string; ovr_minutes: string;
+  inc_messages: string; ovr_messages: string; inc_emails: string; ovr_emails: string; inc_minutes: string; ovr_minutes: string; inc_videos: string; ovr_videos: string;
   booking_mode: string; booking_price: string; booking_pct: string; booking_min: string;
   rs_basis: string; rs_pct: string; rs_cap: string; rs_window: string; rs_strong: boolean;
 };
@@ -39,6 +39,7 @@ export function formFromPlan(plan: PlanIn | null): PlanForm {
     inc_messages: String(p0.included.messages ?? ""), ovr_messages: String(p0.overage.messages ?? ""),
     inc_emails: String(p0.included.emails_triaged ?? ""), ovr_emails: String(p0.overage.emails_triaged ?? ""),
     inc_minutes: String(p0.included.voice_minutes ?? ""), ovr_minutes: String(p0.overage.voice_minutes ?? ""),
+    inc_videos: String(p0.included.content_videos ?? ""), ovr_videos: String(p0.overage.content_videos ?? ""),
     booking_mode: op ? (op.price != null ? "fixed" : "pct") : "none", booking_price: String(op?.price ?? ""),
     booking_pct: op?.pct_of_customer_value ? String(op.pct_of_customer_value * 100) : "", booking_min: String(op?.min ?? ""),
     rs_basis: p0.revenue_share.basis, rs_pct: String(+(p0.revenue_share.rate * 100).toFixed(2)), rs_cap: String(p0.revenue_share.cap ?? ""),
@@ -54,6 +55,8 @@ export function planFromForm(f: PlanForm) {
   if (f.ovr_emails) overage.emails_triaged = Number(f.ovr_emails);
   if (f.inc_minutes) included.voice_minutes = Number(f.inc_minutes);
   if (f.ovr_minutes) overage.voice_minutes = Number(f.ovr_minutes);
+  if (f.inc_videos) included.content_videos = Number(f.inc_videos);
+  if (f.ovr_videos) overage.content_videos = Number(f.ovr_videos);
   const outcome_prices = f.booking_mode === "fixed" ? [{ outcome: "appointment_booked", price: num(f.booking_price) }]
     : f.booking_mode === "pct" ? [{ outcome: "appointment_booked", pct_of_customer_value: Number(f.booking_pct) / 100, min: num(f.booking_min) }] : [];
   return { currency: f.currency, setup_fee: Number(f.setup_fee || 0), retainer: Number(f.retainer || 0), tax_rate: Number(f.tax_pct || 0) / 100,
@@ -87,6 +90,8 @@ export function PlanFields({ f, setF, show = { usage: true, bookings: true, reco
           <Field label="Per extra email"><Input type="number" min={0} step="any" value={f.ovr_emails} onChange={set("ovr_emails")} /></Field>
           <Field label="Call minutes included"><Input type="number" min={0} value={f.inc_minutes} onChange={set("inc_minutes")} /></Field>
           <Field label="Per extra call minute"><Input type="number" min={0} step="any" value={f.ovr_minutes} onChange={set("ovr_minutes")} /></Field>
+          <Field label="Videos included (content)" hint="Recordings turned into posts per month"><Input type="number" min={0} value={f.inc_videos} onChange={set("inc_videos")} /></Field>
+          <Field label="Per extra video"><Input type="number" min={0} step="any" value={f.ovr_videos} onChange={set("ovr_videos")} /></Field>
         </fieldset>
       )}
       {show.bookings && (

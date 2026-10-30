@@ -8,7 +8,9 @@ import { api, getActiveOrg, getFeatures } from "@/lib/session";
 export const metadata = { title: "Results report" };
 
 type Report = { month: string; appointments: number; appointments_value: number; recovered: number; invoices_recovered: number;
-                messages: number; emails_triaged: number; currency: string; value_delivered: number; fee: number | null; roi_multiple: number | null };
+                messages: number; emails_triaged: number; currency: string;
+                content: { videos: number; generated: number; approved: number; approved_as_written_pct: number | null; published: number;
+                           turnaround_minutes: number | null }; value_delivered: number; fee: number | null; roi_multiple: number | null };
 
 function monthShift(m: string, by: number) {
   const [y, mo] = m.split("-").map(Number) as [number, number];
@@ -31,6 +33,9 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     has("invoice_follow_up") && ["Overdue money recovered", `${money(r.recovered, r.currency)} (${r.invoices_recovered} invoices)`],
     has("invoice_follow_up", "lead_reactivation", "speed_to_lead", "whatsapp_assistant") && ["Messages sent for you", r.messages.toLocaleString("en-IN")],
     has("inbox_triage") && ["Emails sorted", r.emails_triaged.toLocaleString("en-IN")],
+    has("content_repurposing") && ["Posts written from your recordings", `${r.content.generated} from ${r.content.videos} recording${r.content.videos === 1 ? "" : "s"}`],
+    has("content_repurposing") && ["Posts published", r.content.published.toLocaleString("en-IN")],
+    has("content_repurposing") && r.content.approved_as_written_pct != null && ["Approved without changes", `${r.content.approved_as_written_pct}% of approved posts`],
   ].filter(Boolean)) as [string, string][];
   return (
     <div className="space-y-6">

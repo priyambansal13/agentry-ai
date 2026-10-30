@@ -1,4 +1,4 @@
-import { Badge, buttonClasses, Card, CardBody, CardHeader, CardTitle } from "@agentry/ui";
+import { Badge, buttonClasses, Card, CardBody, CardHeader, CardTitle, Stat } from "@agentry/ui";
 import Link from "next/link";
 import { NewContent } from "@/components/content";
 import { api, requirePage } from "@/lib/session";
@@ -12,7 +12,11 @@ const STATUS: Record<string, string> = { uploaded: "Queued", transcribing: "Tran
 
 export default async function ContentPage() {
   const active = await requirePage("content");
-  const d = await api<{ items: Source[]; can_edit: boolean }>("/org/content/sources", { orgId: active.id });
+  const [d, res] = await Promise.all([
+    api<{ items: Source[]; can_edit: boolean }>("/org/content/sources", { orgId: active.id }),
+    api<{ recordings: number; generated: number; approved_as_written_pct: number | null; published: number; turnaround_minutes: number | null }>(
+      "/org/content/results?days=30", { orgId: active.id }),
+  ]);
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -28,6 +32,14 @@ export default async function ContentPage() {
       <p className="rounded-xl border-2 border-dashed border-line px-4 py-3 text-sm text-muted">
         Test mode: scheduled posts are recorded at their time, not posted, until Agentry connects your social accounts.
       </p>
+      {res.generated > 0 && (
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Last 30 days">
+          <Stat label="Recordings, last 30 days" value={String(res.recordings)} />
+          <Stat label="Posts written" value={String(res.generated)} />
+          <Stat label="Approved without changes" value={res.approved_as_written_pct != null ? `${res.approved_as_written_pct}%` : "—"} />
+          <Stat label="Upload to drafts (median)" value={res.turnaround_minutes != null ? `${Math.max(1, Math.round(res.turnaround_minutes))} min` : "—"} />
+        </section>
+      )}
       {d.can_edit && <Card><CardHeader><CardTitle>New recording</CardTitle></CardHeader><CardBody><NewContent /></CardBody></Card>}
       {d.items.length === 0 ? <p className="text-muted">Nothing yet.</p> : (
         <Card className="overflow-x-auto">

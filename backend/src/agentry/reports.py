@@ -35,6 +35,10 @@ def render(business: str, r: dict, automations: list[str]) -> tuple[str, str]:
         lines.append(f"• Emails sorted: {r['emails_triaged']} (about {hours} hour{"" if hours == 1 else "s"} given back)")
     if set(automations) & {"invoice_follow_up", "lead_reactivation", "speed_to_lead", "whatsapp_assistant"}:
         lines.append(f"• Messages sent for you: {r['messages']}")
+    if "content_repurposing" in automations and (c := r.get("content")) and c["generated"]:
+        quality = f", {c['approved_as_written_pct']}% approved as written" if c["approved_as_written_pct"] is not None else ""
+        lines.append(f"• Posts: {c['generated']} written from {c['videos']} recording{'' if c['videos'] == 1 else 's'}, "
+                     f"{c['published']} published{quality}")
     if r["roi_multiple"] is not None:
         lines += ["", (f"Return on what you paid: {r['roi_multiple']}× ({_money(r['value_delivered'], r['currency'])} delivered "
                       f"for {_money(r['fee'], r['currency'])}).")]

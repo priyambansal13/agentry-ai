@@ -12,7 +12,7 @@ import { api, ApiError, getMe } from "@/lib/session";
 
 export const metadata = { title: "Client · Agentry HQ" };
 
-type Margin = { month: string; llm_usd: number; whatsapp_templates: number; voice_minutes: number; cost_inr: number; revenue: Record<string, number>; revenue_inr: number; margin_pct: number | null };
+type Margin = { month: string; llm_usd: number; transcription_usd?: number; whatsapp_templates: number; voice_minutes: number; cost_inr: number; revenue: Record<string, number>; revenue_inr: number; margin_pct: number | null };
 type Detail = {
   org: { name: string; slug: string; status: string | null; industry_pack: string | null; country: string | null; currency: string | null; website: string | null };
   plan: PlanIn | null; margin: Margin; outcomes: Record<string, number>;
@@ -69,7 +69,7 @@ export default async function HqClient({ params, searchParams }: { params: Promi
         <Card className="p-5"><p className="text-sm text-muted">Revenue, {mLabel}</p><p className="mt-1 text-2xl font-semibold">{money(m.revenue_inr, "INR")}</p>
           <p className="text-xs text-muted">{Object.entries(m.revenue).map(([c, v]) => money(v, c)).join(" + ") || "no statements"}</p></Card>
         <Card className="p-5"><p className="text-sm text-muted">Cost to serve, {mLabel}</p><p className="mt-1 text-2xl font-semibold">{money(m.cost_inr, "INR")}</p>
-          <p className="text-xs text-muted">${m.llm_usd.toFixed(2)} models · {m.whatsapp_templates} WhatsApp templates · {m.voice_minutes} call min</p></Card>
+          <p className="text-xs text-muted">${m.llm_usd.toFixed(2)} models{m.transcription_usd ? ` · $${m.transcription_usd.toFixed(2)} transcription` : ""} · {m.whatsapp_templates} WhatsApp templates · {m.voice_minutes} call min</p></Card>
         <Card className="p-5"><p className="text-sm text-muted">Gross margin</p><p className="mt-1 text-2xl font-semibold">{m.margin_pct != null ? `${m.margin_pct}%` : "—"}</p>
           <p className="text-xs text-muted">rough: FX and template costs are estimates</p></Card>
         <Card className="p-5"><p className="text-sm text-muted">Billable results (all time)</p>

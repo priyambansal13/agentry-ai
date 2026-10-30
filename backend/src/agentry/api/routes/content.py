@@ -15,7 +15,7 @@ from sqlalchemy import text
 
 from agentry import audit
 from agentry.auth import OrgContext, client_ip, require
-from agentry.automations.content import brand, calendar, pipeline, sources
+from agentry.automations.content import brand, calendar, pipeline, results, sources
 from agentry.db import tenant_session
 from agentry.events import emit
 from agentry.features import require_page
@@ -331,3 +331,12 @@ async def preview(ctx: Viewer, platform: Literal["linkedin", "instagram", "x"] =
         kit = await brand.get_kit(conn, ctx.org_id)
     png = images.render(platform, "The best time to fix a small problem is before it becomes a big one.", "Your name here", kit, brand.logo_path(kit))
     return Response(png, media_type="image/png", headers={"Cache-Control": "no-store"})
+
+
+@router.get("/results")
+async def content_results(ctx: Viewer, days: Annotated[int, Query(ge=1, le=366)] = 30) -> dict:
+    """The content funnel for the last `days` days (portal Content page)."""
+    from datetime import UTC
+    end = datetime.now(UTC)
+    async with tenant_session(ctx.org_id) as conn:
+        return {"days": days, **await results.summary(conn, end - timedelta(days=days), end + timedelta(seconds=1))}

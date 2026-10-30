@@ -2,7 +2,7 @@
 
 > **Goal:** one long video or podcast (≈45 min) → the **10 best moments** → a post for **Instagram, LinkedIn and X** each, with an on-brand image: **30 posts, reviewed by a person, then scheduled**. Target: drafts ready in under 30 minutes.
 > **Spec:** [automations/content-repurposing.md](automations/content-repurposing.md). Pricing: setup fee (brand voice + brand kit) + monthly retainer by videos per month.
-> **Status:** 6.1–6.4 **built 2026-10-30** with the §6 recommendations (OpenAI transcription, ffmpeg installed, quote cards, sample podcast), plus test-mode publishing. Verified with the real AI on SmileCraft: 10 moments, 30 posts in ~3½ minutes. Flow: [flows/agents/content-repurposing.md](flows/agents/content-repurposing.md). Like cold email, everything is built behind interfaces with mocks first, so it works end to end before any account exists.
+> **Status:** 6.1–6.4 and 6.6 **built 2026-10-30** with the §6 recommendations (OpenAI transcription, ffmpeg installed, quote cards, sample podcast), plus test-mode publishing. Verified with the real AI on SmileCraft: 10 moments, 30 posts in ~3½ minutes. Flow: [flows/agents/content-repurposing.md](flows/agents/content-repurposing.md). Like cold email, everything is built behind interfaces with mocks first, so it works end to end before any account exists.
 
 ## 1. What already exists and is reused
 
@@ -56,7 +56,7 @@ flowchart TB
 | 6.3 ✅ | **Quote card images**: 3 templates using the brand kit (logo, colours, font), PNG per post | Every Instagram post (and optionally LinkedIn/X) has an on-brand image; changing brand colours re-renders |
 | 6.4 ✅ | **Review board + calendar**: board grouped by moment (approve, edit, regenerate, drop, approve all), calendar with spacing rules (1/day LinkedIn, 1–2/day X, no two posts from one moment on the same day), drag to reschedule, roles | Owner/manager approve and schedule; front desk can view; finance/viewer can't |
 | 6.5 (test mode) | **Publishing**: publisher interface (mock + the real ones you choose in §6), durable "publish at slot time", retries, a "posted" link back | In test mode posts are recorded at their slot time; real posting once accounts are connected |
-| 6.6 | **Results + billing**: generated → approved without edits (quality KPI) → published; turnaround time; usage meter (videos processed) for the retainer; HQ switch | Reports show the content funnel; a statement can bill videos per month |
+| 6.6 ✅ | **Results + billing**: generated → approved without edits (quality KPI) → published; turnaround time; usage meter (videos processed) for the retainer; HQ switch | Reports show the content funnel; a statement can bill videos per month |
 
 **6.1–6.4 need nothing external** beyond your existing OpenAI key (and only for real transcription; test mode needs nothing). 6.5 needs social accounts. Short vertical clips (9:16 Reels/Shorts with captions) stay v2: heavier compute, a separate upsell tier.
 

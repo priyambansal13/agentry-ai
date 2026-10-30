@@ -52,8 +52,8 @@ class PricingPlan(BaseModel):
     currency: Literal["INR", "USD", "EUR", "GBP", "AED"] = "INR"
     setup_fee: Decimal = Field(Decimal(0), ge=0)
     retainer: Decimal = Field(Decimal(0), ge=0)
-    included: dict[Literal["messages", "emails_triaged", "voice_minutes"], int] = Field(default_factory=dict)
-    overage: dict[Literal["messages", "emails_triaged", "voice_minutes"], Decimal] = Field(default_factory=dict)
+    included: dict[Literal["messages", "emails_triaged", "voice_minutes", "content_videos"], int] = Field(default_factory=dict)
+    overage: dict[Literal["messages", "emails_triaged", "voice_minutes", "content_videos"], Decimal] = Field(default_factory=dict)
     outcome_prices: list[OutcomePrice] = Field(default_factory=list)
     revenue_share: RevenueShare = Field(default_factory=RevenueShare)
     tax_rate: float = Field(0, ge=0, le=0.3)
@@ -180,9 +180,12 @@ async def generate_statement(conn: AsyncConnection, org_id: str, period_start: d
     if plan.retainer > 0:
         lines.append({"kind": "retainer", "description": f"Monthly retainer, {period_start:%B %Y}" + (" (pilot: no charge)" if in_pilot else ""),
                       "quantity": 1, "unit_price": Decimal(0) if in_pilot else plan.retainer})
-    for key in (*USAGE_EVENTS, "voice_minutes"):
+    for key in (*USAGE_EVENTS, "voice_minutes", "content_videos"):
         if key == "voice_minutes":
             used = (await conn.execute(text(VOICE_MINUTES_SQL), {"a": start_ts, "b": end_ts})).scalar_one()
+        elif key == "content_videos":  # recordings turned into posts (the demo sample doesn't count)
+            from agentry.automations.content.results import VIDEOS_SQL
+            used = (await conn.execute(text(VIDEOS_SQL), {"a": start_ts, "b": end_ts})).scalar_one()
         else:
             used = (await conn.execute(text("""select count(*) from app.events where type = :t and occurred_at >= :a and occurred_at < :b
                 and coalesce(payload->>'mock', 'false') <> 'true'"""), {"t": USAGE_EVENTS[key], "a": start_ts, "b": end_ts})).scalar_one()
@@ -257,7 +260,10 @@ async def month_report(conn: AsyncConnection, start: date, end: date) -> dict:
     fee = (await conn.execute(text("select total from app.statements where period_start = :s and status <> 'void'"),
                               {"s": start})).scalar_one_or_none()
     value = res["appointments_value"] + res["recovered"]
-    return {"month": f"{start:%Y-%m}", **res, "value_delivered": value, "fee": float(fee) if fee is not None else None,
+    from agentry.automations.content.results import summary as content_summary
+    content = await content_summary(conn, datetime(start.year, start.month, start.day, tzinfo=UTC),
+                                    datetime(end.year, end.month, end.day, tzinfo=UTC) + timedelta(days=1))
+    return {"month": f"{start:%Y-%m}", **res, "content": content, "value_delivered": value, "fee": float(fee) if fee is not None else None,
             "roi_multiple": round(value / float(fee), 1) if fee else None}
 
 
@@ -370,8 +376,11 @@ async def margin(conn: AsyncConnection, start: datetime, end: datetime) -> dict:
     seconds = (await conn.execute(text("""select coalesce(sum((metadata->>'duration_seconds')::numeric), 0) from app.conversations
         where channel = 'voice' and metadata ? 'duration_seconds' and created_at >= :a and created_at < :b"""), {"a": start, "b": end})).scalar_one()
     voice_minutes = round(float(seconds) / 60, 1)
-    cost_inr = (float(llm_usd) * settings.usd_to_inr + templates * settings.whatsapp_template_cost_inr
+    transcription_usd = (await conn.execute(text("select coalesce(sum(cost_usd), 0) from app.content_sources where created_at >= :a and created_at < :b"),
+                                            {"a": start, "b": end})).scalar_one()
+    cost_inr = (float(llm_usd + transcription_usd) * settings.usd_to_inr + templates * settings.whatsapp_template_cost_inr
                 + voice_minutes * settings.voice_cost_inr_per_minute)
-    return {"llm_usd": float(llm_usd), "whatsapp_templates": templates, "voice_minutes": voice_minutes, "cost_inr": round(cost_inr, 2),
+    return {"llm_usd": float(llm_usd), "transcription_usd": float(transcription_usd), "whatsapp_templates": templates,
+            "voice_minutes": voice_minutes, "cost_inr": round(cost_inr, 2),
             "revenue": {c: float(v) for c, v in rows}, "revenue_inr": round(revenue_inr, 2),
             "margin_pct": round(100 * (1 - cost_inr / revenue_inr), 1) if revenue_inr else None}

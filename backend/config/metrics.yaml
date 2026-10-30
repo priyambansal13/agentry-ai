@@ -39,3 +39,9 @@ metrics:
     event_type: message.sent
     aggregation: count
     unit: count
+  - key: posts_published
+    name: Posts published
+    automation_key: content_repurposing
+    event_type: content.published
+    aggregation: count
+    unit: count

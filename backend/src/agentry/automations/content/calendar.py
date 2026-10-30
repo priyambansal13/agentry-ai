@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from agentry.config import settings
 from agentry.db import system_session, tenant_session
+from agentry.events import emit
 
 SLOTS = {"linkedin": [time(9, 30)], "instagram": [time(12, 30)], "x": [time(10, 0), time(16, 0)]}
 WEEKDAYS_ONLY = {"linkedin"}
@@ -54,7 +55,7 @@ async def schedule(conn: AsyncConnection, tz: str, source_id: str | None = None,
 
 
 async def publish_due(org_id: str, now: datetime | None = None) -> dict:
-    """Publish approved posts whose slot has come."""
+    """Publish approved posts whose slot is at or before `now`."""
     now = now or datetime.now(UTC)
     published, failed = 0, 0
     async with tenant_session(org_id) as conn:
@@ -63,7 +64,8 @@ async def publish_due(org_id: str, now: datetime | None = None) -> dict:
         for pid, platform in rows:
             if settings.content_publisher == "mock":
                 await conn.execute(text("""update app.content_posts set published_at = :n, publish_ref = :r, updated_at = now() where id = :i"""),
-                                   {"n": now, "r": f"test-mode:{platform}:{pid}", "i": pid})
+                                   {"n": datetime.now(UTC), "r": f"test-mode:{platform}:{pid}", "i": pid})  # when it went out
+                await emit(conn, org_id, "content.published", {"post_id": str(pid), "platform": platform, "test_mode": True})
                 published += 1
             else:
                 await conn.execute(text("update app.content_posts set publish_error = :e where id = :i"),

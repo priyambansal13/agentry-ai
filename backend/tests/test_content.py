@@ -184,3 +184,39 @@ def test_numbers_may_change_form_but_not_value():
     ok = drafts.check("x", "No-shows were 22% in 2019.", [], m, m["quote"], m["quote"])
     bad = drafts.check("x", "No-shows were 32% in 2019.", [], m, m["quote"], m["quote"])
     assert ok == [] and bad == ["the number 32% isn't in the recording around this moment"]
+
+
+async def test_results_and_videos_per_month_on_the_statement(client, team_org):
+    from decimal import Decimal
+
+    from agentry import billing
+    oid, h = await team_org(["content_repurposing"])
+    await sample_source(client, h, oid)  # the demo sample: never billed
+    transcript = ("1\n00:00:01,000 --> 00:00:09,000\nDr. Rao: We cut waiting time to under ten minutes by texting patients when we run late.\n\n"
+                  "2\n00:00:10,000 --> 00:00:19,000\nDr. Rao: Every patient gets a written plan with prices before we start, and acceptance went up.\n")
+    for i in range(3):  # three real recordings this month
+        r = await client.post("/org/content/sources", headers=h["owner"], files={"file": (f"ep{i}.srt", io.BytesIO(transcript.encode()), "text/plain")},
+                              data={"title": f"Episode {i}", "owns_rights": "true"})
+        assert await pipeline.content_process_source(oid, r.json()["id"]) == "ready"
+    sid = (await client.get("/org/content/sources", headers=h["owner"])).json()["items"][-1]["id"]  # the sample
+    posts = (await client.get(f"/org/content/sources/{sid}", headers=h["owner"])).json()["posts"]
+    await client.post(f"/org/content/posts/{posts[0]['id']}", headers=h["owner"], json={"action": "approve", "body": posts[0]["body"] + " Edited."})
+    await client.post(f"/org/content/sources/{sid}/approve-ready", headers=h["owner"])
+    await client.post("/org/content/schedule", headers=h["owner"], json={"source_id": sid})
+    await calendar.publish_due(oid, datetime.now(UTC) + timedelta(days=60))
+    res = (await client.get("/org/content/results?days=30", headers=h["staff"])).json()
+    assert (res["recordings"], res["videos"]) == (4, 3) and res["published"] == 30 and res["approved"] == 30
+    assert res["approved_as_written"] == 29 and res["approved_as_written_pct"] == 97 and res["turnaround_minutes"] is not None
+    async with tenant_session(oid) as conn:
+        assert (await conn.execute(text("select count(*) from app.events where type = 'content.published'"))).scalar_one() == 30
+        await billing.save_plan(conn, oid, billing.PricingPlan(retainer=Decimal(15000), included={"content_videos": 2},
+                                                               overage={"content_videos": Decimal(4000)}))
+        stmt = await billing.generate_statement(conn, oid, *billing.month_bounds(datetime.now(UTC).date()))
+        line = (await conn.execute(text("select description, quantity, amount from app.statement_lines where statement_id = :s and kind = 'overage'"),
+                                   {"s": stmt})).one()
+        report = await billing.month_report(conn, *billing.month_bounds(datetime.now(UTC).date()))
+    assert line.quantity == 1 and line.amount == Decimal(4000) and "Content videos beyond the 2 included (3 used)" in line.description
+    assert report["content"]["videos"] == 3 and report["content"]["published"] == 30
+    from agentry.reports import render
+    _subject, body = render("SmileCraft", report, ["content_repurposing"])
+    assert "Posts: " in body and "30 published" in body

@@ -61,6 +61,17 @@ Measured on 30 Oct with the real AI on the 45-minute sample: **10 moments, 30 po
 
 Everything is in the audit log. Deleting a recording deletes its file, transcript, moments, posts and images (posts already published stay on the platforms).
 
+## Results and billing (6.6)
+
+- **Content page** (last 30 days): recordings, posts written, **approved without changes** (the quality measure: how often a
+  person approved a post as written), and the median time from upload to drafts.
+- **Reports** (monthly, and the monthly email): posts written from how many recordings, posts published, approved without changes.
+- **Dashboard tile:** *Posts published* (metric `posts_published`, from the `content.published` event).
+- **Billing:** the plan editor in HQ has *Videos included (content)* and *Per extra video*; the statement adds a
+  "Content videos beyond the N included" line. The sample podcast is never billed.
+- **Cost to serve (HQ):** transcription cost per recording is added to the client's margin.
+
 ## What's next
 
-6.5: real publishing (LinkedIn and Instagram first, through the platforms' APIs), 6.6: results (approved without edits, published, turnaround) on Reports and a videos-per-month meter for the retainer. v2: short vertical clips, newsletter and blog outputs.
+6.5: real publishing (LinkedIn and Instagram first, through the platforms' APIs). v2: short vertical clips, newsletter
+and blog outputs, engagement metrics feeding back into which moments are picked.
