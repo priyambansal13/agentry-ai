@@ -9,11 +9,13 @@ from typing import Any
 from dbos import DBOS, DBOSConfig, SetWorkflowID
 from sqlalchemy import text
 
+from agentry import telegram_team
 from agentry.automations import load_all
 from agentry.automations.cold_email.sending import send_cold_emails
 from agentry.automations.content.calendar import publish_scheduled
 from agentry.automations.inbox_triage.digest import schedule_digests
 from agentry.config import settings
+from agentry.connectors import telegram
 from agentry.db import system_session
 from agentry.metrics import rollup, sync_definitions
 from agentry.worker.billing_jobs import (
@@ -30,10 +32,12 @@ from agentry.worker.delivery import poll_gmail, poll_outlook, renew_gmail_watche
 from agentry.worker.handlers import HANDLERS
 from agentry.worker.sales_jobs import check_sales_inbox
 from agentry.worker.sequence_handlers import sequence_watchdog
+from agentry.worker.telegram_jobs import poll_forever
 
 load_all()  # register every automation's event handlers before DBOS launches
 
 EVENTS_QUEUE = "events"
+BACKGROUND: set = set()  # long-running tasks (Telegram polling), referenced so they aren't garbage-collected
 
 
 @DBOS.step()
@@ -94,6 +98,15 @@ async def run() -> None:
     DBOS(config=DBOSConfig(name="agentry", system_database_url=settings.dbos_database_url, dbos_system_schema="dbos"))
     DBOS.launch()
     await DBOS.register_queue_async(EVENTS_QUEUE, worker_concurrency=8)
+    if telegram.mode() == "polling":  # local development: no public address for Telegram to call
+        import asyncio
+        _telegram_task = asyncio.create_task(poll_forever())
+    if telegram_team.enabled() and telegram.mode() == "webhook":  # production: Telegram calls us (polling locally)
+        try:
+            await telegram.set_webhook(settings.telegram_bot_token, f"{settings.api_public_url.rstrip('/')}/webhooks/telegram/agentry",
+                                       settings.telegram_webhook_secret)
+        except telegram.TelegramError as e:
+            print(f"telegram: couldn't set the team bot webhook: {e}")
     await DBOS.apply_schedules_async([
         {"schedule_name": "dispatch-outbox", "workflow_fn": dispatch_outbox, "schedule": "*/5 * * * * *",
          "context": None, "automatic_backfill": False, "cron_timezone": None, "queue_name": None},

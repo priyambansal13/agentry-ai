@@ -145,23 +145,31 @@ async def get_prefs(ctx: Annotated[OrgContext, Depends(require("dashboard", "rea
     async with tenant_session(ctx.org_id) as conn:
         p = (await conn.execute(text("select prefs from app.notification_preferences where user_id = :u"), {"u": ctx.principal.user_id})).scalar_one_or_none()
     wa = await whatsapp_alerts(ctx.org_id) is not None
-    return {"prefs": {k: (p or {}).get(k, default) for k, default in kinds.items()},
-            "channels": ["email", "whatsapp"] if wa else ["email"], "whatsapp_to": (p or {}).get("whatsapp_to")}
+    tg = await _telegram_linked(ctx)
+    channels = ["email"] + (["whatsapp"] if wa else []) + (["telegram"] if tg else [])
+    return {"prefs": {k: (p or {}).get(k, default) for k, default in kinds.items() if k != "cards" or tg},
+            "channels": channels, "whatsapp_to": (p or {}).get("whatsapp_to")}
+
+
+async def _telegram_linked(ctx: OrgContext) -> bool:
+    async with tenant_session(ctx.org_id) as conn:
+        return bool((await conn.execute(text("select 1 from app.telegram_links where user_id = :u"), {"u": ctx.principal.user_id})).first())
 
 
 @router.put("/org/notifications")
 async def set_prefs(prefs: dict[str, list[str]], ctx: Annotated[OrgContext, Depends(require("dashboard", "read"))]) -> dict:
     from agentry.notify.alerts import whatsapp_alerts
     kinds = await _my_kinds(ctx)
-    allowed = {"email", "whatsapp"} if await whatsapp_alerts(ctx.org_id) else {"email"}
-    clean = {k: [c for c in v if c in allowed] for k, v in prefs.items() if k in kinds}
+    allowed = {"email"} | ({"whatsapp"} if await whatsapp_alerts(ctx.org_id) else set()) | ({"telegram"} if await _telegram_linked(ctx) else set())
+    clean = {k: [c for c in v if c in allowed and (k != "cards" or c == "telegram")] for k, v in prefs.items() if k in kinds}
     async with tenant_session(ctx.org_id) as conn:
         old = (await conn.execute(text("select prefs from app.notification_preferences where user_id = :u"), {"u": ctx.principal.user_id})).scalar_one_or_none() or {}
         merged = {**old, **clean}
         await conn.execute(text("""insert into app.notification_preferences (user_id, org_id, prefs) values (:u, :o, cast(:p as jsonb))
             on conflict (user_id, org_id) do update set prefs = excluded.prefs"""),
             {"u": ctx.principal.user_id, "o": ctx.org_id, "p": json.dumps(merged)})
-    return {"prefs": {k: merged.get(k, default) for k, default in kinds.items()}}
+    linked = await _telegram_linked(ctx)
+    return {"prefs": {k: merged.get(k, default) for k, default in kinds.items() if k != "cards" or linked}}
 
 
 class WhatsAppNumber(BaseModel):
@@ -294,3 +302,33 @@ async def hq_billing(_: Annotated[Principal, Depends(require_staff)], months: An
 
 def _dt(d: date) -> datetime:
     return datetime(d.year, d.month, d.day, tzinfo=UTC)
+
+
+
+# ---------- Telegram: link this person to Agentry's team bot ----------
+
+@router.get("/org/telegram")
+async def telegram_status(ctx: Annotated[OrgContext, Depends(require("dashboard", "read"))]) -> dict:
+    from agentry import telegram_team
+    return await telegram_team.link_status(ctx.org_id, ctx.principal.user_id)
+
+
+@router.post("/org/telegram/link")
+async def telegram_link(ctx: Annotated[OrgContext, Depends(require("dashboard", "read"))]) -> dict:
+    """A one-time t.me link (15 minutes): opening it in Telegram ties this person's chat to the bot, in this business."""
+    from agentry import telegram_team
+    from agentry.connectors.telegram import TelegramError
+    try:
+        return await telegram_team.create_link(ctx.org_id, ctx.principal.user_id)
+    except TelegramError as e:
+        raise HTTPException(503, str(e)) from e
+
+
+@router.delete("/org/telegram")
+async def telegram_unlink(request: Request, ctx: Annotated[OrgContext, Depends(require("dashboard", "read"))]) -> dict:
+    from agentry import telegram_team
+    await telegram_team.unlink(ctx.org_id, ctx.principal.user_id)
+    async with tenant_session(ctx.org_id) as conn:
+        await audit.record(conn, org_id=ctx.org_id, actor_type=ctx.actor_type, actor_user_id=ctx.principal.user_id,
+                           action="telegram.unlinked", target_type="user", target_id=ctx.principal.user_id, ip=client_ip(request))
+    return {"linked": False}

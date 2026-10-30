@@ -18,7 +18,10 @@ from agentry.permissions import can
 # Telegram goes to the organisation's chat when configured.
 NOTIFY_KINDS: dict[str, dict] = {
     "urgent": {"permission": ("conversation", "act"), "default_roles": ("owner", "manager"),
-               "automations": ("inbox_triage", "website_chat", "whatsapp_assistant")},
+               "automations": ("inbox_triage", "website_chat", "whatsapp_assistant", "telegram_assistant")},
+    # every new Needs-you card, with Approve / Edit / Discard buttons: Telegram only (agentry/telegram_team.py)
+    "cards": {"permission": ("dashboard", "read"), "default_roles": ("owner", "manager", "staff", "finance"), "automations": None,
+              "telegram_only": True},
     # a second alert when an urgent email is still unanswered (inbox triage: escalate_after_minutes)
     "escalation": {"permission": ("conversation", "act"), "default_roles": ("owner",), "automations": ("inbox_triage",)},
     "digest": {"permission": ("conversation", "read"), "default_roles": ("owner", "manager"), "automations": ("inbox_triage",)},
@@ -38,7 +41,7 @@ def kinds_for(role: str | None, automations: list[str], is_staff: bool = False) 
         if not (is_staff or can(role, *k["permission"])):
             continue
         default_on = bool(role) and any(r.strip() in k["default_roles"] for r in role.split(","))
-        out[kind] = ["email"] if default_on else []
+        out[kind] = (["telegram"] if k.get("telegram_only") else ["email"]) if default_on else []
     return out
 
 
@@ -67,8 +70,9 @@ async def recipients(org_id: str, kind: str, exclude_roles: tuple[str, ...] = ()
     k = NOTIFY_KINDS[kind]
     async with system_session() as conn:
         rows = (await conn.execute(
-            text("""select u.email, m.role, p.prefs from auth.member m join auth."user" u on u.id = m."userId"
+            text("""select u.email, m.role, p.prefs, t.chat_id from auth.member m join auth."user" u on u.id = m."userId"
                     left join app.notification_preferences p on p.user_id = u.id and p.org_id = m."organizationId"
+                    left join app.telegram_links t on t.user_id = u.id and t.org_id = m."organizationId"
                     where m."organizationId" = :o"""), {"o": org_id})).all()
     out = []
     for r in rows:
@@ -77,7 +81,7 @@ async def recipients(org_id: str, kind: str, exclude_roles: tuple[str, ...] = ()
         prefs = r.prefs or {}
         channels = prefs[kind] if kind in prefs else (["email"] if any(x.strip() in k["default_roles"] for x in r.role.split(",")) else [])
         if channels:
-            out.append({"email": r.email, "whatsapp_to": prefs.get("whatsapp_to"), "channels": channels})
+            out.append({"email": r.email, "whatsapp_to": prefs.get("whatsapp_to"), "telegram_chat": r.chat_id, "channels": channels})
     return out
 
 
@@ -104,7 +108,12 @@ async def send_owner_alert(org_id: str, subject: str, body: str, *, channel: str
     wa = await whatsapp_alerts(org_id) if any("whatsapp" in p["channels"] for p in people) else None
     used = set()
     for p in people:
-        sent_wa = False
+        sent_wa = sent_tg = False
+        if "telegram" in p["channels"] and p["telegram_chat"]:
+            from agentry import telegram_team
+            sent_tg = telegram_team.enabled() and await telegram_team.send_alert(p["telegram_chat"], subject, body)
+            if sent_tg:
+                used.add("telegram")
         if "whatsapp" in p["channels"] and wa and p["whatsapp_to"]:
             from agentry.connectors.whatsapp import WhatsAppError, send_template
             try:
@@ -113,7 +122,8 @@ async def send_owner_alert(org_id: str, subject: str, body: str, *, channel: str
                 used.add("whatsapp")
             except WhatsAppError:
                 pass  # falls back to email below
-        if "email" in p["channels"] or ("whatsapp" in p["channels"] and not sent_wa):
+        fell_back = ("whatsapp" in p["channels"] and not sent_wa) or ("telegram" in p["channels"] and not sent_tg and len(p["channels"]) == 1)
+        if "email" in p["channels"] or fell_back:
             await asyncio.to_thread(send_email, p["email"], subject, body)
             used.add("email")
     return "+".join(sorted(used)) or "none"

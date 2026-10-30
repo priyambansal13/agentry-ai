@@ -15,7 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 # Inbound beats outbound; hot beats cold (receptionist > chat > speed-to-lead > WhatsApp > reactivation > cold email).
-PRIORITY = {"ai_receptionist": 60, "website_chat": 50, "whatsapp_assistant": 45, "speed_to_lead": 40, "inbox_triage": 35,
+PRIORITY = {"ai_receptionist": 60, "website_chat": 50, "whatsapp_assistant": 45, "telegram_assistant": 45, "speed_to_lead": 40, "inbox_triage": 35,
             "invoice_follow_up": 30, "lead_reactivation": 20, "cold_email": 10}
 CONSENT_REQUIRED = {"whatsapp", "sms", "voice"}  # email to businesses relies on legitimate interest + unsubscribe
 # "STOP" counts only as a reply on its own ("stop by tomorrow" is not an opt-out); clear phrases count anywhere.

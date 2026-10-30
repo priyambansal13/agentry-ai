@@ -163,7 +163,7 @@ async def reply(conversation_id: str, r: Reply, request: Request, ctx: Annotated
             where conversation_id = cast(:c as uuid) and status = 'pending' and kind in ('reply_draft', 'handoff')"""),
             {"u": ctx.principal.user_id, "c": conversation_id})
         await conn.execute(text("""update app.conversations set last_message_at = now(),
-            status = case when channel in ('web_chat', 'whatsapp') then 'handed_off' else status end where id = cast(:c as uuid)"""),
+            status = case when channel in ('web_chat', 'whatsapp', 'telegram') then 'handed_off' else status end where id = cast(:c as uuid)"""),
             {"c": conversation_id})
         await audit.record(conn, org_id=ctx.org_id, actor_type=ctx.actor_type, actor_user_id=ctx.principal.user_id,
                            action="conversation.replied", target_type="conversation", target_id=conversation_id, ip=client_ip(request))
@@ -517,33 +517,15 @@ class Decision(BaseModel):
 
 @router.post("/approvals/{approval_id}")
 async def decide(approval_id: str, d: Decision, request: Request, ctx: Annotated[OrgContext, Depends(current_org)]) -> dict:
+    from agentry.approvals import CardError
+    from agentry.approvals import decide as decide_card
     async with tenant_session(ctx.org_id) as conn:
-        a = (await conn.execute(text("select * from app.approvals where id = :id for update"), {"id": approval_id})).mappings().first()
-        if not a:
-            raise HTTPException(404, "not found")
-        _check(ctx, a["automation_key"], "act")
-        if a["status"] != "pending":
-            raise HTTPException(409, f"already {a['status']}")
-        if d.action == "approve" and a["kind"] == "outbound_draft" and (why := await channel_problem(
-                ctx.org_id, a["payload"].get("channel", ""), a["payload"].get("template"))):
-            raise HTTPException(409, f"Not sent: {why}. Discard this card, or fix that in Settings → Connections and approve again.")
-        edited = d.body is not None and d.body.strip() != (a["body"] or "").strip()
-        status = {"approve": "edited" if edited else "approved", "reject": "rejected", "resolve": "resolved"}[d.action]
-        await conn.execute(text("""update app.approvals set status = :s, body = coalesce(:b, body), decided_by = :u,
-                                   decided_at = now() where id = :id"""),
-                           {"s": status, "b": d.body, "u": ctx.principal.user_id, "id": approval_id})
-        if d.action == "approve" and a["kind"] == "reply_draft" and a["conversation_id"]:  # outbound drafts: recorded on delivery
-            # Local mailbox: approving records the reply as sent by the human. Gmail/Outlook will send from the draft.
-            await conn.execute(text("""insert into app.messages (org_id, conversation_id, direction, author, body, metadata)
-                                       values (:o, :c, 'out', 'human', :b, jsonb_build_object('approval_id', cast(:a as text),
-                                       'sent_by', jsonb_build_object('user_id', cast(:u as text), 'name', cast(:n as text), 'staff', cast(:st as boolean))))"""),
-                               {"o": ctx.org_id, "c": a["conversation_id"], "b": d.body or a["body"], "a": approval_id,
-                                "u": ctx.principal.user_id, "n": ctx.principal.name, "st": ctx.principal.is_staff})
-            await conn.execute(text("update app.conversations set last_message_at = now() where id = :c"), {"c": a["conversation_id"]})
-        await audit.record(conn, org_id=ctx.org_id, actor_type=ctx.actor_type, actor_user_id=ctx.principal.user_id,
-                           action=f"approval.{status}", target_type="approval", target_id=approval_id, ip=client_ip(request),
-                           metadata={"kind": a["kind"]})
-        await emit(conn, ctx.org_id, "approval.decided", {"approval_id": approval_id, "status": status, "kind": a["kind"]})
+        try:
+            status = await decide_card(conn, ctx.org_id, approval_id, d.action, d.body, user_id=ctx.principal.user_id, name=ctx.principal.name,
+                                       is_staff=ctx.principal.is_staff, actor_type=ctx.actor_type,
+                                       can_act=lambda r: ctx.can(r, "act"), ip=client_ip(request))
+        except CardError as e:
+            raise HTTPException(e.status, str(e)) from e
     return {"id": approval_id, "status": status}
 
 

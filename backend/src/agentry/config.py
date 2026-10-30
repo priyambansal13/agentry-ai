@@ -59,7 +59,11 @@ class Settings(BaseSettings):
     mail_from: str = Field("Agentry <hello@agentry.dev>", validation_alias=AliasChoices("AGENTRY_MAIL_FROM", "MAIL_FROM"))
     ops_email: str = "ops@agentry.dev"  # where new demo requests are announced
     ops_telegram_chat_id: str | None = None  # Agentry's own ops alerts (agentry alerts)
-    telegram_bot_token: str | None = None  # AGENTRY_TELEGRAM_BOT_TOKEN, for owner alerts
+    telegram_bot_token: str | None = None  # AGENTRY_TELEGRAM_BOT_TOKEN: Agentry's team bot (alerts, cards, Tools menu)
+    telegram_webhook_secret: str = "dev-only-telegram-secret"  # checked on every webhook call (X-Telegram-Bot-Api-Secret-Token)
+    # "polling": the worker asks Telegram for updates every few seconds (local development: no public address);
+    # "webhook": Telegram calls {api_public_url}/webhooks/telegram/... (production). Default: webhook when the API is public.
+    telegram_mode: str | None = None
     widget_secret: str = "dev-only-widget-secret-change-me"  # signs website-chat conversation tokens
 
     # Connections (Phase 1b)

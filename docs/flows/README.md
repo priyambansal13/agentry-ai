@@ -19,6 +19,7 @@ Read in this order:
 | | [Speed-to-lead](agents/speed-to-lead.md) | A form lead gets a message within a minute |
 | | [AI receptionist (voice)](agents/ai-receptionist.md) | Phone and browser calls answered, recorded, summarised, call-back cards |
 | | [Personal cold email](agents/cold-email.md) | Prospect lists, fact-checked first lines, review, sending and replies (test mode) |
+| | [Telegram](agents/telegram.md) | Customers on the business's own bot; the team bot with cards, alerts and a Tools menu |
 | | [Content repurposing](agents/content-repurposing.md) | One recording → 30 posts with quote cards, review, calendar (test-mode publishing) |
 
 **Roles used everywhere.** Client roles come from `config/roles.json`; Agentry staff can do everything, and every staff action is audited.

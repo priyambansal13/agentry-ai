@@ -37,6 +37,8 @@ FEATURES: dict[str, Feature] = {
     "speed_to_lead": Feature(pages=("needs-you", "conversations", "leads", "calendar", "lead_forms"), connections=("whatsapp", "gmail"),
                              steps=("connect", "settings", "persona", "compliance"), go_live=("channel",)),
     # goes live once Agentry assigns it a phone number (HQ -> client -> Phone number; PHASE-4-VOICE.md 4.3)
+    "telegram_assistant": Feature(pages=("needs-you", "conversations", "leads", "knowledge", "calendar"), connections=("telegram",),
+                                  steps=("connect", "knowledge", "persona"), go_live=("telegram",)),
     "ai_receptionist": Feature(pages=("needs-you", "conversations", "leads", "knowledge", "calendar"), connections=("phone",),
                                steps=("knowledge", "settings", "persona", "test"), go_live=("knowledge", "test", "phone")),
     # 5.1-5.3: lists, research and reviewed first lines; nothing is sent until sending (5.4) is built
@@ -50,7 +52,7 @@ STEP_ORDER = ["profile", "plan", "team", "connect", "import", "knowledge", "sett
 GO_LIVE_LABELS = {
     "profile": "Business profile", "knowledge": "Knowledge & offers", "test": "Test your agent", "gmail": "Gmail connected",
     "whatsapp": "WhatsApp connected", "channel": "Gmail or WhatsApp connected", "invoices": "Invoices imported",
-    "phone": "Phone number assigned", "mailbox": "Gmail or Outlook connected",
+    "phone": "Phone number assigned", "mailbox": "Gmail or Outlook connected", "telegram": "Telegram bot connected",
 }
 
 
@@ -81,7 +83,7 @@ async def go_live_checks(conn: AsyncConnection, required: list[str]) -> list[dic
     done = {
         "profile": steps.get("profile") in ("done", "skipped"), "knowledge": steps.get("knowledge") in ("done", "skipped"),
         "test": steps.get("test") in ("done", "skipped"), "gmail": "gmail" in conns, "whatsapp": "whatsapp" in conns,
-        "channel": bool(conns & {"gmail", "whatsapp"}), "invoices": bool(invoices), "phone": "phone" in conns, "mailbox": bool(conns & {"gmail", "outlook"}),
+        "channel": bool(conns & {"gmail", "whatsapp"}), "invoices": bool(invoices), "phone": "phone" in conns, "mailbox": bool(conns & {"gmail", "outlook"}), "telegram": "telegram" in conns,
     }
     return [{"key": k, "label": GO_LIVE_LABELS[k], "done": done[k]} for k in required]
 

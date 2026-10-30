@@ -273,3 +273,37 @@ async def disconnect(connection_id: str, request: Request, ctx: Annotated[OrgCon
                            action=f"connection.{row.provider}.disconnected", target_type="connection", target_id=connection_id,
                            ip=client_ip(request))
     return {"disconnected": True, "provider": row.provider, "view": public_view({"id": connection_id, "provider": row.provider})}
+
+
+# ---------- Telegram: the business's own bot, for its customers ----------
+
+class TelegramBot(BaseModel):
+    bot_token: Annotated[str, Field(min_length=20, max_length=100, pattern=r"^\d+:[\w-]+$")]
+
+
+@router.post("/org/connections/telegram", status_code=201, dependencies=[Depends(require_connection("telegram"))])
+async def connect_telegram(body: TelegramBot, request: Request, ctx: Annotated[OrgContext, Depends(require("connection", "manage"))]) -> dict:
+    """The token BotFather gave the business. Agentry checks it, then receives the bot's messages (webhook or polling)."""
+    from agentry.connectors import telegram
+    try:
+        me = await telegram.get_me(body.bot_token)
+    except telegram.TelegramError as e:
+        raise HTTPException(422, "Telegram didn't accept that token. Copy it again from @BotFather.") from e
+    secret = telegram.new_secret()
+    cid = await save_connection(ctx.org_id, provider="telegram", account_ref=str(me["id"]), display_name=f"@{me['username']}",
+                                secret={"bot_token": body.bot_token}, state={"webhook_secret": secret, "username": me["username"]},
+                                connected_by=ctx.principal.user_id)
+    mode = telegram.mode()
+    try:
+        if mode == "webhook":
+            await telegram.set_webhook(body.bot_token, f"{settings.api_public_url.rstrip('/')}/webhooks/telegram/{cid}", secret)
+        else:
+            await telegram.delete_webhook(body.bot_token)  # polling can't run while a webhook is set
+    except telegram.TelegramError as e:
+        raise HTTPException(502, f"Connected, but Telegram refused the delivery setup: {e}") from e
+    async with tenant_session(ctx.org_id) as conn:
+        await audit.record(conn, org_id=ctx.org_id, actor_type=ctx.actor_type, actor_user_id=ctx.principal.user_id,
+                           action="connection.telegram.connected", target_type="connection", target_id=cid, ip=client_ip(request))
+        await conn.execute(text("""insert into app.automation_instances (org_id, template_key, status, config)
+            values (:o, 'telegram_assistant', 'approval_mode', '{}') on conflict (org_id, template_key) do nothing"""), {"o": ctx.org_id})
+    return {"connected": True, "username": me["username"], "link": f"https://t.me/{me['username']}", "delivery": mode}

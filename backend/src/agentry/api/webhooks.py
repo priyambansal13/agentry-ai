@@ -137,3 +137,32 @@ async def billing_stripe(request: Request) -> dict:
     async with tenant_session(meta["org_id"]) as conn:
         await mark_paid(conn, meta["statement_id"], f"stripe:{ev['data']['object']['id']}")
     return {"ok": True}
+
+
+# ---------- Telegram: Agentry's team bot and each business's own bot (production: webhook mode) ----------
+
+def _tg_secret_ok(request: Request, expected: str | None) -> bool:
+    got = request.headers.get("x-telegram-bot-api-secret-token") or ""
+    return bool(expected) and hmac.compare_digest(got, expected)
+
+
+@router.post("/telegram/agentry")
+async def telegram_team(request: Request) -> dict:
+    from agentry import telegram_team
+    if not _tg_secret_ok(request, settings.telegram_webhook_secret):
+        raise HTTPException(403, "bad secret")
+    await telegram_team.handle_update(await request.json())
+    return {"ok": True}
+
+
+@router.post("/telegram/{connection_id}")
+async def telegram_business(connection_id: str, request: Request) -> dict:
+    from agentry.connectors import telegram
+    from agentry.connectors.store import _with_secret
+    async with system_session() as conn:
+        row = (await conn.execute(text("""select * from app.connections where id::text = :i and provider = 'telegram' and status <> 'revoked'"""),
+                                  {"i": connection_id})).mappings().first()
+    c = _with_secret(row)
+    if not c or not _tg_secret_ok(request, (c.get("state") or {}).get("webhook_secret")):
+        raise HTTPException(403, "bad secret")
+    return {"stored": await telegram.ingest_customer(c, await request.json())}

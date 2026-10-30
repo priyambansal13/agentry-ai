@@ -40,6 +40,7 @@ def load_all() -> None:
         invoice_follow_up,
         lead_reactivation,
         speed_to_lead,
+        telegram_assistant,
         website_chat,
         whatsapp_assistant,
     )
@@ -49,4 +50,5 @@ def load_all() -> None:
         inbox_jobs,  # noqa: F401 - writing style from sent mail
         sales_jobs,  # noqa: F401 - Agentry's own demo requests and follow-ups
         sequence_handlers,  # noqa: F401
+        telegram_jobs,  # noqa: F401 - Telegram cards, content-ready messages, polling
     )

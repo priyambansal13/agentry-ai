@@ -83,9 +83,12 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
                 <p className="text-sm text-muted">{has("inbox_triage") ? "Your agent sorts new mail, labels it and drafts replies in your own Gmail. It never sends without you." : "Reminders go out from your own Gmail address."}</p></div>}
               {p.connections.includes("whatsapp") && <div><h3 className="font-semibold">WhatsApp Business</h3>
                 <p className="text-sm text-muted">Messages go out from your own WhatsApp Business number.</p></div>}
+              {p.connections.includes("telegram") && <div><h3 className="font-semibold">Telegram bot</h3>
+                <p className="text-sm text-muted">Create a bot with @BotFather (two minutes) and paste its token: your assistant answers customers who message it.</p></div>}
               {p.connections.includes("gateways") && <div><h3 className="font-semibold">Razorpay or Stripe</h3>
                 <p className="text-sm text-muted">Payments are matched to invoices automatically, so reminders stop the moment a customer pays.</p></div>}
               {p.connections.length > 0 && <Link href="/settings/connections" className="inline-block font-semibold underline">Open Connections →</Link>}
+              <p className="text-sm text-muted">Want alerts and approvals on your phone? Connect your own Telegram under <Link href="/settings/account" className="underline">Account &amp; notifications</Link>.</p>
               <MarkDone step="connect" />
             </div>)}
           {step === "import" && (<div className="space-y-4"><p className="text-ink-soft">Send your old leads, contacts or invoices (CSV, Excel or Google Sheet) to your account manager and we&apos;ll import and clean them.</p><MarkDone step="import" allowSkip /></div>)}

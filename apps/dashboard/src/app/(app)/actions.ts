@@ -579,3 +579,18 @@ export async function uploadBrandLogo(form: FormData) {
 export async function learnBrandVoice(posts: string) {
   return run<{ learned: boolean; samples: number; voice?: string; reason?: string }>("/org/content/brand/voice", { method: "POST", body: { posts } }, ["/content/brand"]);
 }
+
+// ---------- Telegram ----------
+
+export async function connectTelegram(botToken: string) {
+  return run<{ username: string; link: string; delivery: string }>("/org/connections/telegram", { method: "POST", body: { bot_token: botToken } },
+    ["/settings/connections", "/automations", "/onboarding"]);
+}
+
+export async function telegramLinkUrl() {
+  return run<{ url: string; expires_in_minutes: number }>("/org/telegram/link", { method: "POST" }, []);
+}
+
+export async function unlinkTelegram() {
+  return run<{ linked: boolean }>("/org/telegram", { method: "DELETE" }, ["/settings/account"]);
+}

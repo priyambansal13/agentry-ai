@@ -1,14 +1,14 @@
 "use client";
 
 import { Badge, Button, Card, Input, Label } from "@agentry/ui";
-import { Mail, MessageCircle } from "lucide-react";
+import { Mail, MessageCircle, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { connectWhatsApp, disconnect, setAlertTemplate, setInboxRouting, startGmail, startOutlook, syncGmail, syncOutlook, testWhatsApp } from "@/app/(app)/actions";
+import { connectTelegram, connectWhatsApp, disconnect, setAlertTemplate, setInboxRouting, startGmail, startOutlook, syncGmail, syncOutlook, testWhatsApp } from "@/app/(app)/actions";
 import { timeAgo } from "@/lib/format";
 
 export type Connection = {
-  id: string; provider: "gmail" | "whatsapp" | "outlook" | "razorpay" | "stripe" | "phone"; account_ref: string; display_name: string | null;
+  id: string; provider: "gmail" | "whatsapp" | "outlook" | "razorpay" | "stripe" | "phone" | "telegram"; account_ref: string; display_name: string | null;
   status: "connected" | "error"; last_sync_at: string | null; last_error: string | null; created_at: string;
   assign_to?: string | null; baseline_minutes?: number | null;
 };
@@ -215,6 +215,54 @@ export function WhatsAppCard({ conn, available, canManage }: { conn?: Connection
               <div className="sm:col-span-2"><Label htmlFor="wa-tok">Access token</Label><Input id="wa-tok" type="password" autoComplete="off" required value={form.access_token} onChange={(e) => setForm({ ...form, access_token: e.target.value })} />
                 <p className="mt-1 text-xs text-muted">Stored encrypted; never shown again. Your account manager usually does this step.</p></div>
               <div className="sm:col-span-2"><Button type="submit" disabled={pending}>{pending ? "Checking with Meta…" : "Connect WhatsApp"}</Button></div>
+            </form>
+          ) : null}
+          <div className="mt-3"><Msg m={msg} /></div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+
+/** The business's own Telegram bot: its customers chat with the assistant there (reply-only: bots can't message first). */
+export function TelegramCard({ conn, canManage }: { conn?: Connection; canManage: boolean }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [token, setToken] = useState("");
+  const username = conn?.display_name?.replace(/^@/, "");
+  return (
+    <Card className="p-6">
+      <div className="flex items-start gap-4">
+        <Send className="mt-1 h-6 w-6 shrink-0" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2"><h2 className="font-display text-xl font-bold">Telegram</h2>{conn && <Status c={conn} />}</div>
+          <p className="mt-1 text-sm text-muted">Your AI assistant answers customers who message your Telegram bot: questions, bookings, and a hand-over to
+            you when needed. It starts in approval mode.</p>
+          {conn ? (
+            <div className="mt-4 space-y-3 text-sm">
+              <p><span className="text-muted">Bot:</span> <a className="font-semibold underline" href={`https://t.me/${username}`} target="_blank" rel="noreferrer noopener">@{username}</a>
+                <span className="ml-2 text-muted">Share this link with customers, or put it on your website.</span></p>
+              {conn.last_error && <p className="text-danger">{conn.last_error}</p>}
+              {canManage && <Button type="button" variant="ghost" disabled={pending}
+                onClick={() => confirm("Disconnect the Telegram bot? Customers' messages will stop reaching Agentry.") && start(async () => { await disconnect(conn.id); router.refresh(); })}>Disconnect</Button>}
+            </div>
+          ) : canManage ? (
+            <form className="mt-4 space-y-3" onSubmit={(e) => { e.preventDefault(); start(async () => {
+              const r = await connectTelegram(token.trim());
+              setMsg(r.ok ? { ok: true, text: `Connected @${r.data.username}` } : { ok: false, text: r.error });
+              if (r.ok) { setToken(""); router.refresh(); }
+            }); }}>
+              <ol className="list-decimal space-y-1 pl-5 text-sm text-ink-soft">
+                <li>In Telegram, open <a className="underline" href="https://t.me/BotFather" target="_blank" rel="noreferrer noopener">@BotFather</a> and send <code>/newbot</code>.</li>
+                <li>Give it your business name and a username ending in “bot”.</li>
+                <li>Copy the token BotFather sends and paste it here.</li>
+              </ol>
+              <div><Label htmlFor="tg-token">Bot token</Label><Input id="tg-token" type="password" autoComplete="off" required value={token}
+                onChange={(e) => setToken(e.target.value)} placeholder="123456789:AA…" />
+                <p className="mt-1 text-xs text-muted">Stored encrypted; never shown again.</p></div>
+              <Button type="submit" disabled={pending || token.trim().length < 20}>{pending ? "Checking with Telegram…" : "Connect Telegram"}</Button>
             </form>
           ) : null}
           <div className="mt-3"><Msg m={msg} /></div>

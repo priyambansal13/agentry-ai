@@ -1,6 +1,6 @@
 import { Card, CardBody, CardHeader, CardTitle } from "@agentry/ui";
 import { redirect } from "next/navigation";
-import { NotificationPrefs, PasswordForm, WhatsAppNumberForm } from "@/components/settings-forms";
+import { NotificationPrefs, PasswordForm, TelegramLink, WhatsAppNumberForm } from "@/components/settings-forms";
 import { hasPassword } from "@/lib/clients";
 import { can } from "@/lib/permissions";
 import { api, getActiveOrg, getMe } from "@/lib/session";
@@ -16,7 +16,10 @@ export default async function AccountSettings({ searchParams }: { searchParams: 
   const { saved } = await searchParams;
   const [me, active] = await Promise.all([getMe(), getActiveOrg()]);
   if (!active) redirect("/home");
-  const n = await api<{ prefs: Record<string, string[]>; channels: string[]; whatsapp_to: string | null }>("/org/notifications", { orgId: active.id });
+  const [n, tg] = await Promise.all([
+    api<{ prefs: Record<string, string[]>; channels: string[]; whatsapp_to: string | null }>("/org/notifications", { orgId: active.id }),
+    api<{ available: boolean; bot: string | null; linked: boolean; username: string | null }>("/org/telegram", { orgId: active.id }),
+  ]);
   const canExport = me.is_staff || can(active.role, "data", "export");
   const withPassword = await hasPassword(me.user.id);
   return (
@@ -28,6 +31,7 @@ export default async function AccountSettings({ searchParams }: { searchParams: 
           : <p className="text-sm text-muted">There are no alerts for your role. Your dashboard and reports are always up to date.</p>}
         <p className="mt-3 text-xs text-muted">These settings are yours alone; teammates choose their own.</p>
       </CardBody></Card>
+      <Card><CardHeader><CardTitle>Telegram</CardTitle></CardHeader><CardBody><TelegramLink status={tg} /></CardBody></Card>
       <Card><CardHeader><CardTitle>Password</CardTitle><span className="text-sm text-muted">{me.user.email}</span></CardHeader><CardBody>
         {saved && SAVED[saved] && <p role="status" className="mb-4 rounded-xl border-2 border-ink bg-lime px-4 py-2 text-sm text-lime-ink">✓ {SAVED[saved]}</p>}
         <PasswordForm hasPassword={withPassword} />

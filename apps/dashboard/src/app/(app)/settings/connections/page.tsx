@@ -1,6 +1,6 @@
 import { Badge, Card } from "@agentry/ui";
 import { redirect } from "next/navigation";
-import { AlertTemplateForm, type Connection, GmailInboxes, OutlookInboxes, WhatsAppCard } from "@/components/connections";
+import { AlertTemplateForm, type Connection, GmailInboxes, OutlookInboxes, TelegramCard, WhatsAppCard } from "@/components/connections";
 import { GatewayCards } from "@/components/gateway-cards";
 import { can } from "@/lib/permissions";
 import { api, getActiveOrg, getFeatures, getMe, requirePage } from "@/lib/session";
@@ -35,6 +35,7 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
       {show("gmail") && <GmailInboxes conns={d.items.filter((c) => c.provider === "gmail")} available={d.available.gmail} canManage={canManage} people={people} />}
       {show("outlook") && <OutlookInboxes conns={d.items.filter((c) => c.provider === "outlook")} available={d.available.outlook} canManage={canManage} />}
       {show("whatsapp") && <WhatsAppCard conn={find("whatsapp")} available={d.available.whatsapp} canManage={canManage} />}
+      {show("telegram") && <TelegramCard conn={find("telegram")} canManage={canManage} />}
       {find("whatsapp") && canManage && (
         <Card className="p-5"><p className="text-sm font-semibold">WhatsApp alerts</p>
           <p className="mt-1 text-sm text-muted">Urgent alerts and the Monday summary can go to each person&apos;s WhatsApp (they choose on Account &amp; notifications). Meta requires an approved template for this.</p>

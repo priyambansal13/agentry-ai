@@ -109,8 +109,9 @@ async def run_turn(org_id: str, conversation_id: str, user_text: str, *, llm: LL
             await conn.execute(text("""insert into app.messages (org_id, conversation_id, direction, author, body)
                 values (:o, :c, 'in', 'contact', :b)"""), {"o": org_id, "c": conversation_id, "b": user_text})
         if persist_reply:
-            reply_id = str((await conn.execute(text("""insert into app.messages (org_id, conversation_id, direction, author, body, metadata)
-                values (:o, :c, 'out', 'agent', :b, cast(:m as jsonb)) returning id"""),
+            # clock_timestamp: the question above was saved in this same transaction (now() would give both the same time)
+            reply_id = str((await conn.execute(text("""insert into app.messages (org_id, conversation_id, direction, author, body, metadata, created_at)
+                values (:o, :c, 'out', 'agent', :b, cast(:m as jsonb), clock_timestamp()) returning id"""),
                 {"o": org_id, "c": conversation_id, "b": reply,
                  "m": json.dumps({"tools": [{"tool": e["tool"], "args": e["args"]} for e in new_events],
                                   "booking": booking}, default=str)})).scalar_one())

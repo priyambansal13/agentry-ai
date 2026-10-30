@@ -2,9 +2,10 @@
 
 import { Button, Input, Label, PasswordInput } from "@agentry/ui";
 import { useState, useTransition } from "react";
-import { savePassword, saveNotificationPrefs, saveWhatsAppNumber } from "@/app/(app)/actions";
+import { savePassword, saveNotificationPrefs, saveWhatsAppNumber, telegramLinkUrl, unlinkTelegram } from "@/app/(app)/actions";
 
-const LABELS: Record<string, string> = { urgent: "Urgent emails, and chats or WhatsApps that need a person",
+const LABELS: Record<string, string> = { urgent: "Urgent emails, and chats, WhatsApps or Telegram messages that need a person",
+  cards: "Every new Needs-you card, with Approve / Edit / Discard buttons (Telegram only)",
   escalation: "Urgent emails still unanswered after the set time (a second alert)", digest: "Daily inbox digest",
   weekly: "Monday summary of last week (emails sorted, urgent caught, time saved)",
                                          billing: "New statements from Agentry", reports: "Monthly results report (2nd of each month)" };
@@ -78,5 +79,39 @@ export function PasswordForm({ hasPassword }: { hasPassword: boolean }) {
         {msg && <span role="status" className={`text-sm ${msg.ok ? "text-success" : "text-danger"}`}>{msg.text}</span>}
       </div>
     </form>
+  );
+}
+
+
+/** Agentry's team bot: link this person's Telegram (one-time link, 15 minutes), or unlink. */
+export function TelegramLink({ status }: { status: { available: boolean; bot: string | null; linked: boolean; username: string | null } }) {
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [pending, start] = useTransition();
+  if (!status.available) {
+    return <p className="text-sm text-muted">Agentry&apos;s Telegram bot isn&apos;t set up on this server yet.</p>;
+  }
+  return (
+    <div className="space-y-3 text-sm">
+      {status.linked ? (
+        <p>Connected{status.username ? <> as <strong>@{status.username}</strong></> : null} to <a className="underline" href={`https://t.me/${status.bot}`} target="_blank" rel="noreferrer noopener">@{status.bot}</a>.
+          Choose what reaches you there in the table below (the Telegram column).</p>
+      ) : (
+        <p className="text-muted">Get alerts and Needs-you cards on Telegram, approve or edit drafts with one tap, and open a Tools menu for every agent.</p>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {!status.linked && <Button type="button" disabled={pending} onClick={() => start(async () => {
+          const r = await telegramLinkUrl();
+          if (!r.ok) return setMsg({ ok: false, text: r.error });
+          window.open(r.data.url, "_blank", "noopener");
+          setMsg({ ok: true, text: `Telegram opened: tap Start there. The link works for ${r.data.expires_in_minutes} minutes. Then reload this page.` });
+        })}>Connect Telegram</Button>}
+        {status.linked && <Button type="button" variant="secondary" disabled={pending} onClick={() => start(async () => {
+          const r = await unlinkTelegram();
+          setMsg(r.ok ? { ok: true, text: "Disconnected" } : { ok: false, text: r.error });
+          if (r.ok) window.location.reload();
+        })}>Disconnect Telegram</Button>}
+        {msg && <span role="status" className={`text-sm ${msg.ok ? "text-success" : "text-danger"}`}>{msg.text}</span>}
+      </div>
+    </div>
   );
 }

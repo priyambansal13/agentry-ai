@@ -37,6 +37,10 @@ async def send_approved(org_id: str, r: dict) -> dict:
         from agentry.connectors.outlook import OutlookMailbox
         sent_id = await OutlookMailbox().send_reply(org_id, r["conversation_id"], r["body"])
         return {"external_id": f"outlook:{sent_id}", "delivery": "sent"}
+    if r["source"] == "telegram":
+        from agentry.connectors.telegram import send_to_customer
+        sent = await send_to_customer(org_id, int(r["external_ref"].removeprefix("tg:")), r["body"])
+        return {"external_id": f"{r['external_ref']}:{sent}", "delivery": "sent"}
     if r["source"] == "whatsapp":
         from agentry.connectors.whatsapp import send_text, within_window
         if not await within_window(org_id, r["conversation_id"]):
