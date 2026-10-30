@@ -34,6 +34,7 @@ def load_all() -> None:
     """Import every automation package so its template and event handlers register."""
     from agentry.automations import (  # noqa: F401
         ai_receptionist,
+        cold_email,
         inbox_triage,
         invoice_follow_up,
         lead_reactivation,

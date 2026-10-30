@@ -271,6 +271,7 @@ async def list_campaigns(ctx: Annotated[OrgContext, Depends(require("automation"
                    count(e.*) filter (where l.stage = 'engaged') as replied
             from app.campaigns c left join app.sequence_enrollments e on e.sequence_id = c.sequence_id and e.created_at >= c.created_at
             left join app.leads l on l.id = e.subject_id
+            where c.kind = 'reactivation'
             group by c.id order by c.created_at desc"""))).mappings().all()
         elig = await eligibility(conn)
     return {"items": [dict(r) for r in rows], "eligible_now": len(elig["eligible"]), "blocked": elig["blocked"]}

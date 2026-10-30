@@ -18,6 +18,7 @@ Read in this order:
 | | [Lead reactivation](agents/lead-reactivation.md) | Old leads messaged again, paced, replies booked |
 | | [Speed-to-lead](agents/speed-to-lead.md) | A form lead gets a message within a minute |
 | | [AI receptionist (voice)](agents/ai-receptionist.md) | Phone and browser calls answered, recorded, summarised, call-back cards |
+| | [Personal cold email](agents/cold-email.md) | Prospect lists, decision makers, fact-checked first lines, review (sending: next) |
 
 **Roles used everywhere.** Client roles come from `config/roles.json`; Agentry staff can do everything, and every staff action is audited.
 

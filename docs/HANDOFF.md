@@ -1,4 +1,4 @@
-# Handoff: where Agentry stands (2026-10-25)
+# Handoff: where Agentry stands (2026-10-30)
 
 Code: https://github.com/priyambansal13/agentry-ai (`main`). Everything below is built and tested unless marked open.
 
@@ -13,11 +13,12 @@ Code: https://github.com/priyambansal13/agentry-ai (`main`). Everything below is
 | Website | 3200 | `cd apps/web && pnpm dev --port 3200` |
 
 - Database: `postgresql://postgres:postgres@localhost:55432/agentry` (superuser, sees every company).
-- Tests: `cd backend && uv run pytest -q` → 160 passed, 2 skipped. Stop the dev worker first if tests get flaky.
+- Tests: `cd backend && uv run pytest -q` → 168 passed, 2 skipped. Stop the dev worker first if tests get flaky.
 - The API and worker don't auto-reload: restart them after backend changes.
 
 ## Built this session (latest first)
 
+0. **Cold email 5.1–5.3** (2026-10-30) — prospect lists (search or CSV), decision maker, verified email, fact-checked first line from their own site, review/approve/export in the portal (`/cold-email`), migration 0016. Mock providers (`mock-data/cold-email/`). Switched on for Agentry's own company; sample list "Pune dental clinics (sample)" built with the real AI: 50 → 49 → 8, all lines passed. Flow: `docs/flows/agents/cold-email.md`.
 1. **Forgot password + show-password eye** — `/forgot-password`, `/reset-password` (Better Auth `sendResetPassword`, 1-hour single-use link, works for link-only users, signs out other devices); `PasswordInput` in `packages/ui` used on every password field.
 2. **Unsendable reminder cards** — `outbound.channel_problem()`: no WhatsApp card when WhatsApp isn't connected / no template; old cards show a warning and can't be approved (409).
 3. **Invoice follow-up audit** — 20 fixes (`tests/test_invoice_e2e.py`, migration 0015), live-verified.
@@ -37,9 +38,8 @@ Flow docs for every role: `docs/flows/`.
 | Item | Waiting on | Next step |
 |---|---|---|
 | Razorpay webhook (connection `fa7cb590-41c5-45ea-be9f-eefe7535c028`) | User | Run `cloudflared tunnel --no-autoupdate --url http://localhost:8801` in own Terminal; in Razorpay set `https://<tunnel>/webhooks/razorpay/fa7cb590-41c5-45ea-be9f-eefe7535c028`, events `payment.captured` + `payment_link.paid`, same secret; then set `AGENTRY_API_PUBLIC_URL`, restart API, check a bad signature gets 401. Until then: **Confirm paid** by hand |
-| Stale tunnel block at the end of `.env` | – | `AGENTRY_WEB_URL` / `AGENTRY_CORS_ORIGINS` point at a dead trycloudflare address: demo and proposal links are dead until replaced or removed |
 | Production deploy (Oracle k3s, `docs/DEPLOY.md`) | User | Offered next to SwarmAI on the same VM with its own DuckDNS names; postponed |
-| Phase 5 cold email (`docs/PHASE-5-COLD-EMAIL.md`) | User's go | 5.1–5.3 need nothing external |
+| Phase 5.4+ cold email sending | User: decisions in `PHASE-5-COLD-EMAIL.md` §6 | Instantly (or Smartlead) account, 2 sending domains (2–3 weeks warm-up), then Google Places / Hunter / MillionVerifier keys for 5.6 |
 | Real phone call test | Parked | US number can't be dialled from India |
 | Outbound calls / SMS | User | Twilio or Plivo account (Plivo needs Indian business KYC) |
 | Optional setup | User | Outlook (`AGENTRY_MICROSOFT_*`), Gmail Pub/Sub (`AGENTRY_GMAIL_PUBSUB_TOPIC`, `AGENTRY_GMAIL_PUSH_TOKEN`), WhatsApp alert template, rename "swarm-ai" → Agentry on the Google OAuth consent screen |

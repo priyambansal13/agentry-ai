@@ -39,7 +39,8 @@ FEATURES: dict[str, Feature] = {
     # goes live once Agentry assigns it a phone number (HQ -> client -> Phone number; PHASE-4-VOICE.md 4.3)
     "ai_receptionist": Feature(pages=("needs-you", "conversations", "leads", "knowledge", "calendar"), connections=("phone",),
                                steps=("knowledge", "settings", "persona", "test"), go_live=("knowledge", "test", "phone")),
-    "cold_email": Feature(pages=(), connections=(), steps=(), go_live=(), available=False),
+    # 5.1-5.3: lists, research and reviewed first lines; nothing is sent until sending (5.4) is built
+    "cold_email": Feature(pages=("cold-email",), connections=(), steps=("settings", "compliance"), go_live=()),
     "content_repurposing": Feature(pages=(), connections=(), steps=(), go_live=(), available=False),
 }
 ALWAYS_PAGES = ("home", "automations", "reports", "team", "audit", "billing", "notifications")

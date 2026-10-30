@@ -67,9 +67,11 @@ class Settings(BaseSettings):
     api_public_url: str = "http://localhost:8801"  # OAuth redirect + webhook base
     dashboard_url: str = "http://localhost:3201"
     web_url: str = "http://localhost:3200"  # the public website: demo pages (/demo/<slug>) linked from sales emails
-    sales_signature: str = "The Agentry team"
+    sales_signature: str = "The Agentry team"  # how Agentry's own sales emails are signed, e.g. "Priyam, Agentry"
     imap_host: str | None = None  # where replies to sales emails are read (default: imap.gmail.com when sending through Gmail)
-    sales_inbox_minutes: int = 2  # how often the sales inbox is checked for replies (0 = never)  # how Agentry's own sales emails are signed, e.g. "Priyam, Agentry"
+    sales_inbox_minutes: int = 2  # how often the sales inbox is checked for replies (0 = never)
+    # Cold email (Phase 5): "mock" runs prospecting on mock-data/cold-email/ (no keys, no cost). Real providers: 5.6.
+    cold_email_providers: str = "mock"
     google_client_id: str | None = None
     google_client_secret: str | None = None
     gmail_poll_seconds: int = 60

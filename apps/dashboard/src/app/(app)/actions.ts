@@ -482,3 +482,23 @@ export async function startOutlook() {
 export async function syncOutlook() {
   return run<{ new_emails: number }>("/org/connections/outlook/sync", { method: "POST" }, ["/settings/connections"]);
 }
+
+// ---------- cold email (Phase 5.1-5.3) ----------
+
+export type NewColdCampaign = { name: string; query: string; city: string; limit: number; min_rating?: number | null; min_reviews?: number | null };
+
+export async function createColdCampaign(body: NewColdCampaign) {
+  return run<{ id: string }>("/org/cold-email/campaigns", { method: "POST", body }, ["/cold-email"]);
+}
+
+export async function uploadColdCampaign(form: FormData) {
+  return upload<{ id: string; businesses: number }>("/org/cold-email/campaigns/csv", form, ["/cold-email"]);
+}
+
+export async function reviewProspect(id: string, action: "approve" | "drop" | "reopen", firstLine?: string) {
+  return run<{ review: string; edited: boolean }>(`/org/cold-email/prospects/${id}`, { method: "POST", body: { action, first_line: firstLine || null } }, []);
+}
+
+export async function approveReadyLines(campaignId: string) {
+  return run<{ approved: number }>(`/org/cold-email/campaigns/${campaignId}/approve-ready`, { method: "POST" }, [`/cold-email/${campaignId}`]);
+}

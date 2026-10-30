@@ -3,7 +3,7 @@
 > **Goal:** find businesses that fit a client's ideal customer, find the person who decides, verify their email, write one honest personal first line from their own website, and send a short sequence from **separate sending domains**. Replies go into the lead engine, so interested prospects get booked like every other lead.
 > **Spec:** [automations/cold-email.md](automations/cold-email.md) (the funnel, steps and guardrails). It is the fourth source of [The Boring Machine](automations/boring-machine.md).
 > **First customer: Agentry itself.** The first campaign sells Agentry: clinics and agencies get a 2-minute demo video made with Demo Studio. That's the PLAN.md success criterion for this phase.
-> **Status:** plan, 2026-10-25. Decisions in §6 are yours.
+> **Status:** 5.1–5.3 **built 2026-10-30** (mock providers; verified with the real AI models on Agentry's own company). 5.4+ need the decisions in §6. Flow: [flows/agents/cold-email.md](flows/agents/cold-email.md).
 
 ## 1. What already exists and is reused
 
@@ -63,15 +63,15 @@ Campaign funnel counts come from these tables, not from counters.
 
 | # | Milestone | Done when |
 |---|---|---|
-| 5.1 | **Prospect pipeline in mock mode**: tables, provider interfaces + mocks, `build_list` workflow (source → filter → dedupe → crawl → decision maker → verify), funnel counts | The mock Places list reproduces the reference funnel (50 → 49 → 8) in a test and on the Campaigns page |
-| 5.2 | **Research + first lines**: research notes with source snippets, `writer` first line, `fast` fact check (claim must be in a snippet), rewrite once, then flag for a human | Every first line cites a stored snippet; a planted false claim is caught |
-| 5.3 | **Review in the portal**: a prospects table per campaign (approve, edit, drop, bulk approve), CSV / Google Sheet export, roles | Owner/manager approve lines; front desk can view; finance/viewer can't |
+| 5.1 ✅ | **Prospect pipeline in mock mode**: tables, provider interfaces + mocks, `build_list` workflow (source → filter → dedupe → crawl → decision maker → verify), funnel counts | The mock Places list reproduces the reference funnel (50 → 49 → 8) in a test and on the Campaigns page |
+| 5.2 ✅ | **Research + first lines**: research notes with source snippets, `writer` first line, `fast` fact check (claim must be in a snippet), rewrite once, then flag for a human | Every first line cites a stored snippet; a planted false claim is caught |
+| 5.3 ✅ | **Review in the portal**: a prospects table per campaign (approve, edit, drop, bulk approve), CSV / Google Sheet export, roles | Owner/manager approve lines; front desk can view; finance/viewer can't |
 | 5.4 | **Sending**: sender interface (mock + Instantly), sending domains/mailboxes in HQ, sequence steps with per-mailbox caps and ramp-up, plain text, one-click unsubscribe, physical address, stop on reply | A campaign sends through the mock sender at the right pace; real sends once Instantly is connected |
 | 5.5 | **Replies**: webhook/Gmail reply ingest, classifier (interested · not now · unsubscribe · out of office · referral · wrong person · bounce), interested → lead engine claim + Needs you card, not now → nurture in 60–90 days, unsubscribe/complaint → suppression everywhere | Each reply type lands in the right place; an unsubscribe stops every channel |
 | 5.6 | **Real data providers**: Google Places (Text Search, keeps only `place_id` + refreshes details), finder waterfall (Hunter, then others if configured), verifier (MillionVerifier or ZeroBounce); cost per verified contact | A real 50-business search runs end to end with costs shown |
 | 5.7 | **Agentry's own campaign + guardrails**: auto-pause on bounce > 3 % or any spam complaint, daily health per mailbox, cold-email results on Reports and statements (meetings booked), role matrix test, HQ switch | First Agentry outbound campaign live; role test + browser sweep pass |
 
-5.1–5.3 need **nothing external**. 5.4 needs sending domains and Instantly. 5.6 needs data-provider keys.
+5.1–5.3 needed **nothing external** and are done: `automations/cold_email/` (providers, research, pipeline), `api/routes/cold_email.py`, migration 0016, portal `/cold-email`, `tests/test_cold_email.py`. Google Sheet export is a CSV for now. 5.4 needs sending domains and Instantly. 5.6 needs data-provider keys.
 
 ## 5. Compliance (built in)
 

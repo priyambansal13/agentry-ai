@@ -19,7 +19,8 @@ class ProvisionError(ValueError):
 
 
 # shown next to an automation in HQ while part of it is still being built
-NOTES = {"ai_receptionist": "Assign it a phone number on the client page (US numbers on LiveKit for now)"}
+NOTES = {"ai_receptionist": "Assign it a phone number on the client page (US numbers on LiveKit for now)",
+         "cold_email": "Builds and reviews prospect lists only: sending isn't built yet (Phase 5.4)"}
 
 
 def catalog() -> list[dict]:

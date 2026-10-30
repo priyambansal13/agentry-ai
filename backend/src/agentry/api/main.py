@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from agentry.api import webhooks
-from agentry.api.routes import billing_api, business, connections, hq, me, org, public, setup, voice, work
+from agentry.api.routes import billing_api, business, cold_email, connections, hq, me, org, public, setup, voice, work
 from agentry.api.widget import widget_app
 from agentry.automations import load_all
 from agentry.config import settings
@@ -29,7 +29,7 @@ app.add_middleware(
 )
 load_all()
 for r in (public.router, me.router, org.router, work.router, setup.router, connections.router, business.router,
-          billing_api.router, hq.router, voice.router, webhooks.router):
+          billing_api.router, hq.router, voice.router, webhooks.router, cold_email.router):
     app.include_router(r)
 
 

@@ -62,7 +62,7 @@ async def test_upsell_and_switch_off(client, login, bare_org):
     staff = login("admin@agentry.dev")
     as_client = staff | {"X-Org-Id": bare_org}
     assert (await client.post("/hq/clients", headers=staff, json={"org_id": bare_org, "automations": ["inbox_triage"]})).status_code == 201
-    bad = await client.put(f"/hq/orgs/{bare_org}/automations/cold_email", headers=staff, json={"enabled": True})
+    bad = await client.put(f"/hq/orgs/{bare_org}/automations/content_repurposing", headers=staff, json={"enabled": True})
     assert bad.status_code == 409  # not built yet
     f = (await client.put(f"/hq/orgs/{bare_org}/automations/invoice_follow_up", headers=staff, json={"enabled": True})).json()
     assert "invoices" in f["pages"] and "gateways" in f["connections"] and "import" in f["steps"]
