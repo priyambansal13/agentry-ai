@@ -116,6 +116,8 @@ Taken from agentic-commerce (`backend/services/agents/src/governance/`, OPA poli
 
 ### 2.3 Watchers: always-on agents
 
+✅ Built 2026-10-31 (`backend/src/agentry/watchers.py`).
+
 Several new agents follow the same loop: check something on a schedule, notice a change, explain it, and notify or
 act. Examples are reviews, competitor pages, prices, search rankings and budgets. References: the price tracker's
 `pg_cron` + scrape + diff + email (`Cloned projects/smart-product-price-tracker`), the finance app's six-hourly budget
@@ -190,7 +192,7 @@ Each agent below lists what it does, who buys it, the v1 and v2 pieces it reuses
   `starter_ai_agents/ai_data_analysis_agent` and `generative_ui_agents/ai-dashboard-canvas-agent` for charts;
   cold-chain's read-only SQL guard (`cold-chain-dispatch/coldchain/db.py`).
 
-**9.2 Review & Reputation (M).**
+**9.2 Review & Reputation (M).** ✅ Built 2026-10-31 with sample reviews until Google Business Profile access (`docs/flows/agents/reviews-and-watchers.md`).
 - *What:*
   - Reads new Google reviews (Google Business Profile API).
   - Classifies sentiment, topic and urgency.

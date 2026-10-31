@@ -29,6 +29,8 @@ export const automationNames: Record<string, string> = {
   appointment_concierge: "Appointment concierge",
   lead_research: "Lead research & meeting prep",
   bookkeeping: "Bookkeeping assistant",
+  reviews: "Review management",
+  competitor_watch: "Competitor & price watch",
 };
 
 export const statusLabels: Record<string, { label: string; tone: "success" | "warning" | "neutral" | "danger" | "lime" }> = {

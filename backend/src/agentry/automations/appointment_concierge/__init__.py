@@ -25,6 +25,7 @@ from agentry import governance
 from agentry.automations import AutomationTemplate, register
 from agentry.db import system_session, tenant_session
 from agentry.events import emit
+from agentry.outbound import reach_contact
 from agentry.worker.handlers import on
 
 MAX_SLEEP = 86400
@@ -91,18 +92,9 @@ async def set_state(conn: AsyncConnection, booking_id: str, **state: object) -> 
 
 # ---------- reaching a customer ----------
 
-async def _conversation(conn: AsyncConnection, org_id: str, channel: str, ref: str, contact_id: str, subject: str) -> str:
-    return str((await conn.execute(text("""insert into app.conversations (org_id, channel, automation_key, contact_id, subject, external_ref, metadata)
-        values (:o, :ch, 'appointment_concierge', :k, :s, :r, cast(:m as jsonb))
-        on conflict (org_id, channel, external_ref) do update set last_message_at = now() returning id"""),
-        {"o": org_id, "ch": channel, "k": contact_id, "s": subject, "r": ref, "m": json.dumps({"source": channel})})).scalar_one())
-
-
 async def reach(conn: AsyncConnection, org_id: str, b: dict, body: str, *, cfg: dict, reply: bool = False, approved: bool = False) -> dict:
     """Send `body` to the booking's customer on the best channel they have. reply=True: answering them (no governance);
     approved=True: a person approved this message on a card."""
-    from agentry.connectors.store import get_connection
-    from agentry.leads import can_contact
     if not reply and not approved:
         d = await governance.decide(conn, org_id, "appointment_concierge.send")
         if d.mode == "shadow":
@@ -114,49 +106,11 @@ async def reach(conn: AsyncConnection, org_id: str, b: dict, body: str, *, cfg: 
                  "p": json.dumps({"concierge_booking": str(b["id"]), **({"to_contact": str(b["contact_id"])} if b.get("waitlist") else {}),
                                   **({"held_because": d.reason} if d.reason else {})})})
             return {"status": "awaiting_approval", "reason": d.reason}
-    wa_digits = (b.get("phone_e164") or "").lstrip("+")
-    if wa_digits and await get_connection(org_id, "whatsapp") and b.get("contact_id") and (await can_contact(conn, str(b["contact_id"]), "whatsapp"))[0]:
-        from agentry.connectors.whatsapp import WhatsAppError, send_template, send_text, within_window
-        conv = await _conversation(conn, org_id, "whatsapp", f"wa:{wa_digits}", str(b["contact_id"]), "WhatsApp")
-        try:
-            if await within_window(org_id, conv):
-                mid = await send_text(org_id, wa_digits, body)
-            elif cfg.get("whatsapp_template"):
-                mid = await send_template(org_id, wa_digits, cfg["whatsapp_template"], params=[first(b["contact_name"]), b["service"],
-                                                                                              when(b["starts_at"], b["timezone"])])
-            else:
-                mid = None
-            if mid:
-                await _record(conn, org_id, conv, body, f"wa:{mid}")
-                return {"status": "sent", "channel": "whatsapp", "conversation_id": conv}
-        except WhatsAppError:
-            pass  # try the next channel
-    if b.get("telegram_id") and await get_connection(org_id, "telegram"):
-        from agentry.connectors.telegram import TelegramError, send_to_customer
-        try:
-            mid = await send_to_customer(org_id, int(b["telegram_id"]), body)
-            conv = await _conversation(conn, org_id, "telegram", f"tg:{b['telegram_id']}", str(b["contact_id"]), "Telegram")
-            await _record(conn, org_id, conv, body, f"tg:{b['telegram_id']}:{mid}")
-            return {"status": "sent", "channel": "telegram", "conversation_id": conv}
-        except TelegramError:
-            pass
-    if b.get("email"):
-        from agentry.outbound import _sending_mailbox
-        box = await _sending_mailbox(conn, org_id, "appointment_concierge")
-        subject = f"Your {b['service']} appointment"
-        conv = await _conversation(conn, org_id, "email", f"appt:{b['contact_id']}", str(b["contact_id"]), subject)
-        if box and box["provider"] == "gmail":
-            from agentry.connectors.gmail import Gmail
-            sent = await Gmail(org_id, box).send_new(to=b["email"], subject=subject, body=body)
-            await _record(conn, org_id, conv, body, f"gmail:{sent['id']}")
-            return {"status": "sent", "channel": "email", "conversation_id": conv}
-        if box and box["provider"] == "outlook":
-            from agentry.connectors.outlook import Outlook
-            sent = await Outlook(org_id, box).send_new(to=b["email"], subject=subject, body=body)
-            await _record(conn, org_id, conv, body, f"outlook:{sent['id']}")
-            return {"status": "sent", "channel": "email", "conversation_id": conv}
-        await _record(conn, org_id, conv, body, None)
-        return {"status": "recorded", "channel": "email", "conversation_id": conv}
+    params = [first(b["contact_name"]), b.get("service") or "", when(b["starts_at"], b["timezone"])] if b.get("starts_at") else None
+    r = await reach_contact(conn, org_id, b, body, agent="appointment_concierge", subject=f"Your {b.get('service') or 'appointment'} appointment",
+                            email_ref=f"appt:{b['contact_id']}", wa_template=cfg.get("whatsapp_template"), wa_params=params)
+    if r["status"] != "no_channel":
+        return r
     if not reply:  # no way to message them: a person calls
         await conn.execute(text("""insert into app.approvals (org_id, kind, automation_key, title, body, payload)
             values (:o, 'handoff', 'appointment_concierge', :t, :b, cast(:p as jsonb))"""),
@@ -164,12 +118,6 @@ async def reach(conn: AsyncConnection, org_id: str, b: dict, body: str, *, cfg: 
              "p": json.dumps({"phone": b.get("phone_e164"), "concierge_booking": str(b["id"])})})
         return {"status": "call_needed"}
     return {"status": "no_channel"}
-
-
-async def _record(conn: AsyncConnection, org_id: str, conv: str, body: str, external_id: str | None) -> None:
-    meta = {"sent_from": "appointment_concierge", **({"external_id": external_id} if external_id else {"delivery": "recorded"})}
-    await conn.execute(text("""insert into app.messages (org_id, conversation_id, direction, author, body, metadata)
-        values (:o, :c, 'out', 'agent', :b, cast(:m as jsonb))"""), {"o": org_id, "c": conv, "b": body, "m": json.dumps(meta)})
 
 
 async def deliver_approved(conn: AsyncConnection, org_id: str, approval: dict) -> dict:
@@ -419,6 +367,8 @@ async def mark(org_id: str, booking_id: str, status: str, user_id: str | None = 
             await cancel(conn, org_id, booking_id, "cancelled by the team")
             return {"status": "cancelled"}
         await conn.execute(text("update app.bookings set status = :s where id = cast(:i as uuid)"), {"s": status, "i": booking_id})
+        if status == "showed" and b["status"] != "showed":
+            await emit(conn, org_id, "booking.showed", {"booking_id": booking_id})  # e.g. review management asks for a review
         if status == "no_show":
             await emit(conn, org_id, "booking.no_show", {"booking_id": booking_id})
             st, cfg = await config(conn)

@@ -83,6 +83,7 @@ class Settings(BaseSettings):
     content_transcriber: str = "openai"
     content_transcribe_model: str = "whisper-1"  # gives timestamped segments
     content_publisher: str = "mock"
+    reviews_source: str = "sample"  # Google Business Profile once its API access is approved (9.2)
     google_client_id: str | None = None
     google_client_secret: str | None = None
     gmail_poll_seconds: int = 60

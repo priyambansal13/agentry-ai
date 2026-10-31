@@ -44,6 +44,10 @@ FEATURES: dict[str, Feature] = {
     # 9.3: reminders, confirm / reschedule by reply, waitlist, recalls; uses the bookings the other agents make
     "appointment_concierge": Feature(pages=("needs-you", "conversations", "calendar"), connections=("whatsapp", "telegram", "gmail"),
                                      steps=("connect", "settings", "compliance"), go_live=()),
+    # 10.1: pages and prices checked by watchers; changes reported in plain words
+    "competitor_watch": Feature(pages=("watch",), connections=(), steps=("settings",), go_live=()),
+    # 9.2: reviews pulled by a watcher (sample source until Google Business Profile), replies approved, review requests
+    "reviews": Feature(pages=("needs-you", "reviews"), connections=(), steps=("settings",), go_live=()),
     # 9.5: receipts and bills by photo (portal, WhatsApp, Telegram) -> Document AI -> checked -> Tally / CSV
     "bookkeeping": Feature(pages=("needs-you", "bookkeeping"), connections=("whatsapp", "telegram"), steps=("connect", "settings"), go_live=()),
     # 9.4: a research note on every new lead; a brief before each meeting (Notification Center)

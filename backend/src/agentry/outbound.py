@@ -107,3 +107,67 @@ async def deliver_outbound(conn: AsyncConnection, org_id: str, *, enrollment: di
         return {"status": "skipped", "reason": f"channel {channel} not available yet"}
     except Exception as e:  # noqa: BLE001 - one channel failing must not stop the others; recorded in the enrollment log
         return {"status": "failed", "reason": str(e)[:300]}
+
+
+# ---------- one message to one customer, on the best channel they have (concierge, review requests) ----------
+
+async def _agent_conversation(conn: AsyncConnection, org_id: str, agent: str, channel: str, ref: str, contact_id: str, subject: str) -> str:
+    return str((await conn.execute(text("""insert into app.conversations (org_id, channel, automation_key, contact_id, subject, external_ref, metadata)
+        values (:o, :ch, :a, :k, :s, :r, cast(:m as jsonb))
+        on conflict (org_id, channel, external_ref) do update set last_message_at = now() returning id"""),
+        {"o": org_id, "ch": channel, "a": agent, "k": contact_id, "s": subject, "r": ref, "m": json.dumps({"source": channel})})).scalar_one())
+
+
+async def _agent_record(conn: AsyncConnection, org_id: str, agent: str, conv: str, body: str, external_id: str | None) -> None:
+    meta = {"sent_from": agent, **({"external_id": external_id} if external_id else {"delivery": "recorded"})}
+    await conn.execute(text("""insert into app.messages (org_id, conversation_id, direction, author, body, metadata)
+        values (:o, :c, 'out', 'agent', :b, cast(:m as jsonb))"""), {"o": org_id, "c": conv, "b": body, "m": json.dumps(meta)})
+
+
+async def reach_contact(conn: AsyncConnection, org_id: str, who: dict, body: str, *, agent: str, subject: str, email_ref: str,
+                        wa_template: str | None = None, wa_params: list[str] | None = None) -> dict:
+    """WhatsApp (free text inside the 24-hour window, else `wa_template`), else Telegram (if they've used the business's
+    bot), else email from the business's mailbox (recorded when none is connected). `who`: contact_id, contact_name,
+    phone_e164, email, telegram_id. No governance here: the caller decides whether this message may go out."""
+    from agentry.leads import can_contact
+    wa_digits = (who.get("phone_e164") or "").lstrip("+")
+    if wa_digits and await get_connection(org_id, "whatsapp") and who.get("contact_id") and (await can_contact(conn, str(who["contact_id"]), "whatsapp"))[0]:
+        from agentry.connectors.whatsapp import WhatsAppError, send_template, send_text, within_window
+        conv = await _agent_conversation(conn, org_id, agent, "whatsapp", f"wa:{wa_digits}", str(who["contact_id"]), "WhatsApp")
+        try:
+            if await within_window(org_id, conv):
+                mid = await send_text(org_id, wa_digits, body)
+            elif wa_template:
+                mid = await send_template(org_id, wa_digits, wa_template, params=wa_params or [])
+            else:
+                mid = None
+            if mid:
+                await _agent_record(conn, org_id, agent, conv, body, f"wa:{mid}")
+                return {"status": "sent", "channel": "whatsapp", "conversation_id": conv}
+        except WhatsAppError:
+            pass  # try the next channel
+    if who.get("telegram_id") and await get_connection(org_id, "telegram"):
+        from agentry.connectors.telegram import TelegramError, send_to_customer
+        try:
+            mid = await send_to_customer(org_id, int(who["telegram_id"]), body)
+            conv = await _agent_conversation(conn, org_id, agent, "telegram", f"tg:{who['telegram_id']}", str(who["contact_id"]), "Telegram")
+            await _agent_record(conn, org_id, agent, conv, body, f"tg:{who['telegram_id']}:{mid}")
+            return {"status": "sent", "channel": "telegram", "conversation_id": conv}
+        except TelegramError:
+            pass
+    if who.get("email"):
+        box = await _sending_mailbox(conn, org_id, agent)
+        conv = await _agent_conversation(conn, org_id, agent, "email", email_ref, str(who["contact_id"]), subject)
+        if box and box["provider"] == "gmail":
+            from agentry.connectors.gmail import Gmail
+            sent = await Gmail(org_id, box).send_new(to=who["email"], subject=subject, body=body)
+            await _agent_record(conn, org_id, agent, conv, body, f"gmail:{sent['id']}")
+            return {"status": "sent", "channel": "email", "conversation_id": conv}
+        if box and box["provider"] == "outlook":
+            from agentry.connectors.outlook import Outlook
+            sent = await Outlook(org_id, box).send_new(to=who["email"], subject=subject, body=body)
+            await _agent_record(conn, org_id, agent, conv, body, f"outlook:{sent['id']}")
+            return {"status": "sent", "channel": "email", "conversation_id": conv}
+        await _agent_record(conn, org_id, agent, conv, body, None)
+        return {"status": "recorded", "channel": "email", "conversation_id": conv}
+    return {"status": "no_channel"}

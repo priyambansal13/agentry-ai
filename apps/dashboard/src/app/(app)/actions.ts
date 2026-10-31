@@ -682,3 +682,29 @@ export async function reviewDocument(id: string, action: "accept" | "reject", fi
 export async function startInstagram() {
   return run<{ url: string }>("/org/connections/instagram/start", { method: "POST" });
 }
+
+// ---------- reviews (9.2) and competitor & price watch (10.1) ----------
+
+export async function syncReviews() {
+  return run<{ new: number }>("/org/reviews/sync", { method: "POST" }, ["/reviews"]);
+}
+
+export async function replyToReview(id: string, action: "post" | "skip", body?: string) {
+  return run<{ status: string }>(`/org/reviews/${id}`, { method: "PUT", body: { action, body } }, ["/reviews", "/needs-you"]);
+}
+
+export async function addWatcher(w: { kind: "page" | "price"; name: string; url: string }) {
+  return run<{ id: string; error: string | null }>("/org/watchers", { method: "POST", body: w }, ["/watch"]);
+}
+
+export async function checkWatcher(id: string) {
+  return run<{ changed: boolean; summary?: string; error?: string }>(`/org/watchers/${id}/check`, { method: "POST" }, ["/watch"]);
+}
+
+export async function setWatcherStatus(id: string, status: "active" | "paused") {
+  return run<{ status: string }>(`/org/watchers/${id}`, { method: "PUT", body: { status } }, ["/watch"]);
+}
+
+export async function removeWatcher(id: string) {
+  return run<{ removed: boolean }>(`/org/watchers/${id}`, { method: "DELETE" }, ["/watch"]);
+}

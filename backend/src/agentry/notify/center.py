@@ -207,6 +207,25 @@ async def d_document(conn, p):
             "facts": {"status": p.get("status")}}
 
 
+async def d_review_bad(conn, p):
+    return {"title": f"{'Urgent: ' if p.get('urgent') else ''}{p.get('rating')}★ review from {p.get('author') or 'a customer'}",
+            "body": (p.get("excerpt") or "") + "\nA reply is drafted in Needs you.", "link": "/reviews", "facts": {"rating": p.get("rating"), "urgent": p.get("urgent")}}
+
+
+async def d_reviews_monthly(conn, p):
+    return {"title": p.get("title") or "Your reviews this month", "body": p.get("body") or "", "link": "/reviews", "facts": {"average": p.get("average")}}
+
+
+async def d_watch(conn, p):
+    return {"title": f"Change spotted: {p.get('name')}", "body": (p.get("summary") or "") + (f"\n{p['url']}" if p.get("url") else ""),
+            "link": "/watch", "facts": {"kind": p.get("kind")}}
+
+
+async def d_watch_failing(conn, p):
+    return {"title": f"Can't check {p.get('name')}", "body": f"{p.get('error')}. Paused after three tries: fix the address or remove it.",
+            "link": "/watch", "facts": {}}
+
+
 CATALOGUE: dict[str, EventSpec] = {
     "payment.received": EventSpec("A payment arrives", "Money", d_payment, ("invoice", "read"), ("invoice_follow_up",),
                                   {"amount": "number", "currency": "text", "gateway": "text", "invoice": "text"}),
@@ -228,6 +247,12 @@ CATALOGUE: dict[str, EventSpec] = {
     "lead.researched": EventSpec("A new lead has been researched", "Leads & bookings", d_researched, ("conversation", "read"), ("lead_research",),
                                  {"status": "text"}),
     "meeting.brief": EventSpec("A meeting brief is ready (before an appointment)", "Leads & bookings", d_brief, ("calendar", "read"), ("lead_research",)),
+    "review.negative": EventSpec("A 1-2 star or urgent review arrives", "Reviews", d_review_bad, ("conversation", "read"), ("reviews",),
+                                 {"rating": "number", "urgent": "bool"}),
+    "reviews.monthly": EventSpec("The monthly reviews report is ready", "Reviews", d_reviews_monthly, ("dashboard", "read"), ("reviews",),
+                                 {"average": "number"}),
+    "watch.changed": EventSpec("A watched page or price changes", "Watchers", d_watch, ("dashboard", "read"), ("competitor_watch",), {"kind": "text"}),
+    "watch.failing": EventSpec("A watched page can't be checked", "Watchers", d_watch_failing, ("dashboard", "read"), ("competitor_watch",)),
     "cold_email.interested": EventSpec("A cold-email prospect is interested", "Leads & bookings", d_cold, ("conversation", "read"), ("cold_email",)),
     "call.completed": EventSpec("A phone call ends", "Calls & chats", d_call, ("conversation", "read"), ("ai_receptionist",),
                                 {"outcome": "text", "duration_seconds": "number", "follow_up": "bool"}),
@@ -263,6 +288,11 @@ DEFAULTS = [  # each added once per business, by key (a business that edits or d
     {"key": "meeting_briefs", "name": "Meeting briefs", "event_type": "meeting.brief", "roles": ["owner", "manager"], "channels": ["telegram", "email", "in_app"]},
     {"key": "budget_alerts", "name": "Budget alerts", "event_type": "budget.alert", "roles": ["owner", "finance"], "channels": ["telegram", "email"]},
     {"key": "books_monthly", "name": "Monthly expenses", "event_type": "bookkeeping.monthly", "roles": ["owner", "finance"], "channels": ["email", "telegram"]},
+    {"key": "bad_reviews", "name": "Bad reviews", "event_type": "review.negative", "roles": ["owner", "manager"], "channels": ["telegram", "email", "in_app"],
+     "critical": True},
+    {"key": "reviews_monthly", "name": "Monthly reviews report", "event_type": "reviews.monthly", "roles": ["owner"], "channels": ["email", "telegram"]},
+    {"key": "watch_changes", "name": "Competitor and price changes", "event_type": "watch.changed", "roles": ["owner", "manager"],
+     "channels": ["telegram", "in_app"]},
     {"key": "pulse_daily", "name": "Morning brief", "event_type": "pulse.daily", "roles": ["owner"], "channels": ["telegram", "email"]},
     {"key": "pulse_weekly", "name": "Monday week in review", "event_type": "pulse.weekly", "roles": ["owner", "manager"], "channels": ["email", "telegram"]},
 ]
