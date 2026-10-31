@@ -10,13 +10,17 @@ COPY backend/ ./
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
 
 FROM python:3.12-slim
-RUN useradd --uid 10001 --create-home agentry
+# ffmpeg: content repurposing splits long recordings before transcription
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/* \
+    && useradd --uid 10001 --create-home agentry
 # Paths mirror the repo (config.ROOT = /srv): backend code, packs, prompts, migrations + the shared config/roles.json.
 COPY --from=build --chown=agentry /srv /srv
 COPY --chown=agentry config /srv/config
+# samples behind "Try it" buttons and test modes (cold email list, content podcast, receipts)
+COPY --chown=agentry mock-data /srv/mock-data
 ENV PATH=/srv/.venv/bin:$PATH PYTHONUNBUFFERED=1 AGENTRY_ENV=production
-# call recordings: a volume shared by voice (writes), api (serves) and worker (retention clean-up)
-RUN mkdir -p /srv/var/recordings && chown -R agentry /srv/var
+# volumes: call recordings (voice writes, api serves), content uploads, receipts (api and worker)
+RUN mkdir -p /srv/var/recordings /srv/var/content /srv/var/documents && chown -R agentry /srv/var
 WORKDIR /srv/backend
 USER agentry
 EXPOSE 8801

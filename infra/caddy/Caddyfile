@@ -1,0 +1,29 @@
+# HTTPS for Agentry on its own VM (docker-compose.server.yml). Certificates are obtained and renewed automatically.
+{
+	email {$ACME_EMAIL}
+}
+
+agentry.duckdns.org {
+	encode zstd gzip
+	reverse_proxy web:3000
+	header -Server
+}
+
+app.agentry.duckdns.org {
+	encode zstd gzip
+	reverse_proxy dashboard:3000
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+}
+
+api.agentry.duckdns.org {
+	request_body {
+		max_size 520MB
+	}
+	reverse_proxy api:8801 {
+		flush_interval -1
+	}
+	header -Server
+}

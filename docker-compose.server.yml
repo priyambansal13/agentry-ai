@@ -1,0 +1,50 @@
+# Agentry on its own Oracle VM (agentry-ai-oci, Ubuntu arm64, agentry.duckdns.org). Used with docker-compose.prod.yml:
+#   docker compose -p agentry -f docker-compose.prod.yml -f docker-compose.server.yml --env-file infra/.env.prod up -d
+# (on the server, infra/.env.prod is the copy of the Mac's git-ignored infra/.env.server)
+# Images are built on a Mac (same arm64 architecture) and loaded with `docker load`, so nothing is built here.
+# Caddy terminates HTTPS for the three hosts (infra/caddy/Caddyfile); no app port is published to the internet.
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment: { ACME_EMAIL: "${AGENTRY_OPS_EMAIL}" }
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [web, dashboard, api]
+  postgres:
+    mem_limit: 1g
+    command: ["postgres", "-c", "shared_buffers=256MB", "-c", "max_connections=80"]
+  migrate:
+    build: !reset null
+  auth-migrate:
+    build: !reset null
+  api:
+    build: !reset null
+    ports: !reset []
+    mem_limit: 1g
+    volumes: ["recordings:/srv/var/recordings", "content:/srv/var/content", "documents:/srv/var/documents"]
+  worker:
+    build: !reset null
+    mem_limit: 1536m
+    volumes: ["recordings:/srv/var/recordings", "content:/srv/var/content", "documents:/srv/var/documents"]
+  voice:
+    build: !reset null
+  dashboard:
+    build: !reset null
+    ports: !reset []
+    mem_limit: 768m
+  web:
+    build: !reset null
+    ports: !reset []
+    mem_limit: 512m
+  backup:
+    volumes: ["/home/ubuntu/agentry-backups:/backups"]
+
+volumes:
+  content:
+  documents:
+  caddy_data:
+  caddy_config:

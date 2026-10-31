@@ -11,6 +11,7 @@ __pycache__/
 .ruff_cache/
 eval-results/
 infra/.env.prod
+infra/.env.server
 backups/
 infra/k8s/agentry.env
 backend/var/

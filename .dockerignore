@@ -6,12 +6,12 @@
 **/.pytest_cache
 **/.ruff_cache
 **/*.tsbuildinfo
-.env
-.env.*
-!.env.example
+# secrets anywhere in the tree (infra/.env.prod, infra/.env.server...) must never enter an image
+**/.env
+**/.env.*
+!**/.env.example
 backend/tests
 eval-results
-mock-data
 docs
 infra/k8s
 .git
