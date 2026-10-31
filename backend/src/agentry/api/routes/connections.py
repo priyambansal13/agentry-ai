@@ -151,8 +151,11 @@ async def instagram_callback(request: Request, state: str = "", code: str | None
     except instagram.InstagramError as e:
         return back(error=str(e))
     if not found:
-        return back(error="No Instagram professional account was shared. Switch the Instagram account to Business or Creator, "
-                          "link it to a Facebook Page, and tick it when Meta asks which accounts to share.")
+        shared = instagram.LAST_SHARED
+        detail = (f" Meta shared: {', '.join(f'{k} ({v})' for k, v in shared.get('scopes', {}).items()) or 'no accounts'}."
+                  if "scopes" in shared else (f" Meta said: {shared['debug_error']}" if shared.get("debug_error") else ""))
+        return back(error="No Instagram professional account was shared. In Meta's window, pick your Instagram account in the "
+                          "'Instagram account' list (it must be a Business or Creator account in your business portfolio)." + detail)
     ig = found[0]
     await save_connection(s["org"], provider="instagram", account_ref=ig["id"], display_name=f"@{ig['username']}", secret=token,
                           state={"username": ig["username"], "page": ig["page"], "others": [a["username"] for a in found[1:]]},

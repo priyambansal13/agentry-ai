@@ -8,11 +8,14 @@ Publish:  POST /{ig}/media (image_url + caption) -> wait until the container is 
 Refresh:  a token with under 10 days left is exchanged for a fresh long-lived one before publishing.
 """
 import asyncio
+import logging
 import time
 from urllib.parse import urlencode
 
 from agentry.config import settings
 from agentry.connectors.http import client
+
+log = logging.getLogger(__name__)
 
 
 class InstagramError(Exception):
@@ -85,29 +88,38 @@ async def extend(token: str) -> dict:
 IG_SCOPES = ("instagram_content_publish", "instagram_business_content_publish", "instagram_basic", "instagram_business_basic")
 
 
+LAST_SHARED: dict = {}  # what Meta shared in the last sign-in (for the error message): never the token
+
+
 async def accounts(token: str) -> list[dict]:
     """Instagram professional accounts this person granted: [{id, username, page}]. Two ways: the accounts they ticked
     in Meta's dialog (the token's granular scopes: no Facebook Page needed), and Instagram accounts linked to granted Pages."""
     out: dict[str, dict] = {}
+    LAST_SHARED.clear()
     try:
         info = (await _get("debug_token", input_token=token, access_token=f"{settings.meta_app_id}|{_secret()}")).get("data", {})
+        granted = {g.get("scope"): len(g.get("target_ids", [])) for g in info.get("granular_scopes", [])}
+        LAST_SHARED.update(scopes=granted, all_scopes=info.get("scopes", []))
+        log.info("instagram connect: Meta shared %s (scopes %s)", granted, info.get("scopes"))
         ids = {t for g in info.get("granular_scopes", []) if g.get("scope") in IG_SCOPES for t in g.get("target_ids", [])}
         for ig_id in ids:
             try:
                 me = await _get(ig_id, fields="id,username", access_token=token)
                 out[ig_id] = {"id": ig_id, "username": me.get("username") or ig_id, "page": None}
-            except InstagramError:
+            except InstagramError as e:
+                log.info("instagram connect: %s isn't readable as an Instagram account: %s", ig_id, e)
                 continue  # not an Instagram account (e.g. a Page id under the same scope)
-    except InstagramError:
-        pass
+    except InstagramError as e:
+        LAST_SHARED["debug_error"] = str(e)[:200]
+        log.warning("instagram connect: couldn't read what Meta shared: %s", e)
     try:
         pages = await _get("me/accounts", access_token=token, fields="id,name,instagram_business_account{id,username}", limit=50)
         for p in pages.get("data", []):
             ig = p.get("instagram_business_account")
             if ig:
                 out[ig["id"]] = {"id": ig["id"], "username": ig.get("username") or out.get(ig["id"], {}).get("username") or ig["id"], "page": p.get("name")}
-    except InstagramError:
-        pass
+    except InstagramError as e:
+        log.info("instagram connect: no Pages readable: %s", e)
     return list(out.values())
 
 
