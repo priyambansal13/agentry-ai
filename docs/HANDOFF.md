@@ -38,6 +38,10 @@ Flow docs for every role: `docs/flows/`.
 - **Content gneration** (org `e7affc4c-f300-41e5-9eb7-1228ef443155`): owner pooja, finance "Anil" (shown as Priyam). Gmail + Razorpay (test) connected, **no WhatsApp**. Invoices MSR-1014 (email reminder card pending), MSR-1015 (card assigned to pooja).
 - **Kaveri** (invoice-only), **Mehta & Co** (inbox-only, demo logins `*@mehtaco.example`), **SmileCraft** (voice), **Swarm-ai**. Demo password `agentry-demo-123`.
 
+## Next: v2 roadmap
+
+`docs/ROADMAP-V2.md`: Phase 7 platform (Notification Center for any event on WhatsApp/Telegram/email/in-app, governance, watchers, Document AI, run traces, MCP), Phase 8 content v2, Phases 9–11 with 14 new agents and packs. Decisions in its §10.
+
 ## Open items
 
 | Item | Waiting on | Next step |
