@@ -3,7 +3,8 @@
 import { Badge, Button, Input, Label, Select } from "@agentry/ui";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { reviewDocument, trySampleDocuments, uploadDocument } from "@/app/(app)/actions";
+import { openClientPortal, reviewDocument, trySampleDocuments, uploadDocument } from "@/app/(app)/actions";
+import { authClient } from "@/lib/auth-client";
 
 type Msg = { ok: boolean; text: string } | null;
 const Status = ({ msg }: { msg: Msg }) => msg && <span role="status" className={`text-sm ${msg.ok ? "text-success" : "text-danger"}`}>{msg.text}</span>;
@@ -105,5 +106,19 @@ export function ReviewDocument({ id, fields, specs, categories, threshold, canAc
         </div>
       )}
     </form>
+  );
+}
+
+/** Open one client's books: members switch their active business; Agentry staff open the client's portal (audited). */
+export function OpenClientBooks({ id, staff }: { id: string; staff: boolean }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  return (
+    <Button size="sm" variant="secondary" disabled={pending} onClick={() => start(async () => {
+      if (staff) { await openClientPortal(id, "/bookkeeping"); return; }
+      await authClient.organization.setActive({ organizationId: id });
+      router.push("/bookkeeping");
+      router.refresh();
+    })}>Open</Button>
   );
 }

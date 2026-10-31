@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import text
 
 from agentry import audit, documents
-from agentry.auth import OrgContext, client_ip, current_org
+from agentry.auth import OrgContext, Principal, client_ip, current_org, current_principal
 from agentry.automations import bookkeeping as bk
 from agentry.db import tenant_session
 from agentry.features import enabled_automations
@@ -141,3 +141,37 @@ async def export(ctx: Reader, request: Request, format: Literal["tally", "csv"] 
         return Response(bk.to_tally(docs, company), media_type="application/xml",
                         headers={"Content-Disposition": f'attachment; filename="{name}-tally.xml"', "X-Count": str(len(docs))})
     return Response(bk.to_csv(docs), media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{name}.csv"', "X-Count": str(len(docs))})
+
+
+# ---------- all my clients (a CA firm's view) ----------
+
+clients_router = APIRouter()
+
+
+@clients_router.get("/me/bookkeeping-clients")
+async def my_clients(p: Annotated[Principal, Depends(current_principal)]) -> dict:
+    """Every business this person keeps books for (finance, manager or owner there; Agentry staff: all), with what's
+    waiting: documents to check, unread ones, this month's total, not yet exported. One place for a CA firm."""
+    from agentry.db import system_session
+    from agentry.permissions import can
+    async with system_session() as conn:
+        if p.is_staff:
+            rows = (await conn.execute(text("""select o.id, o.name, null as role from auth.organization o join app.automation_instances a
+                on a.org_id = o.id and a.template_key = 'bookkeeping' order by o.name"""))).all()
+        else:
+            rows = (await conn.execute(text("""select o.id, o.name, m.role from auth.member m join auth.organization o on o.id = m."organizationId"
+                join app.automation_instances a on a.org_id = o.id and a.template_key = 'bookkeeping' where m."userId" = :u order by o.name"""),
+                {"u": p.user_id})).all()
+    month = datetime.now(UTC).date().isoformat()[:7]
+    out = []
+    for org_id, name, role in rows:
+        if not p.is_staff and not can(role, "invoice", "read"):
+            continue
+        async with tenant_session(org_id) as conn:
+            counts = dict((await conn.execute(text("select status, count(*) from app.documents group by status"))).all())
+            total = sum((await bk.spend(conn, month)).values())
+            to_export = (await conn.execute(text("select count(*) from app.documents where status = 'ready' and exported_at is null"))).scalar_one()
+            last = (await conn.execute(text("select max(created_at) from app.documents"))).scalar_one()
+        out.append({"id": org_id, "name": name, "to_check": counts.get("needs_review", 0), "unreadable": counts.get("failed", 0),
+                    "filed": counts.get("ready", 0), "month_total": round(total, 2), "to_export": to_export, "last_document_at": last})
+    return {"month": month, "items": out}

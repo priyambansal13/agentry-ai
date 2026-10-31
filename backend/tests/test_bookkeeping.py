@@ -12,6 +12,7 @@ from sqlalchemy import text
 from agentry import documents
 from agentry.automations import bookkeeping as bk
 from agentry.db import tenant_session
+from agentry.leads import resolve_contact
 
 ALL = ("owner", "manager", "staff", "finance", "viewer", "agentry")
 S = documents.SAMPLES
@@ -180,3 +181,94 @@ def test_tally_voucher_balances_even_if_the_subtotal_was_misread():
                                                                        "category": "Meals & entertainment", "cgst": None, "sgst": None, "igst": None}.items()}}
     amounts = [float(a.text) for a in ET.fromstring(bk.to_tally([doc], "SmileCraft")).iter("AMOUNT")]
     assert amounts == [760.0, -760.0]
+
+
+def test_which_email_attachments_are_bills():
+    cfg = {"email_senders": ["billing@saidental.example"]}
+    assert bk.email_wants(cfg, "a@x.example", "Your invoice for October", "doc123.pdf")
+    assert bk.email_wants(cfg, "a@x.example", "Hello", "GST-bill-1187.jpg")
+    assert bk.email_wants(cfg, "billing@saidental.example", "Hello", "scan.png")  # a listed sender: anything
+    assert not bk.email_wants(cfg, "a@x.example", "Holiday photos", "beach.jpg")
+    assert not bk.email_wants(cfg, "a@x.example", "Invoice", "invoice.docx")  # not a photo or PDF
+
+
+async def test_bills_from_email(team_org, monkeypatch):
+    import base64
+
+    from agentry.connectors import gmail, store
+    oid, _h = await team_org(["bookkeeping"])
+    png = (S / "supplier-tax-invoice.png").read_bytes()
+
+    class FakeGmail:
+        def __init__(self, org_id, conn):
+            pass
+
+        async def call(self, method, path, **kw):
+            if path.endswith("/attachments/att1"):
+                return {"data": base64.urlsafe_b64encode(png).decode()}
+            return {"id": "g1", "threadId": "t1", "labelIds": ["INBOX"], "payload": {"headers": [{"name": "Subject", "value": "Invoice SDS/1187"}],
+                    "parts": [{"filename": "SDS-1187.png", "mimeType": "image/png", "body": {"attachmentId": "att1", "size": len(png)}},
+                              {"filename": "logo.gif", "mimeType": "image/gif", "body": {"attachmentId": "att2", "size": 10}}]}}
+
+    async def fake_box(org_id, provider, ref):
+        return {"id": "c1", "secret": {}, "state": {}}
+    monkeypatch.setattr(gmail, "Gmail", FakeGmail)
+    monkeypatch.setattr(store, "get_connection_for", fake_box)
+    async with tenant_session(oid) as conn:
+        k = await resolve_contact(conn, oid, name="Sai Dental Supplies", email="accounts@saidental.example", source="email")
+        conv = (await conn.execute(text("""insert into app.conversations (org_id, channel, contact_id, subject, external_ref)
+            values (:o, 'email', :k, 'Invoice SDS/1187', 'gmail:t1') returning id"""), {"o": oid, "k": k})).scalar_one()
+        mid = str((await conn.execute(text("""insert into app.messages (org_id, conversation_id, direction, author, body, metadata)
+            values (:o, :c, 'in', 'contact', 'Please find attached', cast(:m as jsonb)) returning id"""),
+            {"o": oid, "c": conv, "m": '{"gmail": {"message_id": "g1"}, "mailbox": "owner@x.example", "attachments": [{"filename": "SDS-1187.png"}]}'})).scalar_one())
+    assert await bk.bills_from_email_step(oid, mid) == 1
+    async with tenant_session(oid) as conn:
+        doc = (await conn.execute(text("select source, status, filename, contact_id::text from app.documents"))).one()
+    assert tuple(doc) == ("email", "ready", "SDS-1187.png", str(k))
+    async with tenant_session(oid) as conn:
+        await conn.execute(text("""update app.automation_instances set config = config || '{"email_intake": false}'"""))
+    assert await bk.bills_from_email_step(oid, mid) == 0
+
+
+async def test_filed_documents_go_to_google_sheets(client, team_org, monkeypatch):
+    import httpx
+
+    from agentry.connectors import http
+    from agentry.connectors.store import save_connection
+    appended, dead = [], [False]
+
+    def google(req: httpx.Request) -> httpx.Response:
+        if req.url.path == "/token":
+            return httpx.Response(401 if dead[0] else 200, json={"access_token": "AT", "expires_in": 3600})
+        if req.url.path.endswith(":append"):
+            if dead[0]:
+                return httpx.Response(401, json={"error": {"message": "Request had invalid authentication credentials."}})
+            import json as _json
+            appended.extend(_json.loads(req.content)["values"])
+            return httpx.Response(200, json={})
+        return httpx.Response(404, json={})
+    monkeypatch.setattr(http, "TRANSPORT", httpx.MockTransport(google))
+    oid, h = await books(team_org)
+    await save_connection(oid, provider="google_sheets", account_ref="sheet1", display_name="Agentry expenses", secret={"refresh_token": "RT"},
+                          state={"url": "https://docs.google.com/spreadsheets/d/sheet1"})
+    await load_samples(client, h)
+    assert sorted(r[1] for r in appended) == ["FreshMart Supermarket", "Sai Dental Supplies Pvt Ltd"]  # the two filed ones
+    assert appended[0][-1] and appended[0][0].startswith("2026-10-")
+    async with tenant_session(oid) as conn:
+        cafe = (await conn.execute(text("select id::text from app.documents where filename = 'cafe-receipt-smudged.jpg'"))).scalar_one()
+    dead[0] = True  # Google access removed: the checked receipt waits, the connection shows the problem
+    await client.put(f"/org/bookkeeping/documents/{cafe}", headers=h["finance"], json={"action": "accept", "fields": {"date": "2026-10-25", "total": "760"}})
+    async with tenant_session(oid) as conn:
+        assert (await conn.execute(text("select sheet_synced_at from app.documents where id = cast(:i as uuid)"), {"i": cafe})).scalar_one() is None
+        assert (await conn.execute(text("select status from app.connections where provider = 'google_sheets'"))).scalar_one() == "error"
+    assert len(appended) == 2
+
+
+async def test_all_my_clients(client, team_org):
+    oid, h = await books(team_org)
+    await load_samples(client, h)
+    mine = (await client.get("/me/bookkeeping-clients", headers={"Authorization": h["finance"]["Authorization"]})).json()["items"]
+    row = next(i for i in mine if i["id"] == oid)
+    assert (row["to_check"], row["filed"], row["to_export"], row["month_total"]) == (1, 2, 2, 11166.76)
+    viewer = (await client.get("/me/bookkeeping-clients", headers={"Authorization": h["staff"]["Authorization"]})).json()["items"]
+    assert all(i["id"] != oid for i in viewer)  # front desk: not their business's books

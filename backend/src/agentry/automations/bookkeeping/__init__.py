@@ -46,6 +46,12 @@ class BookkeepingConfig(BaseModel):
                                description="Phone numbers (+91…) or Telegram @usernames. Empty: anyone who sends a photo of a bill.",
                                json_schema_extra={"editable_by": "client"})
     monthly_insights: bool = Field(True, title="Monthly summary on the 1st", json_schema_extra={"editable_by": "client"})
+    email_intake: bool = Field(True, title="Read bills attached to emails in the connected Gmail",
+                               description="PDFs and photos attached to emails that look like a bill, invoice or receipt (subject or file name)",
+                               json_schema_extra={"editable_by": "client"})
+    email_senders: list[str] = Field(default_factory=list, title="Always read attachments from these senders",
+                                     description="e.g. billing@supplier.com: any attachment from them is treated as a bill",
+                                     json_schema_extra={"editable_by": "client"})
 
 
 register(AutomationTemplate(
@@ -92,6 +98,8 @@ async def after(org_id: str, did: str, doc: dict, cfg: dict) -> None:
                  "p": json.dumps({"document_id": did})})
         elif doc["status"] == "ready":
             await budget_check(conn, org_id, doc["fields"], cfg)
+    if doc["status"] == "ready":
+        await push_to_sheets(org_id)
 
 
 def allowed_sender(cfg: dict, phone: str | None, tg_username: str | None) -> bool:
@@ -173,6 +181,96 @@ async def take_from_chat(org_id: str, channel: str, conversation_id: str, payloa
     return True
 
 
+# ---------- email ----------
+
+BILLISH = re.compile(r"invoice|bill|receipt|tax|gst|payment|statement|challan|voucher|purchase order", re.IGNORECASE)
+FILE_TYPES = (".pdf", ".jpg", ".jpeg", ".png", ".webp")
+
+
+def email_wants(cfg: dict, sender: str, subject: str, filename: str) -> bool:
+    """Is this attachment a bill to read? Files from listed senders always; otherwise the subject or name must say so."""
+    if not filename.lower().endswith(FILE_TYPES):
+        return False
+    if (sender or "").lower() in {x.strip().lower() for x in cfg["email_senders"]}:
+        return True
+    return bool(BILLISH.search(subject or "") or BILLISH.search(filename))
+
+
+@on("email.received")
+@DBOS.workflow()
+async def bills_from_email(event: dict) -> None:
+    await bills_from_email_step(event["org_id"], event["payload"]["message_id"])
+
+
+@DBOS.step()
+async def bills_from_email_step(org_id: str, message_id: str) -> int:
+    """Gmail: download the bill-like attachments of a new email and file them (same checks as uploads). Returns how many."""
+    async with tenant_session(org_id) as conn:
+        status, cfg = await settings_of(conn)
+        if status not in ("live", "approval_mode") or not cfg["email_intake"]:
+            return 0
+        m = (await conn.execute(text("""select m.metadata, c.subject, c.contact_id::text, c.id::text as conv, k.email
+            from app.messages m join app.conversations c on c.id = m.conversation_id left join app.contacts k on k.id = c.contact_id
+            where m.id = cast(:i as uuid)"""), {"i": message_id})).mappings().first()
+    meta = (m or {}).get("metadata") or {}
+    names = [a.get("filename", "") for a in meta.get("attachments", [])]
+    gm = meta.get("gmail") or {}
+    if not m or not gm.get("message_id") or not any(email_wants(cfg, m["email"] or "", m["subject"] or "", n) for n in names):
+        return 0
+    from agentry.connectors.gmail import Gmail, GmailError, parse_message
+    from agentry.connectors.store import get_connection_for
+    box = await get_connection_for(org_id, "gmail", meta.get("mailbox"))
+    if not box:
+        return 0
+    g = Gmail(org_id, box)
+    try:
+        full = parse_message(await g.call("GET", f"/messages/{gm['message_id']}", params={"format": "full"}))
+    except GmailError:
+        return 0
+    n = 0
+    for a in full["attachments"]:
+        if not email_wants(cfg, m["email"] or "", m["subject"] or "", a["filename"]) or not 0 < a["size"] <= documents.MAX_BYTES:
+            continue
+        mime = documents.mime_of(a["filename"], a["mime"])
+        if not mime:
+            continue
+        try:
+            import base64
+            data = await g.call("GET", f"/messages/{gm['message_id']}/attachments/{a['attachment_id']}")
+            raw = base64.urlsafe_b64decode(data["data"] + "=" * (-len(data["data"]) % 4))
+            await ingest(org_id, raw, mime=mime, filename=a["filename"], source="email", contact_id=m["contact_id"], conversation_id=m["conv"])
+            n += 1
+        except (GmailError, documents.DocumentError, KeyError, ValueError):
+            continue
+    return n
+
+
+# ---------- Google Sheets ----------
+
+async def push_to_sheets(org_id: str) -> int:
+    """Append every filed document not in the sheet yet. A broken connection is marked (the owner is alerted) and the
+    documents wait; nothing is lost."""
+    from agentry.connectors import sheets
+    from agentry.connectors.store import get_connection, update_state
+    conn_row = await get_connection(org_id, "google_sheets")
+    if not conn_row:
+        return 0
+    async with tenant_session(org_id) as conn:
+        docs = [dict(r) for r in (await conn.execute(text("""select id::text, fields from app.documents where status = 'ready'
+            and sheet_synced_at is null order by fields->'date'->>'value', created_at limit 500"""))).mappings().all()]
+    if not docs:
+        return 0
+    try:
+        await sheets.append(org_id, conn_row, [sheets.row(d) for d in docs])
+    except sheets.SheetsError as e:
+        await update_state(org_id, conn_row["id"], error=str(e)[:300])
+        return 0
+    async with tenant_session(org_id) as conn:
+        await conn.execute(text("update app.documents set sheet_synced_at = now() where id = any(cast(:ids as uuid[]))"), {"ids": [d["id"] for d in docs]})
+    await update_state(org_id, conn_row["id"], synced=True)
+    return len(docs)
+
+
 # ---------- a person checks ----------
 
 async def review(org_id: str, did: str, *, action: str, edits: dict | None, user_id: str | None) -> dict:
@@ -207,6 +305,8 @@ async def review(org_id: str, did: str, *, action: str, edits: dict | None, user
             where kind = 'document_review' and status = 'pending' and payload->>'document_id' = :d"""), {"u": user_id, "d": did})
         if status == "ready":
             await budget_check(conn, org_id, fields, cfg)
+    if status == "ready":
+        await push_to_sheets(org_id)
     return {"status": status, "fields": fields}
 
 

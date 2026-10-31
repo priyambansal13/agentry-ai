@@ -1,16 +1,16 @@
 "use client";
 
 import { Badge, Button, Card, Input, Label } from "@agentry/ui";
-import { Camera, Mail, MessageCircle, Send } from "lucide-react";
+import { Camera, Mail, MessageCircle, Send, Sheet } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { connectTelegram, connectWhatsApp, disconnect, startInstagram, setAlertTemplate, setInboxRouting, startGmail, startOutlook, syncGmail, syncOutlook, testWhatsApp } from "@/app/(app)/actions";
+import { connectTelegram, connectWhatsApp, disconnect, startGoogleSheets, startInstagram, setAlertTemplate, setInboxRouting, startGmail, startOutlook, syncGmail, syncOutlook, testWhatsApp } from "@/app/(app)/actions";
 import { timeAgo } from "@/lib/format";
 
 export type Connection = {
-  id: string; provider: "gmail" | "whatsapp" | "outlook" | "razorpay" | "stripe" | "phone" | "telegram" | "instagram"; account_ref: string; display_name: string | null;
+  id: string; provider: "gmail" | "whatsapp" | "outlook" | "razorpay" | "stripe" | "phone" | "telegram" | "instagram" | "google_sheets"; account_ref: string; display_name: string | null;
   status: "connected" | "error"; last_sync_at: string | null; last_error: string | null; created_at: string;
-  assign_to?: string | null; baseline_minutes?: number | null;
+  assign_to?: string | null; baseline_minutes?: number | null; url?: string | null;
 };
 
 function Msg({ m }: { m: { ok: boolean; text: string } | null }) {
@@ -302,6 +302,45 @@ export function InstagramCard({ conn, available, canManage }: { conn?: Connectio
                 {conn ? "Reconnect Instagram" : "Connect Instagram"}
               </Button>
               {conn && <Button variant="ghost" disabled={pending} onClick={() => confirm("Disconnect Instagram? Scheduled posts go back to test mode.") && start(async () => {
+                const r = await disconnect(conn.id); setMsg(r.ok ? { ok: true, text: "Disconnected" } : { ok: false, text: r.error }); router.refresh();
+              })}>Disconnect</Button>}
+            </div>
+          )}
+          <div className="mt-3"><Msg m={msg} /></div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+
+/** Google Sheets for bookkeeping: one spreadsheet Agentry creates and adds each filed receipt or bill to. */
+export function GoogleSheetsCard({ conn, available, canManage }: { conn?: Connection; available: boolean; canManage: boolean }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const connect = () => start(async () => { const r = await startGoogleSheets(); if (r.ok) window.location.href = r.data.url; else setMsg({ ok: false, text: r.error }); });
+  return (
+    <Card className="p-6">
+      <div className="flex items-start gap-4">
+        <Sheet className="mt-1 h-6 w-6 shrink-0" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2"><h2 className="font-display text-xl font-bold">Google Sheets</h2>{conn && <Status c={conn} />}</div>
+          <p className="mt-1 text-sm text-muted">Agentry creates a spreadsheet in your Google Drive and adds every filed receipt and bill to it. It can only open files it created.</p>
+          {conn && (
+            <div className="mt-4 space-y-1 text-sm">
+              {conn.url && <a href={conn.url} target="_blank" rel="noreferrer" className="font-semibold underline">Open the spreadsheet</a>}
+              {conn.last_sync_at && <p className="text-muted">Last added: {timeAgo(conn.last_sync_at)}</p>}
+              {conn.last_error && <p className="text-danger">{conn.last_error}. New receipts wait until you reconnect.</p>}
+            </div>
+          )}
+          {!available && <p className="mt-4 text-sm text-warning">Google isn&apos;t enabled on this Agentry server yet. Ask your account manager.</p>}
+          {canManage && available && (
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Button variant={conn && conn.status === "connected" ? "secondary" : "primary"} disabled={pending} onClick={connect}>
+                {conn ? "Reconnect (new spreadsheet)" : "Connect Google Sheets"}
+              </Button>
+              {conn && <Button variant="ghost" disabled={pending} onClick={() => confirm("Disconnect Google Sheets? The spreadsheet stays in your Drive.") && start(async () => {
                 const r = await disconnect(conn.id); setMsg(r.ok ? { ok: true, text: "Disconnected" } : { ok: false, text: r.error }); router.refresh();
               })}>Disconnect</Button>}
             </div>

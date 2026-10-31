@@ -68,5 +68,6 @@ bot @Agentryaibot, privacy/terms pages.
 | Content publishing (6.5) | User | Choose platforms (LinkedIn app with posting permission, Instagram via Meta) |
 | Phone | User | Test call to +1 484 336 2025 from a phone that can dial the US; Twilio/Plivo for outbound |
 | Optional | User | Outlook (Azure app), Gmail Pub/Sub, GitHub secrets for the eval gate, voice worker on the server (profile `voice`) |
+| Deployment monitoring (after all agents are done, per the user 2026-10-31) | Me | Uptime checks on the three addresses, alerts (Telegram/email) when down or slow, a deploy log with version + time, server health (memory, disk, containers), and safe deploys that wait for running jobs |
 | Deploy interrupts running jobs | Me | A content run in progress during a deploy failed with "not a registered workflow function" after the worker restart (31 Oct 11:38 UTC); it was marked failed for Retry. Investigate DBOS recovery across versions; until then avoid deploying during long jobs |
 | Possible double-send | Me | A portal reply on Telegram went out twice 2 s apart (10:40 UTC 31 Oct): check the reply button |

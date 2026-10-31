@@ -708,3 +708,7 @@ export async function setWatcherStatus(id: string, status: "active" | "paused") 
 export async function removeWatcher(id: string) {
   return run<{ removed: boolean }>(`/org/watchers/${id}`, { method: "DELETE" }, ["/watch"]);
 }
+
+export async function startGoogleSheets() {
+  return run<{ url: string }>("/org/connections/google-sheets/start", { method: "POST" });
+}

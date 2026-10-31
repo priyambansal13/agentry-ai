@@ -24,12 +24,12 @@ router = APIRouter(tags=["connections"])
 async def list_connections(ctx: Annotated[OrgContext, Depends(require("dashboard", "read"))]) -> dict:
     async with tenant_session(ctx.org_id) as conn:
         rows = (await conn.execute(text("""select id, provider, account_ref, display_name, status, scopes, last_sync_at,
-            last_error, created_at, state->>'assign_to' as assign_to, state->>'alert_template' as alert_template, (state->>'baseline_response_minutes')::numeric as baseline_minutes
+            last_error, created_at, state->>'assign_to' as assign_to, state->>'alert_template' as alert_template, state->>'url' as url, (state->>'baseline_response_minutes')::numeric as baseline_minutes
             from app.connections where status <> 'revoked' order by provider, created_at"""))).mappings().all()
     return {"items": [dict(r) for r in rows],
             "available": {"gmail": gmail.configured(), "outlook": outlook.configured(),
                           "whatsapp": bool(settings.whatsapp_app_secret and settings.whatsapp_verify_token),
-                          "instagram": instagram.configured()},
+                          "instagram": instagram.configured(), "google_sheets": gmail.configured()},
             "whatsapp_webhook": {"url": settings.api_public_url.rstrip("/") + "/webhooks/whatsapp",
                                  "verify_token_set": bool(settings.whatsapp_verify_token)}}
 
@@ -44,6 +44,35 @@ async def gmail_start(ctx: Annotated[OrgContext, Depends(require("connection", "
     return {"url": gmail.auth_url(state, login_hint=ctx.principal.email)}
 
 
+@router.post("/org/connections/google-sheets/start", dependencies=[Depends(require_connection("google_sheets"))])
+async def sheets_start(ctx: Annotated[OrgContext, Depends(require("connection", "manage"))]) -> dict:
+    if not gmail.configured():
+        raise HTTPException(503, "Google isn't set up on this Agentry server yet (Google OAuth client missing)")
+    from agentry.connectors import sheets
+    return {"url": sheets.auth_url(sign_state({"org": ctx.org_id, "uid": ctx.principal.user_id, "p": "sheets"}), login_hint=ctx.principal.email)}
+
+
+async def _sheets_callback(request: Request, s: dict, code: str, back) -> RedirectResponse:
+    from agentry.connectors import sheets
+    try:
+        tokens = await sheets.exchange_code(code)
+        async with tenant_session(s["org"]) as conn:
+            name = (await conn.execute(text("select name from auth.organization where id = :o"), {"o": s["org"]})).scalar_one_or_none() or "Agentry"
+        book = await sheets.create(tokens, s["org"], f"Agentry expenses: {name}")
+    except sheets.SheetsError as e:
+        hint = " Is the Google Sheets API enabled in the Google Cloud project?" if "403" in str(e) or "disabled" in str(e).lower() else ""
+        return back(error=f"{e}{hint}")
+    await save_connection(s["org"], provider="google_sheets", account_ref=book["id"], display_name="Agentry expenses", secret=tokens,
+                          state={"url": book["url"]}, connected_by=s["uid"])
+    async with tenant_session(s["org"]) as conn:
+        await audit.record(conn, org_id=s["org"], actor_type="user", actor_user_id=s["uid"], action="connection.google_sheets.connected",
+                           target_type="connection", target_id=book["id"], ip=client_ip(request))
+        await conn.execute(text("update app.documents set sheet_synced_at = null"))  # the new sheet gets everything filed so far
+    from agentry.automations.bookkeeping import push_to_sheets
+    await push_to_sheets(s["org"])
+    return back(connected="google_sheets", account="Agentry expenses")
+
+
 @router.get("/connect/google/callback", include_in_schema=False)
 async def google_callback(request: Request, state: str = "", code: str | None = None, error: str | None = None):
     def back(**params: str) -> RedirectResponse:
@@ -53,6 +82,10 @@ async def google_callback(request: Request, state: str = "", code: str | None = 
         s = verify_state(state)
     except (SecretError, ValueError):
         return back(error="This sign-in link expired or was tampered with. Please try again.")
+    if s.get("p") == "sheets" and code and not error:
+        if await membership_role(s["uid"], s["org"]) is None and not await _is_staff(s["uid"]):
+            return back(error="You no longer have access to this organisation.")
+        return await _sheets_callback(request, s, code, back)
     if error or not code:
         return back(error="Google sign-in was cancelled." if error == "access_denied" else f"Google returned: {error}")
     # The user who started the flow must still be a member (or staff) of the organisation.

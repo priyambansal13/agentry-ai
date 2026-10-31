@@ -37,6 +37,7 @@ export default async function BookkeepingPage({ searchParams }: { searchParams: 
         </div>
         {d.can_act && (
           <div className="flex flex-wrap gap-2 text-sm">
+            <Link href="/bookkeeping/clients" className="inline-flex h-10 items-center rounded-xl border-2 border-line px-4 font-semibold hover:border-ink">All my clients</Link>
             <a href={`/api/bookkeeping-export?format=tally`} className="inline-flex h-10 items-center rounded-xl border-2 border-ink px-4 font-semibold hover:bg-lime-soft">
               Export to Tally ({d.to_export} new)
             </a>
