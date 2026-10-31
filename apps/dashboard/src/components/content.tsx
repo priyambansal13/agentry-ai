@@ -4,8 +4,8 @@ import { Badge, Button, Card, Input, Label, Select, Textarea } from "@agentry/ui
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
-  approveContentReady, deleteContent, dropContentMoment, learnBrandVoice, moveContentPost, retryContent, reviewContentPost, sampleContent,
-  saveBrandKit, scheduleContent, uploadBrandLogo,
+  approveContentReady, deleteContent, dropContentMoment, learnBrandVoice, moveContentPost, requestLongform, retryContent, reviewContentPost, sampleContent,
+  saveBrandKit, saveLongform, scheduleContent, uploadBrandLogo,
 } from "@/app/(app)/actions";
 import { PLATFORM } from "@/lib/format";
 
@@ -320,5 +320,82 @@ export function VoiceForm({ voice, samples }: { voice: string | null; samples: n
         <div className="flex flex-wrap items-center gap-3"><Button type="submit" variant="secondary" disabled={pending || posts.trim().length < 50}>Learn our voice</Button><Status msg={msg} /></div>
       </form>
     </div>
+  );
+}
+
+type Longform = { id: string; kind: "blog" | "newsletter"; status: string; title: string | null; summary: string | null; body: string | null;
+                  problems: string[]; error: string | null; approved_at: string | null };
+
+/** The blog article and newsletter made from this recording: write them, edit, approve, download. */
+export function LongformPanel({ sourceId, items, canEdit, sourceReady }: { sourceId: string; items: Longform[]; canEdit: boolean; sourceReady: boolean }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<Msg>(null);
+  const writing = items.some((i) => i.status === "writing");
+  if (!items.length) {
+    return canEdit && sourceReady ? (
+      <div className="flex flex-wrap items-center gap-3">
+        <Button variant="secondary" disabled={pending} onClick={() => start(async () => {
+          const r = await requestLongform(sourceId);
+          setMsg(r.ok ? { ok: true, text: "Writing… about a minute." } : { ok: false, text: r.error }); router.refresh();
+        })}>Write a blog article + newsletter</Button>
+        <Status msg={msg} />
+      </div>
+    ) : null;
+  }
+  return (
+    <div className="space-y-4">
+      {writing && <p role="status" className="text-sm text-muted">Writing… this page updates by itself.</p>}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {items.map((i) => <LongformCard key={i.id} item={i} sourceId={sourceId} canEdit={canEdit} />)}
+      </div>
+      {canEdit && !writing && (
+        <Button size="sm" variant="ghost" disabled={pending} onClick={() => confirm("Write both again? Your edits are replaced.") && start(async () => {
+          await requestLongform(sourceId); router.refresh();
+        })}>Write again</Button>
+      )}
+    </div>
+  );
+}
+
+function LongformCard({ item, sourceId, canEdit }: { item: Longform; sourceId: string; canEdit: boolean }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<Msg>(null);
+  const [v, setV] = useState({ title: item.title ?? "", summary: item.summary ?? "", body: item.body ?? "" });
+  const save = (approve: boolean) => start(async () => {
+    const r = await saveLongform(item.id, sourceId, { title: v.title, summary: v.summary || null, body: v.body, approve });
+    setMsg(r.ok ? { ok: true, text: approve ? "Approved" : r.data.problems.length ? `Saved, but: ${r.data.problems[0]}` : "Saved" } : { ok: false, text: r.error });
+    router.refresh();
+  });
+  const label = item.kind === "blog" ? "Blog article" : "Newsletter";
+  return (
+    <Card className="space-y-3 p-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="font-display text-lg font-bold">{label}</h3>
+        <Badge tone={item.status === "approved" ? "success" : item.status === "needs_attention" || item.status === "failed" ? "warning" : "neutral"}>
+          {{ writing: "writing…", ready: "ready to review", needs_attention: "needs attention", approved: "approved", failed: "failed" }[item.status] ?? item.status}
+        </Badge>
+      </div>
+      {item.error && <p className="text-sm text-danger">{item.error}</p>}
+      {item.problems.length > 0 && <ul className="list-disc pl-5 text-sm text-warning">{item.problems.map((p) => <li key={p}>{p}</li>)}</ul>}
+      {item.status !== "writing" && item.body && (
+        <>
+          <div><Label htmlFor={`t-${item.id}`}>{item.kind === "blog" ? "Title" : "Subject"}</Label>
+            <Input id={`t-${item.id}`} value={v.title} disabled={!canEdit} onChange={(e) => setV({ ...v, title: e.target.value })} /></div>
+          <div><Label htmlFor={`s-${item.id}`}>{item.kind === "blog" ? "Meta description" : "Preheader"}</Label>
+            <Input id={`s-${item.id}`} value={v.summary} disabled={!canEdit} onChange={(e) => setV({ ...v, summary: e.target.value })} /></div>
+          <div><Label htmlFor={`b-${item.id}`}>Text (Markdown)</Label>
+            <Textarea id={`b-${item.id}`} rows={14} value={v.body} disabled={!canEdit} onChange={(e) => setV({ ...v, body: e.target.value })} /></div>
+          <div className="flex flex-wrap items-center gap-2">
+            {canEdit && <Button size="sm" disabled={pending} onClick={() => save(true)}>{item.status === "approved" ? "Save & keep approved" : "Approve"}</Button>}
+            {canEdit && <Button size="sm" variant="secondary" disabled={pending} onClick={() => save(false)}>Save draft</Button>}
+            <a className="text-sm font-semibold underline" href={`/api/content-longform/${item.id}?format=md`}>Download .md</a>
+            <a className="text-sm font-semibold underline" href={`/api/content-longform/${item.id}?format=html`}>Download .html</a>
+            <Status msg={msg} />
+          </div>
+        </>
+      )}
+    </Card>
   );
 }

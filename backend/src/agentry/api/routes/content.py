@@ -340,3 +340,79 @@ async def content_results(ctx: Viewer, days: Annotated[int, Query(ge=1, le=366)]
     end = datetime.now(UTC)
     async with tenant_session(ctx.org_id) as conn:
         return {"days": days, **await results.summary(conn, end - timedelta(days=days), end + timedelta(seconds=1))}
+
+
+# ---------- blog + newsletter (8.3) ----------
+
+class LongformRequest(BaseModel):
+    kinds: list[Literal["blog", "newsletter"]] = Field(default_factory=lambda: ["blog", "newsletter"], min_length=1)
+
+
+@router.post("/sources/{sid}/longform", status_code=202)
+async def request_longform(sid: str, b: LongformRequest, request: Request, ctx: Editor) -> dict:
+    async with tenant_session(ctx.org_id) as conn:
+        st = (await conn.execute(text("select status from app.content_sources where id = cast(:i as uuid)"), {"i": sid})).scalar_one_or_none()
+        if st is None:
+            raise HTTPException(404, "not found")
+        if st != "ready":
+            raise HTTPException(409, "the recording is still being processed")
+        for k in b.kinds:
+            await conn.execute(text("""insert into app.content_longform (org_id, source_id, kind) values (:o, cast(:s as uuid), :k)
+                on conflict (source_id, kind) do update set status = 'writing', error = null, approved_by = null, approved_at = null, updated_at = now()"""),
+                {"o": ctx.org_id, "s": sid, "k": k})
+        await emit(conn, ctx.org_id, "content.longform_requested", {"source_id": sid, "kinds": b.kinds})
+        await _record(conn, ctx, request, "longform_requested", sid, kinds=b.kinds)
+    return {"status": "writing", "kinds": b.kinds}
+
+
+@router.get("/sources/{sid}/longform")
+async def get_longform(sid: str, ctx: Viewer) -> dict:
+    async with tenant_session(ctx.org_id) as conn:
+        rows = (await conn.execute(text("""select id::text, kind, status, title, summary, slug, body, problems, error, approved_at, exported_at, updated_at
+            from app.content_longform where source_id = cast(:i as uuid) order by kind"""), {"i": sid})).mappings().all()
+    return {"items": [dict(r) for r in rows], "can_edit": ctx.can("automation", "configure")}
+
+
+class LongformEdit(BaseModel):
+    title: Annotated[str, Field(min_length=3, max_length=200)]
+    summary: Annotated[str | None, Field(max_length=300)] = None
+    body: Annotated[str, Field(min_length=50, max_length=30000)]
+    approve: bool = False
+
+
+@router.put("/longform/{lid}")
+async def edit_longform(lid: str, b: LongformEdit, request: Request, ctx: Editor) -> dict:
+    from agentry.automations.content.longform import check, transcript_text
+    async with tenant_session(ctx.org_id) as conn:
+        row = (await conn.execute(text("""select l.kind, s.transcript from app.content_longform l join app.content_sources s on s.id = l.source_id
+            where l.id = cast(:i as uuid)"""), {"i": lid})).mappings().first()
+        if not row:
+            raise HTTPException(404, "not found")
+        problems = check(b.body, b.title, transcript_text(row["transcript"]), row["kind"])
+        quote_problems = [p for p in problems if p.startswith("quote not found")]
+        if b.approve and quote_problems:  # a person may keep a number, but never publish a misquote
+            raise HTTPException(422, quote_problems[0])
+        status = "approved" if b.approve else ("ready" if not problems else "needs_attention")
+        await conn.execute(text("""update app.content_longform set title = :t, summary = :s, body = :b, problems = cast(:p as jsonb), status = :st,
+            approved_by = case when :ap then :u else null end, approved_at = case when :ap then now() else null end, updated_at = now()
+            where id = cast(:i as uuid)"""), {"t": b.title, "s": b.summary, "b": b.body, "p": json.dumps(problems), "st": status, "ap": b.approve,
+                                               "u": ctx.principal.user_id, "i": lid})
+        await _record(conn, ctx, request, "longform_approved" if b.approve else "longform_edited", lid, kind=row["kind"])
+    return {"status": status, "problems": problems}
+
+
+@router.get("/longform/{lid}/export")
+async def export_longform(lid: str, ctx: Viewer, format: Literal["md", "html"] = "md") -> Response:
+    from agentry.automations.content.longform import slugify, to_html
+    async with tenant_session(ctx.org_id) as conn:
+        row = (await conn.execute(text("select kind, title, summary, slug, body, status from app.content_longform where id = cast(:i as uuid)"),
+                                  {"i": lid})).mappings().first()
+        if not row or not row["body"]:
+            raise HTTPException(404, "not found")
+        await conn.execute(text("update app.content_longform set exported_at = now() where id = cast(:i as uuid)"), {"i": lid})
+    name = row["slug"] or slugify(row["title"] or row["kind"])
+    if format == "html":
+        return Response(to_html(row["title"] or "", row["summary"], row["body"], row["kind"]), media_type="text/html",
+                        headers={"Content-Disposition": f'attachment; filename="{name}.html"'})
+    head = f"# {row['title']}\n\n" + (f"> {row['summary']}\n\n" if row["summary"] else "")
+    return Response(head + row["body"] + "\n", media_type="text/markdown", headers={"Content-Disposition": f'attachment; filename="{name}.md"'})

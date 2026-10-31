@@ -49,6 +49,10 @@ def load_all() -> None:
         website_chat,
         whatsapp_assistant,
     )
+
+    # workflows that are only imported lazily must still be registered at start, or DBOS can't resume them after a restart
+    from agentry.automations.cold_email import pipeline as _cold_pipeline  # noqa: F401
+    from agentry.automations.content import longform, pipeline  # noqa: F401
     from agentry.voice import summary  # noqa: F401 - call summaries after voice calls
     from agentry.worker import (
         delivery,  # noqa: F401 - outbound delivery + Gmail sync workflows

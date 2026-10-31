@@ -2,7 +2,7 @@ import { Badge, Card } from "@agentry/ui";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RefreshWhileBuilding } from "@/components/cold-email";
-import { BulkActions, type ContentPost, DropMoment, PostCard, SourceActions } from "@/components/content";
+import { BulkActions, type ContentPost, DropMoment, LongformPanel, PostCard, SourceActions } from "@/components/content";
 import { api, ApiError, requirePage } from "@/lib/session";
 
 export const metadata = { title: "Content review" };
@@ -26,7 +26,9 @@ export default async function ContentSourcePage({ params }: { params: Promise<{ 
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;
   }
-  const working = !["ready", "failed"].includes(s.status);
+  const longform = await api<{ items: Parameters<typeof LongformPanel>[0]["items"] }>(`/org/content/sources/${id}/longform`, { orgId: active.id })
+    .then((r) => r.items).catch(() => []);
+  const working = !["ready", "failed"].includes(s.status) || longform.some((l) => l.status === "writing");
   const ready = s.posts.filter((p) => p.review === "pending").length;
   const unscheduled = s.posts.filter((p) => p.review === "approved" && !p.scheduled_at && !p.published_at).length;
   const attention = s.posts.filter((p) => p.review === "needs_attention").length;
@@ -51,6 +53,10 @@ export default async function ContentSourcePage({ params }: { params: Promise<{ 
           <BulkActions sourceId={s.id} ready={ready} approvedUnscheduled={unscheduled} />
           {attention > 0 && <Badge tone="warning">{attention} need attention</Badge>}
         </div>
+      )}
+      {(longform.length > 0 || (s.can_edit && s.status === "ready")) && (
+        <section className="space-y-3"><h2 className="font-display text-xl font-bold">Blog article &amp; newsletter</h2>
+          <LongformPanel sourceId={s.id} items={longform} canEdit={s.can_edit} sourceReady={s.status === "ready"} /></section>
       )}
       {s.moments.filter((m) => !m.dropped).map((m) => (
         <section key={m.id} aria-labelledby={`m-${m.id}`} className="space-y-3">
