@@ -2,7 +2,7 @@
 
 import { cn } from "@agentry/ui";
 import {
-  Bell, BookOpen, Bot, Clapperboard, FileSignature, TrendingUp, Building2, CalendarDays, CreditCard, FileBarChart, Home, Inbox, Megaphone, MessagesSquare, Eye, Receipt, ReceiptText, Rocket, Star,
+  Bell, BookOpen, Bot, Clapperboard, FileSignature, TrendingUp, Building2, CalendarDays, CreditCard, FileBarChart, Home, Inbox, Megaphone, MessagesSquare, Eye, MessageSquareText, Receipt, ReceiptText, Rocket, Star,
   ScrollText, Send, Settings, Sparkles, UserRoundSearch, Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -13,6 +13,7 @@ type Item = { href: string; label: string; icon: React.ComponentType<{ className
 const clientItems: Item[] = [
   { href: "/home", label: "Home", icon: Home },
   { href: "/needs-you", label: "Needs you", icon: Inbox },
+  { href: "/ask", label: "Ask", icon: MessageSquareText },
   { href: "/automations", label: "Automations", icon: Bot },
   { href: "/conversations", label: "Conversations", icon: MessagesSquare },
   { href: "/leads", label: "Leads", icon: UserRoundSearch },

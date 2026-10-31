@@ -57,7 +57,7 @@ FEATURES: dict[str, Feature] = {
     # 6.1-6.4: uploads, moments, posts with quote cards, review and calendar; publishing is test mode until 6.5
     "content_repurposing": Feature(pages=("content",), connections=("instagram",), steps=("settings",), go_live=()),
 }
-ALWAYS_PAGES = ("home", "automations", "reports", "team", "audit", "billing", "notifications")
+ALWAYS_PAGES = ("home", "ask", "automations", "reports", "team", "audit", "billing", "notifications")
 ALWAYS_STEPS = ("profile", "plan", "team")
 STEP_ORDER = ["profile", "plan", "team", "connect", "import", "knowledge", "settings", "persona", "compliance", "test", "go_live"]
 GO_LIVE_LABELS = {

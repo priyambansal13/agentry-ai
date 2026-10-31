@@ -169,11 +169,17 @@ async def _on_message(m: dict) -> None:
     elif cmd == "/cancel":
         await _set_pending(p, None)
         await _say(chat_id, "Cancelled.")
+    elif body and not body.startswith("/") and len(body) >= 3:  # a question about the business: Ask your business
+        from agentry import copilot
+        await tg.call(settings.telegram_bot_token, "sendChatAction", chat_id=chat_id, action="typing")
+        out = await copilot.answer(copilot.Who(p.org_id, p.role, p.is_staff), body)
+        await _say(chat_id, out["answer"][:3500], [[{"text": "🧰 Tools", "callback_data": "tools"}]])
     else:
         await _tools(chat_id, p)
 
 
 HELP = ("What I can do:\n"
+        "• Ask anything about your business in plain words: \"what's overdue?\", \"how many leads this week?\"\n"
         "• Tools: everything your agents do, at a glance (/tools)\n"
         "• Needs you: approve, edit or discard drafts, mark things handled (/needs)\n"
         "• Alerts: urgent emails, escalations and more, if you chose Telegram in Account & notifications\n"

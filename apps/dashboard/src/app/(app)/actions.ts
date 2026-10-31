@@ -712,3 +712,17 @@ export async function removeWatcher(id: string) {
 export async function startGoogleSheets() {
   return run<{ url: string }>("/org/connections/google-sheets/start", { method: "POST" });
 }
+
+// ---------- Ask your business + MCP tokens ----------
+
+export async function askBusiness(question: string, history: { role: "user" | "assistant"; content: string }[]) {
+  return run<{ answer: string; tools: string[] }>("/org/ask", { method: "POST", body: { question, history } });
+}
+
+export async function createApiToken(name: string) {
+  return run<{ id: string; token: string; mcp_url: string }>("/org/api-tokens", { method: "POST", body: { name } }, ["/ask"]);
+}
+
+export async function revokeApiToken(id: string) {
+  return run<{ revoked: boolean }>(`/org/api-tokens/${id}`, { method: "DELETE" }, ["/ask"]);
+}
