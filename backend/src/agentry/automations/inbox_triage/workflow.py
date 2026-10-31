@@ -23,6 +23,7 @@ from agentry.knowledge import format_hits, search
 from agentry.leads import resolve_contact
 from agentry.llm.gateway import AllModelsFailed, complete
 from agentry.llm.prompts import load
+from agentry.runs import current, run
 from agentry.worker.handlers import on
 
 
@@ -272,12 +273,19 @@ async def emit_outcomes(org_id: str, email: dict, triage: dict, alert: str | Non
 @on("email.received")
 @DBOS.workflow()
 async def triage_email(event: dict) -> None:
+    mid = event["payload"]["message_id"]
+    async with run(event["org_id"], "inbox_triage", "triage.email", key=f"triage:{mid}", subject=("message", mid)):
+        await _triage_email(event)
+
+
+async def _triage_email(event: dict) -> None:
     org_id = event["org_id"]
     email = await load_email(org_id, event["payload"]["message_id"])
     if email["automation_status"] not in ("live", "approval_mode"):
         return  # paused or not set up: leave the email untouched
     triage = await classify(org_id, email)
     await save_triage(org_id, email, triage)
+    current().step("sorted", category=triage.get("category"), urgent=bool(triage.get("urgent")))
     alert = None
     if triage.get("urgent"):
         # what an alert needs, without the email body (workflow arguments are stored)
@@ -289,5 +297,7 @@ async def triage_email(event: dict) -> None:
                 await DBOS.start_workflow_async(follow_up_urgent, org_id, brief, alert)
     if triage.get("needs_reply") and email["config"]["draft_replies"]:
         approval_id = await draft_reply(org_id, email, triage)
-        await maybe_auto_send(org_id, email, triage, approval_id)
+        current().step("reply drafted")
+        if await maybe_auto_send(org_id, email, triage, approval_id):
+            current().step("sent automatically")
     await emit_outcomes(org_id, email, triage, alert)

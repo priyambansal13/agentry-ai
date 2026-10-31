@@ -14,6 +14,7 @@ from agentry.db import tenant_session
 from agentry.leads import resolve_contact
 from agentry.llm.gateway import AllModelsFailed, complete
 from agentry.notify.alerts import send_owner_alert
+from agentry.runs import run
 from agentry.worker.handlers import on
 
 FIELDS = ("summary", "intent", "outcome", "follow_up", "follow_up_reason", "caller_name", "callback_number")
@@ -103,6 +104,12 @@ async def create_callback(org_id: str, conversation_id: str, call: dict) -> str 
 @on("call.completed")
 @DBOS.workflow()
 async def on_call_completed(event: dict) -> None:
+    cid = event["payload"]["conversation_id"]
+    async with run(event["org_id"], "ai_receptionist", "voice.summary", key=f"call_summary:{cid}", subject=("conversation", cid)):
+        await _on_call_completed(event)
+
+
+async def _on_call_completed(event: dict) -> None:
     org_id, conversation_id = event["org_id"], event["payload"]["conversation_id"]
     call = await summarise(org_id, conversation_id)
     if call.get("follow_up"):

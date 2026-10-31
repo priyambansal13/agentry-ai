@@ -26,6 +26,7 @@ from agentry.config import settings
 from agentry.db import tenant_session
 from agentry.knowledge import search
 from agentry.llm.gateway import LLMResult, complete
+from agentry.runs import run
 
 MAX_TOOL_ROUNDS = 5
 LLM = Callable[..., Awaitable[LLMResult]]
@@ -85,9 +86,24 @@ def build_graph(spec: AgentSpec, *, conversation_id: str, source: str, llm: LLM,
     return g
 
 
+AGENT_BY_CHANNEL = {"web_chat": "website_chat", "whatsapp": "whatsapp_assistant", "telegram": "telegram_assistant", "voice": "ai_receptionist"}
+
+
 async def run_turn(org_id: str, conversation_id: str, user_text: str, *, llm: LLM = complete,
                    source: str = "web_chat", channel: str = "web_chat", persist_inbound: bool = True,
                    persist_reply: bool = True, context: str | None = None) -> dict:
+    """One customer message through the agent, recorded as a run (agentry/runs.py)."""
+    async with run(org_id, AGENT_BY_CHANNEL.get(channel, channel), "chat.turn", subject=("conversation", conversation_id)) as r:
+        out = await _run_turn(org_id, conversation_id, user_text, llm=llm, source=source, channel=channel, persist_inbound=persist_inbound,
+                              persist_reply=persist_reply, context=context)
+        tools = [t.get("tool") if isinstance(t, dict) else str(t) for t in out.get("tools") or []]
+        r.step("answered", tools=tools or None, booked=bool(out.get("booking")))
+        return out
+
+
+async def _run_turn(org_id: str, conversation_id: str, user_text: str, *, llm: LLM = complete,
+                    source: str = "web_chat", channel: str = "web_chat", persist_inbound: bool = True,
+                    persist_reply: bool = True, context: str | None = None) -> dict:
     """Run one visitor message through the agent and return the reply.
 
     persist_inbound=False when the channel already stored the inbound message (WhatsApp webhook);

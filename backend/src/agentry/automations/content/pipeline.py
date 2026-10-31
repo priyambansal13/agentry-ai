@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from agentry.automations.content import brand, drafts, moments, sources
 from agentry.db import tenant_session
 from agentry.events import emit
+from agentry.runs import current, run
 
 CONTEXT_SECONDS = 60
 
@@ -104,10 +105,21 @@ async def content_finish(org_id: str, sid: str, error: str | None = None) -> Non
 
 @DBOS.workflow()
 async def content_process_source(org_id: str, sid: str) -> str:
+    async with run(org_id, "content_repurposing", "content.source", key=f"content:{sid}", subject=("content_source", sid)) as r:
+        result = await _content_process_source(org_id, sid)
+        if result == "failed":
+            r.fail("stopped part-way: see the recording's page")
+        return result
+
+
+async def _content_process_source(org_id: str, sid: str) -> str:
     try:
         await content_transcribe(org_id, sid)
-        for mid in await content_find_moments(org_id, sid):
+        mids = await content_find_moments(org_id, sid)
+        current().step("moments found", moments=len(mids))
+        for mid in mids:
             await content_write_moment(org_id, sid, mid)
+        current().step("posts written")
     except Exception as e:  # noqa: BLE001 - shown on the source with a retry button; finished moments are kept
         await content_finish(org_id, sid, str(e))
         return "failed"

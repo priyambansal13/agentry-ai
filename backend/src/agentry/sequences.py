@@ -26,6 +26,7 @@ from agentry.events import emit
 from agentry.leads import can_contact
 from agentry.llm.gateway import AllModelsFailed, complete
 from agentry.llm.prompts import load
+from agentry.runs import run
 
 MAX_SLEEP = 6 * 3600  # re-plan at least every 6 hours (picks up edited due dates, new pauses)
 
@@ -257,6 +258,16 @@ async def compose(conn: AsyncConnection, org_id: str, e: dict, subj: dict, step:
 
 @DBOS.step()
 async def send_step(org_id: str, enrollment_id: str, step_index: int) -> dict:
+    async with tenant_session(org_id) as conn:
+        agent = (await conn.execute(text("""select s.automation_key from app.sequence_enrollments e join app.sequences s on s.id = e.sequence_id
+            where e.id = cast(:e as uuid)"""), {"e": enrollment_id})).scalar_one_or_none() or "sequences"
+    async with run(org_id, agent, "sequence.step", key=f"seq:{enrollment_id}:{step_index}", subject=("enrollment", enrollment_id)) as r:
+        out = await _send_step(org_id, enrollment_id, step_index)
+        r.step(f"step {step_index + 1}", results=[f"{x['channel']}: {x['status']}" for x in out["results"]])
+        return out
+
+
+async def _send_step(org_id: str, enrollment_id: str, step_index: int) -> dict:
     from agentry.outbound import (  # late import: outbound depends on connectors
         channel_problem,
         deliver_outbound,

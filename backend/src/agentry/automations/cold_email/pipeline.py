@@ -18,6 +18,7 @@ from agentry.automations.cold_email import research
 from agentry.db import system_session, tenant_session
 from agentry.events import emit
 from agentry.leads import normalize_email
+from agentry.runs import run
 
 STAGES = ["found", "website", "fits", "new", "decision_maker", "verified", "ready"]
 STAGE_LABELS = {"found": "Businesses found", "website": "Have a website", "fits": "Fit your ideal customer",
@@ -176,6 +177,14 @@ async def finish(org_id: str, campaign_id: str, status: str, error: str | None =
 
 @DBOS.workflow()
 async def build_list(org_id: str, campaign_id: str) -> str:
+    async with run(org_id, "cold_email", "cold_email.list", key=f"cold_email:{campaign_id}", subject=("campaign", campaign_id)) as r:
+        result = await _build_list(org_id, campaign_id)
+        if result == "failed":
+            r.fail("the list stopped part-way: see the campaign")
+        return result
+
+
+async def _build_list(org_id: str, campaign_id: str) -> str:
     try:
         for company_id in await find_businesses(org_id, campaign_id):
             await research_company(org_id, campaign_id, company_id)

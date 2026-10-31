@@ -8,6 +8,7 @@ import { ConfigForm } from "@/components/config-form";
 import { type InboxInsights, InboxInsightsCards } from "@/components/inbox-insights";
 import { WritingStyleCard } from "@/components/writing-style";
 import { PauseToggle } from "@/components/pause-toggle";
+import { type AgentRun, RecentRuns } from "@/components/runs";
 import { Sparkline } from "@/components/sparkline";
 import { categoryTone, formatMetric, statusLabels, timeAgo } from "@/lib/format";
 import { can } from "@/lib/permissions";
@@ -41,6 +42,7 @@ export default async function AutomationPage({ params }: { params: Promise<{ key
     api<{ items: Assignee[] }>("/org/assignees", { orgId: active.id })
       .then((r) => r.items.filter((p) => (key === "invoice_follow_up" ? p.invoices : p.conversations))),
   ]) : [[], []];
+  const runs = (await api<{ items: AgentRun[] }>(`/org/runs?agent=${key}&limit=10`, { orgId: active.id })).items;
   const insights = key === "inbox_triage" ? await api<InboxInsights>("/org/inbox/insights", { orgId: active.id }).catch(() => null) : null;
 
   return (
@@ -70,6 +72,7 @@ export default async function AutomationPage({ params }: { params: Promise<{ key
         </section>
       )}
       {insights && <InboxInsightsCards d={insights} />}
+      <RecentRuns runs={runs} staff={me.is_staff} />
       {insights && <WritingStyleCard style={insights.writing_style} canConfigure={canConfigure} />}
       <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
         <Card>

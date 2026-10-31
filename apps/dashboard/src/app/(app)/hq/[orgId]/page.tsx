@@ -40,6 +40,8 @@ export default async function HqClient({ params, searchParams }: { params: Promi
   const notes = await api<{ items: { id: number; title: string; status: string; person: string | null; created_at: string;
     deliveries: { channel: string; status: string; error?: string | null; fallback?: boolean }[] }[]; last_7_days: Record<string, number> }>(
     `/hq/orgs/${orgId}/notifications-log?limit=8`).catch(() => null);
+  const costs = await api<{ agents: { agent: string; runs: number; failed: number; avg_seconds: number | null; cost_usd: number; cost_per_run: number }[];
+    outside_runs_usd: number }>(`/hq/orgs/${orgId}/agent-costs?days=30`).catch(() => null);
   const coldEmail = d.automations.some((a) => a.template_key === "cold_email");
   const mailboxes = coldEmail ? await api<{ items: SendingMailbox[] }>(`/hq/orgs/${orgId}/sending-mailboxes`).then((r) => r.items) : [];
   const phones = receptionist ? await api<{ items: PhoneNumber[] }>("/hq/phone-numbers").then((r) => r.items).catch(() => null) : null;
@@ -106,6 +108,26 @@ export default async function HqClient({ params, searchParams }: { params: Promi
         <CardHeader><CardTitle>Pricing plan</CardTitle><span className="text-sm text-muted">{d.plan ? "changes apply to the next statement" : "no plan yet"}</span></CardHeader>
         <CardBody><PlanEditor orgId={orgId} plan={d.plan} automations={d.automations.map((a) => a.template_key)} /></CardBody>
       </Card>
+
+      {costs && costs.agents.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Agent work, last 30 days</CardTitle><span className="text-sm text-muted">model cost per run</span></CardHeader>
+          <CardBody className="overflow-x-auto p-0">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-line text-muted"><tr><th className="px-5 py-2 font-medium">Agent</th><th className="px-5 py-2 text-right font-medium">Runs</th>
+                <th className="px-5 py-2 text-right font-medium">Failed</th><th className="px-5 py-2 text-right font-medium">Avg time</th>
+                <th className="px-5 py-2 text-right font-medium">Cost</th><th className="px-5 py-2 text-right font-medium">Per run</th></tr></thead>
+              <tbody className="divide-y divide-line">{costs.agents.map((a) => (
+                <tr key={a.agent}><td className="px-5 py-2">{a.agent.replace(/_/g, " ")}</td><td className="px-5 py-2 text-right tabular-nums">{a.runs}</td>
+                  <td className={`px-5 py-2 text-right tabular-nums ${a.failed ? "text-danger" : ""}`}>{a.failed}</td>
+                  <td className="px-5 py-2 text-right tabular-nums">{a.avg_seconds != null ? `${a.avg_seconds} s` : "—"}</td>
+                  <td className="px-5 py-2 text-right tabular-nums">${a.cost_usd.toFixed(3)}</td><td className="px-5 py-2 text-right tabular-nums">${a.cost_per_run.toFixed(4)}</td></tr>
+              ))}</tbody>
+            </table>
+            {costs.outside_runs_usd > 0 && <p className="px-5 py-2 text-xs text-muted">${costs.outside_runs_usd.toFixed(3)} of model use outside tracked runs (e.g. older work, one-off tools).</p>}
+          </CardBody>
+        </Card>
+      )}
 
       {notes && (
         <Card>

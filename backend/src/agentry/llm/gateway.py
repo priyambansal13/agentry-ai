@@ -23,6 +23,7 @@ from sqlalchemy import text
 
 from agentry.config import settings
 from agentry.db import system_session
+from agentry.runs import current_run
 
 Tier = Literal["fast", "writer", "conversation", "voice", "vision", "embed"]
 TIERS: tuple[Tier, ...] = ("fast", "writer", "conversation", "voice", "vision", "embed")
@@ -240,8 +241,8 @@ async def _record(org_id, tier, model, prompt_key, prompt_version, in_tok, out_t
     async with system_session() as conn:
         await conn.execute(
             text("""insert into app.llm_calls (org_id, tier, model, prompt_key, prompt_version, input_tokens,
-                      output_tokens, cost_usd, latency_ms, status, error)
-                    values (:org, :tier, :model, :pk, :pv, :it, :ot, :cost, :lat, :status, :err)"""),
+                      output_tokens, cost_usd, latency_ms, status, error, run_id)
+                    values (:org, :tier, :model, :pk, :pv, :it, :ot, :cost, :lat, :status, :err, cast(:run as uuid))"""),
             {"org": org_id, "tier": tier, "model": model, "pk": prompt_key, "pv": prompt_version, "it": in_tok,
-             "ot": out_tok, "cost": cost, "lat": latency, "status": status, "err": error},
+             "ot": out_tok, "cost": cost, "lat": latency, "status": status, "err": error, "run": current_run.get()},
         )
