@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from agentry.api import webhooks
 from agentry.api.routes import (
     billing_api,
+    bookkeeping_api,
     business,
     calendar_api,
     cold_email,
@@ -47,7 +48,7 @@ app.add_middleware(
 load_all()
 for r in (public.router, me.router, org.router, work.router, setup.router, connections.router, business.router,
           billing_api.router, hq.router, voice.router, webhooks.router, cold_email.router, content.router, notification_center.router, runs_api.router, governance_api.router,
-          calendar_api.router):
+          calendar_api.router, bookkeeping_api.router):
     app.include_router(r)
 
 

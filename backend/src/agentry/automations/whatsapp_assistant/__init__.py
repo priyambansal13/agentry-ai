@@ -13,6 +13,7 @@ from sqlalchemy import text
 from agentry.agents.runtime import run_turn
 from agentry.automations import AutomationTemplate, register
 from agentry.automations.appointment_concierge import concierge_reply
+from agentry.automations.bookkeeping import take_from_chat
 from agentry.config import settings
 from agentry.connectors.whatsapp import send_text
 from agentry.db import tenant_session
@@ -114,6 +115,8 @@ async def hand_to_team(org_id: str, conversation_id: str, wa_id: str, reason: st
 @DBOS.workflow()
 async def answer_whatsapp(event: dict) -> None:
     org_id, p = event["org_id"], event["payload"]
+    if p.get("type") in ("image", "document") and await take_from_chat(org_id, "whatsapp", p["conversation_id"], p):
+        return  # a receipt or bill for the bookkeeping assistant (it replied)
     if p.get("type") in ("text", "button", "interactive") and await concierge_reply(org_id, p["conversation_id"], p.get("text") or ""):
         return  # "1" to a reminder, "B" for a new time...: the appointment concierge answered
     ctx = await load_context(org_id, p["conversation_id"])

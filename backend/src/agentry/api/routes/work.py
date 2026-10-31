@@ -30,18 +30,19 @@ log = logging.getLogger("agentry.work")
 # finance; viewers read only). Everything else follows the conversation permission (owner, manager, front desk).
 
 def _resource(automation_key: str | None) -> str:
-    return "invoice" if automation_key == "invoice_follow_up" else "conversation"
+    from agentry.approvals import resource_for
+    return resource_for(automation_key)
 
 
 async def _allowed_keys_sql(ctx: OrgContext, action: str) -> str | None:
     """SQL filter on automation_key for what this person may `action`; None = everything; raises if nothing.
     The invoice permission only opens conversations and Needs you when the client has invoice follow-up."""
     if ctx.can("conversation", action):
-        return None if ctx.can("invoice", action) else "coalesce(automation_key, '') <> 'invoice_follow_up'"
+        return None if ctx.can("invoice", action) else "coalesce(automation_key, '') not in ('invoice_follow_up', 'bookkeeping')"
     if ctx.can("invoice", action):
         async with tenant_session(ctx.org_id) as conn:
-            if "invoice_follow_up" in await enabled_automations(conn):
-                return "automation_key = 'invoice_follow_up'"
+            if {"invoice_follow_up", "bookkeeping"} & set(await enabled_automations(conn)):
+                return "automation_key in ('invoice_follow_up', 'bookkeeping')"
     raise HTTPException(403, f"missing permission conversation:{action}")
 
 

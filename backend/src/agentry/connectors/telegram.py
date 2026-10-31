@@ -150,8 +150,17 @@ async def ingest_customer(connection: dict, update: dict) -> int:
         await conn.execute(text("""update app.conversations set metadata = metadata - 'opted_out',
             status = case when status = 'closed' and metadata ? 'opted_out' then 'open' else status end where id = :c"""), {"c": conv_id})
         await emit(conn, org_id, "telegram.received", {"conversation_id": str(conv_id), "message_id": str(msg_id), "chat_id": chat_id,
-                                                      "text": "Hi" if body.strip() == "/start" else body, "type": kind})
+                                                      "text": "Hi" if body.strip() == "/start" else body, "type": kind,
+                                                      **({"file": _file(m)} if kind in ("photo", "document") else {})})
     return 1
+
+
+def _file(m: dict) -> dict:
+    """The file to download for a photo (its largest size) or a document."""
+    if m.get("photo"):
+        return {"file_id": m["photo"][-1]["file_id"], "mime": "image/jpeg", "name": None}
+    d = m.get("document") or {}
+    return {"file_id": d.get("file_id"), "mime": d.get("mime_type"), "name": d.get("file_name")}
 
 
 def _kind(m: dict) -> str:

@@ -28,6 +28,7 @@ export const automationNames: Record<string, string> = {
   telegram_assistant: "Telegram assistant",
   appointment_concierge: "Appointment concierge",
   lead_research: "Lead research & meeting prep",
+  bookkeeping: "Bookkeeping assistant",
 };
 
 export const statusLabels: Record<string, { label: string; tone: "success" | "warning" | "neutral" | "danger" | "lime" }> = {
@@ -49,6 +50,7 @@ export const approvalKinds: Record<string, string> = {
   escalation: "Escalation",
   dispute: "Dispute",
   low_confidence: "Not sure",
+  document_review: "Receipt to check",
 };
 
 export const categoryTone: Record<string, "danger" | "lime" | "success" | "warning" | "neutral"> = {
@@ -76,4 +78,9 @@ export const PLATFORM = { linkedin: "LinkedIn", instagram: "Instagram", x: "X" }
 export const BOOKING_STATUS: Record<string, { label: string; tone: "lime" | "neutral" | "success" | "warning" | "danger" }> = {
   booked: { label: "Booked", tone: "neutral" }, confirmed: { label: "Confirmed", tone: "lime" }, showed: { label: "Showed", tone: "success" },
   no_show: { label: "No-show", tone: "warning" }, cancelled: { label: "Cancelled", tone: "danger" },
+};
+
+export const DOC_STATUS: Record<string, { label: string; tone: "lime" | "neutral" | "success" | "warning" | "danger" }> = {
+  processing: { label: "Reading", tone: "neutral" }, needs_review: { label: "Check", tone: "warning" }, ready: { label: "Filed", tone: "success" },
+  rejected: { label: "Rejected", tone: "neutral" }, failed: { label: "Couldn't read", tone: "danger" },
 };

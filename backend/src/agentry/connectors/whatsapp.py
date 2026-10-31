@@ -75,6 +75,22 @@ async def send_template(org_id: str, to: str, name: str, language: str = "en_US"
     return (await _post(conn, {"to": to, "type": "template", "template": template}))["messages"][0]["id"]
 
 
+async def download_media(org_id: str, media_id: str) -> tuple[bytes, str]:
+    """A photo or document a customer sent: (bytes, mime type). Media URLs need the access token and expire in minutes."""
+    conn = await get_connection(org_id, "whatsapp")
+    if not conn:
+        raise WhatsAppError("WhatsApp is not connected")
+    auth = {"Authorization": f"Bearer {conn['secret']['access_token']}"}
+    async with client(timeout=120) as c:
+        meta = await c.get(graph(media_id), headers=auth)
+        if meta.status_code >= 400:
+            raise WhatsAppError(f"couldn't find the media ({meta.status_code})")
+        r = await c.get(meta.json()["url"], headers=auth)
+    if r.status_code >= 400:
+        raise WhatsAppError(f"couldn't download the media ({r.status_code})")
+    return r.content, meta.json().get("mime_type") or r.headers.get("content-type", "")
+
+
 async def within_window(org_id: str, conversation_id: str) -> bool:
     async with tenant_session(org_id) as conn:
         last_in = (await conn.execute(text("""select max(created_at) from app.messages
@@ -139,7 +155,10 @@ async def _store_inbound(org_id: str, m: dict, name: str | None) -> int:
         # A customer writing to the business consents to replies on WhatsApp (customer-initiated conversation).
         await record_consent(conn, org_id, contact_id, "whatsapp", True, source="inbound")
         await emit(conn, org_id, "whatsapp.received", {"conversation_id": str(conv_id), "message_id": str(msg_id),
-                                                      "wa_id": wa_id, "text": body, "type": m.get("type")})
+                                                      "wa_id": wa_id, "text": body, "type": m.get("type"),
+                                                      **({"media": {"id": m[m["type"]].get("id"), "mime": m[m["type"]].get("mime_type"),
+                                                                    "filename": m[m["type"]].get("filename")}}
+                                                         if m.get("type") in ("image", "document") and isinstance(m.get(m["type"]), dict) else {})})
     return 1
 
 

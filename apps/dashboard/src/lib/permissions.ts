@@ -30,5 +30,8 @@ export function can(role: string | undefined, resource: string, action: string):
 /** Invoice follow-up is money: its conversations and Needs-you cards follow the invoice permission (mirrors
  *  agentry/api/routes/work.py). Everything else follows the conversation permission. */
 export function canOnItem(role: string | undefined, automationKey: string | null | undefined, action: "read" | "act"): boolean {
-  return can(role, automationKey === "invoice_follow_up" ? "invoice" : "conversation", action);
+  return can(role, MONEY_AGENTS.includes(automationKey ?? "") ? "invoice" : "conversation", action);
 }
+
+/** Agents whose cards and conversations follow the money (invoice) permission, as in the API (approvals.MONEY_AGENTS). */
+export const MONEY_AGENTS = ["invoice_follow_up", "bookkeeping"];

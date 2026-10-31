@@ -13,7 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const role = active?.role;
   const canConverse = me.is_staff || can(role, "conversation", "read");
   // finance works the invoice items in Needs you and Conversations
-  const canWork = canConverse || (can(role, "invoice", "read") && !!features?.pages.includes("invoices"));
+  const canWork = canConverse || (can(role, "invoice", "read") && !!(features?.pages.includes("invoices") || features?.pages.includes("bookkeeping")));
   const needsYou = active && canWork
     ? await api<{ pending_by_kind: Record<string, number> }>("/org/approvals?limit=1", { orgId: active.id })
         .then((r) => Object.values(r.pending_by_kind).reduce((a, b) => a + b, 0)).catch(() => 0)

@@ -134,6 +134,8 @@ runs only on changes.
 
 ### 2.4 Document AI: photos and PDFs into typed data
 
+✅ Built 2026-10-31 for receipts and bills (`backend/src/agentry/documents.py`, `docs/flows/agents/bookkeeping.md`).
+
 One shared service: an image or PDF goes in, typed JSON comes out, with **a confidence for every field** and the
 evidence (the crop and the page). Below a threshold, a person checks it. References: receipt scanning (finance app
 `scanReceipt`), the pantry scan with confidence filtering (recipe app), and `rag_tutorials/vision_rag`.
@@ -223,7 +225,7 @@ Each agent below lists what it does, who buys it, the v1 and v2 pieces it reuses
 - *References:* `ai_email_gtm_outreach_agent`, `ai_meeting_agent`.
 - *Pricing:* included with the lead engine; per brief beyond a quota.
 
-**9.5 Bookkeeping Assistant (M).**
+**9.5 Bookkeeping Assistant (M).** ✅ Built 2026-10-31 except email intake, Sheets push and the CA-firm view (`docs/flows/agents/bookkeeping.md`).
 - *What:*
   - Clients send photos or PDFs of receipts and bills on WhatsApp, Telegram or email.
   - Agentry extracts vendor, date, amounts, GSTIN, tax split and category, with confidence; low confidence becomes a card.

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { assignApproval, confirmPayment, decideApproval, snoozeApproval } from "@/app/(app)/actions";
 import { approvalKinds, timeAgo } from "@/lib/format";
+import { MONEY_AGENTS } from "@/lib/permissions";
 
 export type Approval = {
   id: string; kind: string; title: string; body: string | null; created_at: string; conversation_id: string | null;
@@ -12,7 +13,7 @@ export type Approval = {
   assigned_to?: string | null; assigned_name?: string | null; channel_problem?: string | null;
   payload: { category?: string; urgent?: boolean; kb_sources?: string[]; ai_failed?: boolean; phone?: string | null;
              suspicious?: boolean; risk?: string[]; language?: string | null; nudge?: boolean;
-             invoice_id?: string; payment_id?: string; utr?: string | null; withdrawn?: string; held_because?: string };
+             invoice_id?: string; payment_id?: string; utr?: string | null; withdrawn?: string; held_because?: string; document_id?: string };
 };
 
 export type SavedReply = { id: string; title: string; body: string };
@@ -82,6 +83,9 @@ export function ApprovalCard({ a, canAct, templates = [], assignees = [], openIn
         </blockquote>
       )}
       {a.payload?.held_because && <p className="mt-2 text-xs text-muted">Waiting for you because: {a.payload.held_because}</p>}
+      {a.kind === "document_review" && a.payload?.document_id && (
+        <Link href={`/bookkeeping/${a.payload.document_id}`} className="mt-2 inline-block text-sm font-semibold underline">Open the receipt to check or fix it</Link>
+      )}
       {a.channel_problem && (
         <p role="alert" className="mt-3 rounded-xl border-2 border-warning px-4 py-3 text-sm text-warning">
           This can&apos;t be sent: {a.channel_problem}. Discard it, or fix that in Settings → Connections first.
@@ -143,7 +147,7 @@ export function ApprovalCard({ a, canAct, templates = [], assignees = [], openIn
               if (!r.ok) setResult({ ok: false, text: r.error });
             })}>
             <option value="">{a.assigned_to ? "Unassign" : "Assign to…"}</option>
-            {assignees.filter((p) => (a.automation_key === "invoice_follow_up" ? p.invoices : p.conversations)).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {assignees.filter((p) => (MONEY_AGENTS.includes(a.automation_key ?? "") ? p.invoices : p.conversations)).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         )}
         {canAct && (a.snoozed_until && new Date(a.snoozed_until) > new Date()

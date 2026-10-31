@@ -32,8 +32,11 @@ class CardError(ValueError):
         self.status = status
 
 
+MONEY_AGENTS = ("invoice_follow_up", "bookkeeping")  # their cards follow the invoice (money) permission, not conversation
+
+
 def resource_for(automation_key: str | None) -> str:
-    return "invoice" if automation_key == "invoice_follow_up" else "conversation"
+    return "invoice" if automation_key in MONEY_AGENTS else "conversation"
 
 
 async def decide(conn: AsyncConnection, org_id: str, approval_id: str, action: str, body: str | None, *, user_id: str | None,

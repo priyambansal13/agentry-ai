@@ -664,3 +664,17 @@ export async function removeFromWaitlist(id: string) {
 export async function researchLead(id: string) {
   return run<{ status: string }>(`/org/leads/${id}/research`, { method: "POST" }, [`/leads/${id}`, "/leads"]);
 }
+
+// ---------- bookkeeping (9.5) ----------
+
+export async function uploadDocument(form: FormData) {
+  return upload<{ id: string; status: string; error: string | null }>("/org/bookkeeping/documents", form, ["/bookkeeping"]);
+}
+
+export async function trySampleDocuments() {
+  return run<{ items: { id: string; status: string }[] }>("/org/bookkeeping/samples", { method: "POST" }, ["/bookkeeping"]);
+}
+
+export async function reviewDocument(id: string, action: "accept" | "reject", fields?: Record<string, unknown>) {
+  return run<{ status: string }>(`/org/bookkeeping/documents/${id}`, { method: "PUT", body: { action, fields } }, ["/bookkeeping", `/bookkeeping/${id}`, "/needs-you"]);
+}

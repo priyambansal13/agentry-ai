@@ -108,11 +108,12 @@ async def _card(conn, approval_id):
 
 
 async def d_card(conn, p):
+    from agentry.approvals import resource_for
     a = await _card(conn, p.get("approval_id"))
     if not a or a["status"] != "pending":
         return None
     return {"title": f"Needs you: {a['title']}", "body": "Waiting in Needs you.", "link": "/needs-you", "assignee": a["assigned_to"],
-            "permission": ("invoice" if a["automation_key"] == "invoice_follow_up" else "conversation", "act"),
+            "permission": (resource_for(a["automation_key"]), "act"),
             "facts": {"kind": a["kind"], "urgent": a["urgent"], "agent": a["automation_key"]}}
 
 
@@ -189,10 +190,32 @@ async def d_researched(conn, p):
             "link": f"/leads/{p.get('lead_id')}", "facts": {"status": p.get("status")}}
 
 
+async def d_budget(conn, p):
+    return {"title": f"{p.get('category')}: {p.get('percent')}% of this month's budget used",
+            "body": f"{_money(p.get('spent'))} of {_money(p.get('budget'))} spent in {p.get('month')}.", "link": "/bookkeeping",
+            "facts": {"category": p.get("category"), "percent": p.get("percent")}}
+
+
+async def d_books_monthly(conn, p):
+    return {"title": p.get("title") or "Monthly expenses", "body": p.get("body") or "", "link": "/bookkeeping", "facts": {"total": p.get("total")}}
+
+
+async def d_document(conn, p):
+    if p.get("status") != "needs_review":
+        return None  # only the ones a person must check
+    return {"title": "A receipt needs checking", "body": "Some details couldn't be read with confidence.", "link": f"/bookkeeping/{p.get('document_id')}",
+            "facts": {"status": p.get("status")}}
+
+
 CATALOGUE: dict[str, EventSpec] = {
     "payment.received": EventSpec("A payment arrives", "Money", d_payment, ("invoice", "read"), ("invoice_follow_up",),
                                   {"amount": "number", "currency": "text", "gateway": "text", "invoice": "text"}),
     "invoice.reply": EventSpec("A customer replies about an invoice", "Money", d_invoice_reply, ("invoice", "read"), ("invoice_follow_up",)),
+    "budget.alert": EventSpec("A category passes 80% of its monthly budget", "Money", d_budget, ("invoice", "read"), ("bookkeeping",),
+                              {"category": "text", "percent": "number"}),
+    "bookkeeping.monthly": EventSpec("The monthly expenses summary is ready", "Money", d_books_monthly, ("invoice", "read"), ("bookkeeping",),
+                                     {"total": "number"}),
+    "document.processed": EventSpec("A receipt or bill needs checking", "Money", d_document, ("invoice", "act"), ("bookkeeping",)),
     "statement.issued": EventSpec("Agentry issues a statement", "Money", d_statement, ("billing", "read"), None, {"total": "number"}),
     "lead.created": EventSpec("A new lead comes in", "Leads & bookings", d_lead, ("conversation", "read"), None, {"source": "text", "stage": "text"}),
     "booking.created": EventSpec("An appointment is booked", "Leads & bookings", d_booking, ("calendar", "read"),
@@ -238,6 +261,8 @@ DEFAULTS = [  # each added once per business, by key (a business that edits or d
     {"key": "broken", "name": "Broken connections", "event_type": "connection.broken", "roles": ["owner", "manager"], "channels": ["telegram", "email"],
      "critical": True},
     {"key": "meeting_briefs", "name": "Meeting briefs", "event_type": "meeting.brief", "roles": ["owner", "manager"], "channels": ["telegram", "email", "in_app"]},
+    {"key": "budget_alerts", "name": "Budget alerts", "event_type": "budget.alert", "roles": ["owner", "finance"], "channels": ["telegram", "email"]},
+    {"key": "books_monthly", "name": "Monthly expenses", "event_type": "bookkeeping.monthly", "roles": ["owner", "finance"], "channels": ["email", "telegram"]},
     {"key": "pulse_daily", "name": "Morning brief", "event_type": "pulse.daily", "roles": ["owner"], "channels": ["telegram", "email"]},
     {"key": "pulse_weekly", "name": "Monday week in review", "event_type": "pulse.weekly", "roles": ["owner", "manager"], "channels": ["email", "telegram"]},
 ]

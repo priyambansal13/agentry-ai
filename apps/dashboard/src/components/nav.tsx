@@ -2,7 +2,7 @@
 
 import { cn } from "@agentry/ui";
 import {
-  Bell, BookOpen, Bot, Clapperboard, FileSignature, TrendingUp, Building2, CalendarDays, CreditCard, FileBarChart, Home, Inbox, Megaphone, MessagesSquare, ReceiptText, Rocket,
+  Bell, BookOpen, Bot, Clapperboard, FileSignature, TrendingUp, Building2, CalendarDays, CreditCard, FileBarChart, Home, Inbox, Megaphone, MessagesSquare, Receipt, ReceiptText, Rocket,
   ScrollText, Send, Settings, Sparkles, UserRoundSearch, Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -17,6 +17,7 @@ const clientItems: Item[] = [
   { href: "/conversations", label: "Conversations", icon: MessagesSquare },
   { href: "/leads", label: "Leads", icon: UserRoundSearch },
   { href: "/invoices", label: "Invoices", icon: ReceiptText },
+  { href: "/bookkeeping", label: "Bookkeeping", icon: Receipt },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/cold-email", label: "Cold email", icon: Send },
   { href: "/content", label: "Content", icon: Clapperboard },
@@ -49,7 +50,7 @@ export function Nav({ isStaff, canAudit, canTeam, hasOrg, compact = false, canCo
     .filter((i) => canWork || !["/needs-you", "/conversations"].includes(i.href))
     .filter((i) => canConnect || i.href !== "/settings/connections")
     .filter((i) => canCalendar || i.href !== "/calendar")
-    .filter((i) => canInvoices || i.href !== "/invoices")
+    .filter((i) => canInvoices || !["/invoices", "/bookkeeping"].includes(i.href))
     .filter((i) => canBilling || i.href !== "/billing")
     .filter((i) => !(compact && i.soon))
     .map((i) => (i.href === "/needs-you" ? { ...i, badge: needsYou } : i));

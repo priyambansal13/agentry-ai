@@ -15,6 +15,7 @@ from sqlalchemy import text
 from agentry.agents.runtime import run_turn
 from agentry.automations import AutomationTemplate, register
 from agentry.automations.appointment_concierge import concierge_reply
+from agentry.automations.bookkeeping import take_from_chat
 from agentry.config import settings
 from agentry.connectors.telegram import send_to_customer
 from agentry.db import tenant_session
@@ -114,6 +115,8 @@ async def _who(org_id: str, conversation_id: str) -> str:
 @DBOS.workflow()
 async def answer_telegram(event: dict) -> None:
     org_id, p = event["org_id"], event["payload"]
+    if p.get("type") in ("photo", "document") and await take_from_chat(org_id, "telegram", p["conversation_id"], p):
+        return  # a receipt or bill for the bookkeeping assistant (it replied)
     if p.get("type") == "text" and await concierge_reply(org_id, p["conversation_id"], p.get("text") or ""):
         return  # an answer to an appointment reminder or offer: the concierge handled it
     ctx = await tg_context(org_id, p["conversation_id"])

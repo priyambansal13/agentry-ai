@@ -79,6 +79,7 @@ class Settings(BaseSettings):
     # Content repurposing (Phase 6): uploads, transcripts and images; transcription with the OpenAI key ("mock" = the
     # sample podcast, used by tests); publishing is "mock" (recorded at the slot time) until social accounts are connected
     content_dir: str = str(ROOT / "var" / "content")
+    documents_dir: str = str(ROOT / "var" / "documents")  # receipts and bills (Document AI); production: a mounted volume
     content_transcriber: str = "openai"
     content_transcribe_model: str = "whisper-1"  # gives timestamped segments
     content_publisher: str = "mock"
