@@ -215,7 +215,7 @@ Each agent below lists what it does, who buys it, the v1 and v2 pieces it reuses
   and its emergency rules before any model call.
 - *Pricing:* per active patient or a flat retainer, plus a per-saved-no-show outcome option.
 
-**9.4 Lead Research & Meeting Prep (S).**
+**9.4 Lead Research & Meeting Prep (S).** ✅ Built 2026-10-31 (`docs/flows/agents/lead-research.md`).
 - *What:* each new inbound lead is enriched within minutes (company, size, website summary, decision maker, likely
   need) before speed-to-lead or a sales call. A one-page brief arrives 30 minutes before any meeting on the calendar.
 - *Buyers:* agencies, CA firms, B2B services.

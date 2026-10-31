@@ -11,7 +11,7 @@ export const metadata = { title: "Leads" };
 type Lead = {
   id: string; source: string; stage: string; qualification: Record<string, string>; owner_automation: string | null;
   touches: number; last_touch_at: string | null; updated_at: string; name: string | null; email: string | null; phone: string | null;
-  conversation_id: string | null;
+  conversation_id: string | null; research_status: string | null; company: string | null;
 };
 const PIPELINE = ["new", "nurture", "contacted", "engaged", "qualified", "booked", "showed", "won"];
 const STAGE_TONE: Record<string, "lime" | "success" | "warning" | "neutral" | "danger"> = {
@@ -59,7 +59,8 @@ export default async function LeadsPage() {
             {d.items.map((l) => (
               <tr key={l.id}>
                 <td className="px-4 py-3"><div className="font-medium">{l.conversation_id ? <Link className="hover:underline" href={`/conversations/${l.conversation_id}`}>{l.name ?? l.email ?? l.phone}</Link> : (l.name ?? l.email ?? l.phone)}</div>
-                  <div className="text-xs text-muted">{l.phone ?? l.email}</div></td>
+                  <div className="text-xs text-muted">{l.phone ?? l.email}</div>
+                  <Link href={`/leads/${l.id}`} className="text-xs font-semibold underline">{l.research_status === "done" ? `Research: ${l.company ?? "ready"}` : "Details"}</Link></td>
                 <td className="max-w-xs px-4 py-3 text-ink-soft">{l.qualification.need ?? l.qualification.interest ?? "—"}
                   {(l.qualification.budget || l.qualification.timeline) && <div className="text-xs text-muted">{[l.qualification.budget, l.qualification.timeline].filter(Boolean).join(" · ")}</div>}</td>
                 <td className="px-4 py-3"><Badge tone={STAGE_TONE[l.stage] ?? "neutral"}>{l.stage.replace("_", " ")}</Badge></td>

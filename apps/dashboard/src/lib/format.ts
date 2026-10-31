@@ -27,6 +27,7 @@ export const automationNames: Record<string, string> = {
   whatsapp_assistant: "WhatsApp assistant",
   telegram_assistant: "Telegram assistant",
   appointment_concierge: "Appointment concierge",
+  lead_research: "Lead research & meeting prep",
 };
 
 export const statusLabels: Record<string, { label: string; tone: "success" | "warning" | "neutral" | "danger" | "lime" }> = {

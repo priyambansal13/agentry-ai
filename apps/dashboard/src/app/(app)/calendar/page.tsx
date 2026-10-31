@@ -8,7 +8,7 @@ export const metadata = { title: "Calendar" };
 
 type Item = { id: string; starts_at: string; day: string; time: string; status: string; source: string; service: string; staff: string;
               contact: string | null; phone: string | null; email: string | null; conversation_id: string | null; awaiting: string | null;
-              cancel_reason: string | null; concierge: Record<string, string> };
+              cancel_reason: string | null; concierge: Record<string, string>; lead_id: string | null; brief: { body: string } | null };
 type Wait = { id: string; status: string; notes: string | null; service: string; contact: string; phone: string | null; email: string | null;
               offered: { starts_at: string } | null };
 type Data = { start: string; days: number; timezone: string; items: Item[]; waitlist: Wait[]; services: { key: string; name: string }[];
@@ -65,7 +65,16 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                     {(i.phone || i.email) && <p className="text-xs text-muted">{[i.phone, i.email].filter(Boolean).join(" · ")}</p>}
                     {i.awaiting && AWAITING[i.awaiting] && <p className="mt-1 text-xs text-muted">Concierge: {AWAITING[i.awaiting]}</p>}
                     {i.cancel_reason && <p className="mt-1 text-xs text-muted">{i.cancel_reason}</p>}
-                    {i.conversation_id && <Link href={`/conversations/${i.conversation_id}`} className="text-xs font-semibold underline">Conversation</Link>}
+                    <div className="flex flex-wrap gap-3">
+                      {i.conversation_id && <Link href={`/conversations/${i.conversation_id}`} className="text-xs font-semibold underline">Conversation</Link>}
+                      {i.lead_id && <Link href={`/leads/${i.lead_id}`} className="text-xs font-semibold underline">Lead</Link>}
+                    </div>
+                    {i.brief && (
+                      <details className="mt-2 rounded-xl bg-paper p-3 text-sm">
+                        <summary className="cursor-pointer font-semibold">Meeting brief</summary>
+                        <p className="mt-2 whitespace-pre-line text-ink-soft">{i.brief.body}</p>
+                      </details>
+                    )}
                   </div>
                   {d.can_act && <BookingActions id={i.id} status={i.status} past={new Date(i.starts_at).getTime() < now} />}
                 </Card>

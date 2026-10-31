@@ -44,6 +44,8 @@ FEATURES: dict[str, Feature] = {
     # 9.3: reminders, confirm / reschedule by reply, waitlist, recalls; uses the bookings the other agents make
     "appointment_concierge": Feature(pages=("needs-you", "conversations", "calendar"), connections=("whatsapp", "telegram", "gmail"),
                                      steps=("connect", "settings", "compliance"), go_live=()),
+    # 9.4: a research note on every new lead; a brief before each meeting (Notification Center)
+    "lead_research": Feature(pages=("leads", "calendar"), connections=(), steps=("settings",), go_live=()),
     # 5.1-5.3: lists, research and reviewed first lines; nothing is sent until sending (5.4) is built
     "cold_email": Feature(pages=("cold-email",), connections=(), steps=("settings", "compliance"), go_live=()),
     # 6.1-6.4: uploads, moments, posts with quote cards, review and calendar; publishing is test mode until 6.5

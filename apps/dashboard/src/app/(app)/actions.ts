@@ -660,3 +660,7 @@ export async function addToWaitlist(entry: { name: string; phone?: string; email
 export async function removeFromWaitlist(id: string) {
   return run<{ removed: boolean }>(`/org/waitlist/${id}`, { method: "DELETE" }, ["/calendar"]);
 }
+
+export async function researchLead(id: string) {
+  return run<{ status: string }>(`/org/leads/${id}/research`, { method: "POST" }, [`/leads/${id}`, "/leads"]);
+}

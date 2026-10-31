@@ -176,6 +176,19 @@ async def d_pulse(conn, p):
     return {"title": p.get("title") or "Your brief", "body": p.get("body") or "", "link": "/home", "facts": {"todo": p.get("todo")}}
 
 
+async def d_brief(conn, p):
+    return {"title": p.get("title") or "Meeting brief", "body": p.get("body") or "", "link": f"/leads/{p['lead_id']}" if p.get("lead_id") else "/calendar",
+            "facts": {}}
+
+
+async def d_researched(conn, p):
+    who = await _one(conn, """select k.name, k.email from app.leads l join app.contacts k on k.id = l.contact_id where l.id = cast(:i as uuid)""",
+                     i=p.get("lead_id"))
+    what = p.get("company") or ("no company website found" if p.get("status") != "done" else "their company")
+    return {"title": f"Researched {who.get('name') or who.get('email') or 'a new lead'}: {what}", "body": "Open the lead for the note.",
+            "link": f"/leads/{p.get('lead_id')}", "facts": {"status": p.get("status")}}
+
+
 CATALOGUE: dict[str, EventSpec] = {
     "payment.received": EventSpec("A payment arrives", "Money", d_payment, ("invoice", "read"), ("invoice_follow_up",),
                                   {"amount": "number", "currency": "text", "gateway": "text", "invoice": "text"}),
@@ -189,6 +202,9 @@ CATALOGUE: dict[str, EventSpec] = {
                                    {"service": "text", "reason": "text"}),
     "booking.no_show": EventSpec("Someone misses their appointment", "Leads & bookings", d_booking_change, ("calendar", "read"), ("appointment_concierge",),
                                  {"service": "text"}),
+    "lead.researched": EventSpec("A new lead has been researched", "Leads & bookings", d_researched, ("conversation", "read"), ("lead_research",),
+                                 {"status": "text"}),
+    "meeting.brief": EventSpec("A meeting brief is ready (before an appointment)", "Leads & bookings", d_brief, ("calendar", "read"), ("lead_research",)),
     "cold_email.interested": EventSpec("A cold-email prospect is interested", "Leads & bookings", d_cold, ("conversation", "read"), ("cold_email",)),
     "call.completed": EventSpec("A phone call ends", "Calls & chats", d_call, ("conversation", "read"), ("ai_receptionist",),
                                 {"outcome": "text", "duration_seconds": "number", "follow_up": "bool"}),
@@ -221,6 +237,7 @@ DEFAULTS = [  # each added once per business, by key (a business that edits or d
     {"key": "content_ready", "name": "Posts ready to review", "event_type": "content.ready", "roles": ["owner", "manager"], "channels": ["in_app", "telegram"]},
     {"key": "broken", "name": "Broken connections", "event_type": "connection.broken", "roles": ["owner", "manager"], "channels": ["telegram", "email"],
      "critical": True},
+    {"key": "meeting_briefs", "name": "Meeting briefs", "event_type": "meeting.brief", "roles": ["owner", "manager"], "channels": ["telegram", "email", "in_app"]},
     {"key": "pulse_daily", "name": "Morning brief", "event_type": "pulse.daily", "roles": ["owner"], "channels": ["telegram", "email"]},
     {"key": "pulse_weekly", "name": "Monday week in review", "event_type": "pulse.weekly", "roles": ["owner", "manager"], "channels": ["email", "telegram"]},
 ]

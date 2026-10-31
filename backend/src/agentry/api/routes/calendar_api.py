@@ -29,7 +29,7 @@ async def calendar(ctx: Annotated[OrgContext, Depends(current_org)], start: date
         tz = ZoneInfo((await conn.execute(text("select timezone from app.org_settings"))).scalar_one_or_none() or "Asia/Kolkata")
         start = start or datetime.now(tz).date()
         lo = datetime.combine(start, time.min, tz)
-        rows = (await conn.execute(text("""select b.id::text, b.starts_at, b.ends_at, b.status, b.source, b.concierge, b.cancel_reason,
+        rows = (await conn.execute(text("""select b.id::text, b.starts_at, b.ends_at, b.status, b.source, b.concierge, b.cancel_reason, b.brief, b.lead_id::text,
                 s.name as service, st.name as staff, k.name as contact, k.phone_e164 as phone, k.email, b.conversation_id::text
             from app.bookings b join app.services s on s.id = b.service_id join app.staff st on st.id = b.staff_id
             left join app.contacts k on k.id = b.contact_id

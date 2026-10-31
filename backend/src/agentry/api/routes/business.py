@@ -236,11 +236,40 @@ async def list_leads(ctx: Annotated[OrgContext, Depends(require("conversation", 
     async with tenant_session(ctx.org_id) as conn:
         rows = (await conn.execute(text("""
             select l.id, l.source, l.stage, l.qualification, l.owner_automation, l.touches, l.last_touch_at, l.created_at, l.updated_at,
-                   k.name, k.email, k.phone_e164 as phone, l.conversation_id
+                   k.name, k.email, k.phone_e164 as phone, l.conversation_id, l.research->>'status' as research_status, l.research->>'company' as company
             from app.leads l join app.contacts k on k.id = l.contact_id where k.merged_into is null
             order by l.updated_at desc limit :l"""), {"l": limit})).mappings().all()
         stages = dict((await conn.execute(text("select stage, count(*) from app.leads group by stage"))).all())
     return {"items": [dict(r) for r in rows], "by_stage": stages}
+
+
+@router.get("/org/leads/{lead_id}", dependencies=[Depends(require_page("leads"))])
+async def lead_detail(lead_id: str, ctx: Annotated[OrgContext, Depends(require("conversation", "read"))]) -> dict:
+    """One lead: who, what they said, the research note (9.4) and their appointments with any meeting brief."""
+    from agentry.features import enabled_automations
+    async with tenant_session(ctx.org_id) as conn:
+        lead = (await conn.execute(text("""select l.id::text, l.source, l.stage, l.qualification, l.owner_automation, l.research, l.created_at,
+                l.conversation_id::text, k.name, k.email, k.phone_e164 as phone, k.company
+            from app.leads l join app.contacts k on k.id = l.contact_id where l.id = cast(:i as uuid)"""), {"i": lead_id})).mappings().first()
+        if not lead:
+            raise HTTPException(404, "lead not found")
+        bookings = (await conn.execute(text("""select b.id::text, b.starts_at, b.status, s.name as service, b.brief from app.bookings b
+            join app.services s on s.id = b.service_id where b.lead_id = cast(:i as uuid) or b.contact_id = (select contact_id from app.leads where id = cast(:i as uuid))
+            order by b.starts_at desc limit 10"""), {"i": lead_id})).mappings().all()
+        research_on = "lead_research" in await enabled_automations(conn)
+    return {**dict(lead), "bookings": [dict(b) for b in bookings], "research_on": research_on, "can_research": research_on and ctx.can("conversation", "act")}
+
+
+@router.post("/org/leads/{lead_id}/research", dependencies=[Depends(require_page("leads"))])
+async def research_lead(lead_id: str, ctx: Annotated[OrgContext, Depends(require("conversation", "act"))]) -> dict:
+    from agentry.automations.lead_research import research
+    from agentry.features import enabled_automations
+    async with tenant_session(ctx.org_id) as conn:
+        if "lead_research" not in await enabled_automations(conn):
+            raise HTTPException(404, "lead research isn't switched on")
+        if not (await conn.execute(text("select 1 from app.leads where id = cast(:i as uuid)"), {"i": lead_id})).first():
+            raise HTTPException(404, "lead not found")
+    return await research(ctx.org_id, lead_id)
 
 
 # ---------- reactivation campaigns ----------

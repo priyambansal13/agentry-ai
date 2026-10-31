@@ -40,6 +40,7 @@ def load_all() -> None:
         inbox_triage,
         invoice_follow_up,
         lead_reactivation,
+        lead_research,
         speed_to_lead,
         telegram_assistant,
         website_chat,
