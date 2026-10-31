@@ -25,6 +25,8 @@ export const automationNames: Record<string, string> = {
   cold_email: "Personal cold email",
   content_repurposing: "Content repurposing",
   whatsapp_assistant: "WhatsApp assistant",
+  telegram_assistant: "Telegram assistant",
+  appointment_concierge: "Appointment concierge",
 };
 
 export const statusLabels: Record<string, { label: string; tone: "success" | "warning" | "neutral" | "danger" | "lime" }> = {
@@ -69,3 +71,8 @@ export const DEMO_STATUS: Record<string, { label: string; tone: "lime" | "neutra
 
 /** Social platforms content repurposing posts to (shared by server pages and client components). */
 export const PLATFORM = { linkedin: "LinkedIn", instagram: "Instagram", x: "X" } as const;
+
+export const BOOKING_STATUS: Record<string, { label: string; tone: "lime" | "neutral" | "success" | "warning" | "danger" }> = {
+  booked: { label: "Booked", tone: "neutral" }, confirmed: { label: "Confirmed", tone: "lime" }, showed: { label: "Showed", tone: "success" },
+  no_show: { label: "No-show", tone: "warning" }, cancelled: { label: "Cancelled", tone: "danger" },
+};

@@ -202,7 +202,7 @@ Each agent below lists what it does, who buys it, the v1 and v2 pieces it reuses
 - *References:* `2_2_product_review_agent` (typed review analysis), the hospital CRM's safety-first replies.
 - *Pricing:* retainer; optional per review request sent.
 
-**9.3 Appointment Concierge (S–M).**
+**9.3 Appointment Concierge (S–M).** ✅ Built 2026-10-31 (`docs/flows/agents/appointment-concierge.md`); the review request waits for 9.2.
 - *What:*
   - Confirmations, and a WhatsApp reminder the evening before ("reply 1 to confirm, 2 to reschedule": the 22% → 8%
     no-show story from the sample podcast).

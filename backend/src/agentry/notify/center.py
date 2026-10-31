@@ -75,6 +75,17 @@ async def d_booking(conn, p):
             "link": "/leads", "facts": {"service": p.get("service"), "source": p.get("source")}}
 
 
+async def d_booking_change(conn, p):
+    r = await _one(conn, """select s.name as service, k.name as who, b.starts_at from app.bookings b join app.services s on s.id = b.service_id
+        left join app.contacts k on k.id = b.contact_id where b.id = cast(:i as uuid)""", i=p.get("booking_id"))
+    r = r or {}
+    when = r["starts_at"].strftime("%a %d %b, %I:%M %p") if r.get("starts_at") else "soon"
+    what = "Cancelled" if p.get("reason") is not None else "No-show"
+    return {"title": f"{what}: {r.get('who') or 'a customer'}, {r.get('service') or 'appointment'} on {when}",
+            "body": p.get("reason") or "They didn't come in. The concierge has offered them new times.",
+            "link": "/calendar", "facts": {"service": r.get("service"), "reason": p.get("reason")}}
+
+
 async def d_call(conn, p):
     r = await _one(conn, """select metadata->'call' as call, (metadata->>'duration_seconds')::int as secs, metadata->>'test' as test
         from app.conversations where id = cast(:i as uuid)""", i=p.get("conversation_id"))
@@ -174,6 +185,10 @@ CATALOGUE: dict[str, EventSpec] = {
     "booking.created": EventSpec("An appointment is booked", "Leads & bookings", d_booking, ("calendar", "read"),
                                  ("website_chat", "whatsapp_assistant", "telegram_assistant", "lead_reactivation", "speed_to_lead", "ai_receptionist"),
                                  {"service": "text", "source": "text"}),
+    "booking.cancelled": EventSpec("An appointment is cancelled", "Leads & bookings", d_booking_change, ("calendar", "read"), ("appointment_concierge",),
+                                   {"service": "text", "reason": "text"}),
+    "booking.no_show": EventSpec("Someone misses their appointment", "Leads & bookings", d_booking_change, ("calendar", "read"), ("appointment_concierge",),
+                                 {"service": "text"}),
     "cold_email.interested": EventSpec("A cold-email prospect is interested", "Leads & bookings", d_cold, ("conversation", "read"), ("cold_email",)),
     "call.completed": EventSpec("A phone call ends", "Calls & chats", d_call, ("conversation", "read"), ("ai_receptionist",),
                                 {"outcome": "text", "duration_seconds": "number", "follow_up": "bool"}),

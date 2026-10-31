@@ -646,3 +646,17 @@ export async function saveAutonomy(action: string, level: string, maxPerDay: num
   return run<unknown>(`/org/governance/${action}`, { method: "PUT", body: { level, max_per_day: maxPerDay, quiet_hours: quietHours } },
     ["/settings/autonomy"]);
 }
+
+// ---------- calendar & appointment concierge (9.3) ----------
+
+export async function markBooking(id: string, status: "showed" | "no_show" | "cancelled" | "confirmed") {
+  return run<{ status: string }>(`/org/bookings/${id}/status`, { method: "POST", body: { status } }, ["/calendar"]);
+}
+
+export async function addToWaitlist(entry: { name: string; phone?: string; email?: string; service_key: string; notes?: string }) {
+  return run<{ id: string }>("/org/waitlist", { method: "POST", body: entry }, ["/calendar"]);
+}
+
+export async function removeFromWaitlist(id: string) {
+  return run<{ removed: boolean }>(`/org/waitlist/${id}`, { method: "DELETE" }, ["/calendar"]);
+}

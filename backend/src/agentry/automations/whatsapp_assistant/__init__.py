@@ -12,6 +12,7 @@ from sqlalchemy import text
 
 from agentry.agents.runtime import run_turn
 from agentry.automations import AutomationTemplate, register
+from agentry.automations.appointment_concierge import concierge_reply
 from agentry.config import settings
 from agentry.connectors.whatsapp import send_text
 from agentry.db import tenant_session
@@ -113,6 +114,8 @@ async def hand_to_team(org_id: str, conversation_id: str, wa_id: str, reason: st
 @DBOS.workflow()
 async def answer_whatsapp(event: dict) -> None:
     org_id, p = event["org_id"], event["payload"]
+    if p.get("type") in ("text", "button", "interactive") and await concierge_reply(org_id, p["conversation_id"], p.get("text") or ""):
+        return  # "1" to a reminder, "B" for a new time...: the appointment concierge answered
     ctx = await load_context(org_id, p["conversation_id"])
     if ctx["automation_status"] not in ("live", "approval_mode"):
         return  # assistant paused or not set up: the team sees the message in Conversations

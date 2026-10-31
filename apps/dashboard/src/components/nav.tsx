@@ -21,7 +21,7 @@ const clientItems: Item[] = [
   { href: "/cold-email", label: "Cold email", icon: Send },
   { href: "/content", label: "Content", icon: Clapperboard },
   { href: "/knowledge", label: "Knowledge", icon: BookOpen },
-  { href: "/calendar", label: "Calendar", icon: CalendarDays, soon: true },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/reports", label: "Reports", icon: FileBarChart },
   { href: "/team", label: "Team", icon: Users },
   { href: "/audit", label: "Audit log", icon: ScrollText },

@@ -70,6 +70,12 @@ async def deliver_outbound_draft(org_id: str, approval_id: str) -> dict:
         if not a:
             return {"status": "skipped"}
         p = a["payload"]
+        if p.get("concierge_booking"):  # an appointment reminder / offer held for approval
+            from agentry.automations.appointment_concierge import deliver_approved
+            result = await deliver_approved(conn, org_id, dict(a))
+            await conn.execute(text("update app.approvals set payload = payload || jsonb_build_object('delivery', cast(:r as jsonb)) where id = cast(:a as uuid)"),
+                               {"r": json.dumps(result), "a": approval_id})
+            return result
         e = await _load(conn, p["enrollment_id"])
         from agentry.sequences import _resolved, _subject
         if e and (why := _resolved(e, await _subject(conn, e))):  # paid or disputed while the card waited (#5)
