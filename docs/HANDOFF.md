@@ -52,13 +52,18 @@ Flow docs for every role: `docs/flows/`.
 
 ## Open items
 
+Live since 2026-10-31 (docs/DEPLOY-ORACLE.md). Connected on the live site: Gmail OAuth redirect, WhatsApp (own Meta app
+"Agentry-dev", published, test number; Phone number ID 1376470008890715), Telegram customer bot @AgentryHelpBot and team
+bot @Agentryaibot, privacy/terms pages.
+
 | Item | Waiting on | Next step |
 |---|---|---|
-| Razorpay webhook (connection `fa7cb590-41c5-45ea-be9f-eefe7535c028`) | User | Run `cloudflared tunnel --no-autoupdate --url http://localhost:8801` in own Terminal; in Razorpay set `https://<tunnel>/webhooks/razorpay/fa7cb590-41c5-45ea-be9f-eefe7535c028`, events `payment.captured` + `payment_link.paid`, same secret; then set `AGENTRY_API_PUBLIC_URL`, restart API, check a bad signature gets 401. Until then: **Confirm paid** by hand |
-| Production deploy (Oracle k3s, `docs/DEPLOY.md`) | User | Offered next to SwarmAI on the same VM with its own DuckDNS names; postponed |
-| Cold email going live | User: accounts in `PHASE-5-COLD-EMAIL.md` §6 | Instantly account + 2 sending domains (2–3 weeks warm-up) → I add the Instantly sender and reply webhook; Google Places / Hunter / MillionVerifier keys → real lists (5.6); real postal address in Agentry's cold email settings |
-| Content: real publishing (6.5) | User: which platforms | LinkedIn + Instagram first (Meta app exists; LinkedIn needs an app with posting permission); X API is paid |
-| Telegram team bot | User: create the bot in @BotFather | Put its token in `AGENTRY_TELEGRAM_BOT_TOKEN`, restart, then each person links it (docs/setup/telegram.md) |
-| Real phone call test | Parked | US number can't be dialled from India |
-| Outbound calls / SMS | User | Twilio or Plivo account (Plivo needs Indian business KYC) |
-| Optional setup | User | Outlook (`AGENTRY_MICROSOFT_*`), Gmail Pub/Sub (`AGENTRY_GMAIL_PUBSUB_TOPIC`, `AGENTRY_GMAIL_PUSH_TOKEN`), WhatsApp alert template, rename "swarm-ai" → Agentry on the Google OAuth consent screen |
+| Nightly database backup | User | Add the cron line from docs/DEPLOY-ORACLE.md (`crontab -e` on the server) |
+| Temporary admin password | User | Change it in Account |
+| WhatsApp for real customers | User | Real phone number, payment method, business verification, message templates (utility alert + appointment reminder) in WhatsApp Manager |
+| Razorpay webhook | User | No tunnel needed now: connect Razorpay for a client on the live site, set `https://api.agentry.duckdns.org/webhooks/razorpay/<connection id>` (payment.captured, payment_link.paid) |
+| Cold email going live | User | Instantly + 2 warmed sending domains; Places/Hunter/MillionVerifier keys; real postal address |
+| Content publishing (6.5) | User | Choose platforms (LinkedIn app with posting permission, Instagram via Meta) |
+| Phone | User | Test call to +1 484 336 2025 from a phone that can dial the US; Twilio/Plivo for outbound |
+| Optional | User | Outlook (Azure app), Gmail Pub/Sub, GitHub secrets for the eval gate, voice worker on the server (profile `voice`) |
+| Possible double-send | Me | A portal reply on Telegram went out twice 2 s apart (10:40 UTC 31 Oct): check the reply button |
