@@ -82,15 +82,33 @@ async def extend(token: str) -> dict:
     return {"access_token": long["access_token"], "expires_at": int(time.time()) + int(expires_in) if expires_in else None}
 
 
+IG_SCOPES = ("instagram_content_publish", "instagram_business_content_publish", "instagram_basic", "instagram_business_basic")
+
+
 async def accounts(token: str) -> list[dict]:
-    """Instagram professional accounts this person granted: [{id, username, page}]."""
-    pages = await _get("me/accounts", access_token=token, fields="id,name,instagram_business_account{id,username}", limit=50)
-    out = []
-    for p in pages.get("data", []):
-        ig = p.get("instagram_business_account")
-        if ig:
-            out.append({"id": ig["id"], "username": ig.get("username") or ig["id"], "page": p.get("name")})
-    return out
+    """Instagram professional accounts this person granted: [{id, username, page}]. Two ways: the accounts they ticked
+    in Meta's dialog (the token's granular scopes: no Facebook Page needed), and Instagram accounts linked to granted Pages."""
+    out: dict[str, dict] = {}
+    try:
+        info = (await _get("debug_token", input_token=token, access_token=f"{settings.meta_app_id}|{_secret()}")).get("data", {})
+        ids = {t for g in info.get("granular_scopes", []) if g.get("scope") in IG_SCOPES for t in g.get("target_ids", [])}
+        for ig_id in ids:
+            try:
+                me = await _get(ig_id, fields="id,username", access_token=token)
+                out[ig_id] = {"id": ig_id, "username": me.get("username") or ig_id, "page": None}
+            except InstagramError:
+                continue  # not an Instagram account (e.g. a Page id under the same scope)
+    except InstagramError:
+        pass
+    try:
+        pages = await _get("me/accounts", access_token=token, fields="id,name,instagram_business_account{id,username}", limit=50)
+        for p in pages.get("data", []):
+            ig = p.get("instagram_business_account")
+            if ig:
+                out[ig["id"]] = {"id": ig["id"], "username": ig.get("username") or out.get(ig["id"], {}).get("username") or ig["id"], "page": p.get("name")}
+    except InstagramError:
+        pass
+    return list(out.values())
 
 
 async def fresh_token(secret: dict) -> tuple[str, dict | None]:

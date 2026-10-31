@@ -24,6 +24,7 @@ class FakeMeta:
         self.token_dead = False
         self.processing = 0  # how many status checks say IN_PROGRESS first
         self.pages = [{"id": "p1", "name": "Rao Clinic", "instagram_business_account": {"id": "ig123", "username": "raoclinic"}}]
+        self.granted: list[str] = []  # Instagram ids ticked in Meta's dialog (granular scopes)
 
     def handle(self, req: httpx.Request) -> httpx.Response:
         path = req.url.path.split("/", 2)[-1]  # drop the /vNN.0 prefix
@@ -35,6 +36,11 @@ class FakeMeta:
             if params.get("grant_type") == "fb_exchange_token":
                 return httpx.Response(200, json={"access_token": "LONG", "expires_in": 5184000})
             return httpx.Response(200, json={"access_token": "SHORT"})
+        if path == "debug_token":
+            return httpx.Response(200, json={"data": {"granular_scopes": [{"scope": "instagram_business_content_publish", "target_ids": self.granted},
+                                                                          {"scope": "pages_show_list", "target_ids": ["p1"]}]}})
+        if path == "ig777":
+            return httpx.Response(200, json={"id": "ig777", "username": "funkyshunkycartoon"})
         if path == "me/accounts":
             return httpx.Response(200, json={"data": self.pages})
         if path == "ig123/media":
@@ -94,7 +100,10 @@ async def test_connect_through_the_unified_login(client, team_org, meta):
         row = (await conn.execute(text("select account_ref, display_name, status from app.connections where provider = 'instagram'"))).one()
     assert tuple(row) == ("ig123", "@raoclinic", "connected")
     assert [c[2].get("grant_type") for c in meta.calls if c[1] == "oauth/access_token"] == [None, "fb_exchange_token"]  # long-lived token
-    meta.pages = [{"id": "p2", "name": "No IG page"}]
+    meta.pages, meta.granted = [], ["ig777"]  # ticked in the dialog, no Facebook Page
+    direct = await connect(client, h, oid)
+    assert "account=%40funkyshunkycartoon" in direct.headers["location"]
+    meta.pages, meta.granted = [{"id": "p2", "name": "No IG page"}], []
     bad = await connect(client, h, oid)
     assert "error=" in bad.headers["location"] and "professional" in bad.headers["location"]
 
