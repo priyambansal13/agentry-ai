@@ -95,6 +95,8 @@ class FakeProviders:
     def gmail(self, req: httpx.Request, path: str, m: str) -> httpx.Response:
         p = path.split("?")[0]
         if p == "/profile":
+            if getattr(self, "gmail_api_disabled", False):  # the Gmail API isn't enabled in the Google Cloud project
+                return httpx.Response(403, json={"error": {"code": 403, "message": "Gmail API has not been used in project 603414154823 before or it is disabled."}})
             return httpx.Response(200, json={"emailAddress": self.mailbox, "historyId": str(self.history_id)})
         if p == "/watch" and m == "POST":
             self.watches.append(json.loads(req.content))

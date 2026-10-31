@@ -64,6 +64,14 @@ async def test_gmail_connect_stores_tokens_encrypted(client, login, orgs, fake, 
     assert listed["items"][0]["provider"] == "gmail" and "secret" not in json.dumps(listed)
 
 
+async def test_gmail_api_disabled_explains_instead_of_crashing(client, login, orgs, fake, cleanup):
+    fake.gmail_api_disabled = True
+    r = await connect_gmail(client, login, orgs)
+    assert "error=" in r["redirect"] and "Enable+the+Gmail+API" in r["redirect"]
+    async with tenant_session(orgs["sharma-digital"]) as conn:
+        assert (await conn.execute(text("select count(*) from app.connections where provider = 'gmail'"))).scalar_one() == 0
+
+
 async def test_gmail_callback_rejects_tampered_or_foreign_state(client, login, orgs, fake, cleanup):
     bad = await client.get("/connect/google/callback", params={"state": "abc.def", "code": "good-code"})
     assert "error=" in bad.headers["location"]

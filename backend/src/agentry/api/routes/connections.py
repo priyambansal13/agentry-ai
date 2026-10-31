@@ -94,9 +94,17 @@ async def google_callback(request: Request, state: str = "", code: str | None = 
     try:
         tokens = await gmail.exchange_code(code)
         async with client() as c:
-            profile = (await c.get(f"{gmail.API}/profile", headers={"Authorization": f"Bearer {tokens['access_token']}"})).json()
+            r = await c.get(f"{gmail.API}/profile", headers={"Authorization": f"Bearer {tokens['access_token']}"})
+        profile = r.json() if r.content else {}
+        if r.status_code != 200 or "emailAddress" not in profile:
+            msg = (profile.get("error") or {}).get("message") or f"HTTP {r.status_code}"
+            hint = (" Enable the Gmail API in the Google Cloud project (APIs & Services → Library → Gmail API), wait a few minutes, "
+                    "then connect again." if "has not been used" in msg or "disabled" in msg else "")
+            raise gmail.GmailError(f"Google signed you in, but Gmail refused: {msg[:200]}.{hint}")
     except gmail.GmailError as e:
         return back(error=str(e))
+    except ValueError:
+        return back(error="Gmail answered with something unexpected. Please try connecting again.")
     email = profile["emailAddress"].lower()
     await save_connection(s["org"], provider="gmail", account_ref=email, display_name=email, secret=tokens,
                           scopes=tokens["scopes"], state={"history_id": profile["historyId"]}, connected_by=s["uid"])
