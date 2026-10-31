@@ -415,7 +415,14 @@ async def t_results(chat_id: int, p: Person) -> None:
     await _say(chat_id, "\n".join(lines) + f"\n\n{link_to('/reports')}", await _back())
 
 
+async def t_pulse(chat_id: int, p: Person) -> None:
+    from agentry import pulse
+    b = await pulse.build(p.org_id, "daily", with_opener=False)
+    await _say(chat_id, f"☀️ {b['title']}\n\n{b['body']}\n\n{link_to('/home')}", await _back())
+
+
 TOOLS = {  # each tool appears when the business has that part of the portal and the person may see it
+    "pulse": {"label": "☀️ Today", "run": t_pulse, "when": lambda f, p: p.can("dashboard", "read")},
     "needs": {"label": "📋 Needs you", "run": t_needs, "when": lambda f, p: "needs-you" in f["pages"] and (p.can("conversation", "act") or p.can("invoice", "act"))},
     "inbox": {"label": "📥 Inbox", "run": t_inbox, "when": lambda f, p: "inbox_triage" in f["automations"] and p.can("conversation", "read")},
     "invoices": {"label": "💰 Invoices", "run": t_invoices, "when": lambda f, p: "invoices" in f["pages"] and p.can("invoice", "read")},

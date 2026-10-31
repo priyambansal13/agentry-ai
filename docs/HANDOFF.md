@@ -13,11 +13,13 @@ Code: https://github.com/priyambansal13/agentry-ai (`main`). Everything below is
 | Website | 3200 | `cd apps/web && pnpm dev --port 3200` |
 
 - Database: `postgresql://postgres:postgres@localhost:55432/agentry` (superuser, sees every company).
-- Tests: `cd backend && uv run pytest -q` → 197 passed, 2 skipped. Stop the dev worker first if tests get flaky.
+- Tests: `cd backend && uv run pytest -q` → 205 passed, 2 skipped. Stop the dev worker first if tests get flaky.
 - The API and worker don't auto-reload: restart them after backend changes.
 
 ## Built this session (latest first)
 
+- **Business Pulse** (2026-10-31, ROADMAP-V2 9.1) — morning brief + Monday week in review via the Notification Center (events pulse.daily/weekly, default rules), Today card on Home with settings and Send now, ☀️ Today in the Telegram bot (`pulse.py`). Default notification rules are now versioned by key.
+- **Agent runs** (2026-10-31, ROADMAP-V2 7.5) — `runs.py` + `app.agent_runs`, `llm_calls.run_id` (migration 0022); runs for triage, chat turns, content, cold email lists, call summaries, sequence steps; "What it did recently" on agent pages; cost per agent on HQ client pages.
 - **Notification Center** (2026-10-31, ROADMAP-V2 7.1) — any event → rules (conditions, roles/people/assignee, channels, now/digest, critical) → Telegram/WhatsApp/email with email fallback, quiet hours, hourly limit, digests; bell in the portal; Settings → Notification rules; HQ delivery log; new events `approval.waiting_long`, `connection.broken` (migration 0021, `notify/center.py`, `worker/notify_jobs.py`). Flow: `docs/flows/notifications.md`.
 - **Telegram** (2026-10-30) — (A) `telegram_assistant`: a business's own bot answers customers (Connections → Telegram, paste BotFather token); (B) Agentry team bot: link per person (Account & notifications), cards with Approve/Edit/Discard, alerts with email fallback, Tools menu per agent, send a recording for content. Polling locally, webhooks when deployed (migration 0020, `connectors/telegram.py`, `telegram_team.py`, `worker/telegram_jobs.py`). Card decisions now go through one shared `approvals.decide`. Setup: `docs/setup/telegram.md`.
 - **Content results + billing (6.6)** (2026-10-30) — content funnel on the Content page and Reports (incl. monthly email), `posts_published` metric, videos-per-month meter in plans/statements (`content_videos`; sample not billed), transcription cost in HQ margin.

@@ -62,3 +62,26 @@ async def waiting_step() -> int:
 @DBOS.workflow()
 async def cards_waiting(scheduled_time: datetime, context: Any) -> None:
     await waiting_step()
+
+
+@DBOS.step()
+async def pulse_step() -> int:
+    """Briefs due this hour (each business's own timezone and chosen hour), once a day; Mondays add the week."""
+    from datetime import UTC
+    from zoneinfo import ZoneInfo
+
+    from agentry import pulse
+    n = 0
+    now = datetime.now(UTC)
+    for org_id, period in await pulse.due(now):
+        await pulse.send(org_id, period, now)
+        async with tenant_session(org_id) as conn:
+            tz = (await conn.execute(text("select timezone from app.org_settings"))).scalar_one()
+        await pulse.mark_sent(org_id, period, now.astimezone(ZoneInfo(tz or "Asia/Kolkata")).date())
+        n += 1
+    return n
+
+
+@DBOS.workflow()
+async def send_pulses(scheduled_time: datetime, context: Any) -> None:
+    await pulse_step()

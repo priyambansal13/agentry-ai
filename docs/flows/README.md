@@ -11,6 +11,7 @@ Read in this order:
 | 3 | [Billing and statements](03-billing.md) | Plans, monthly statements, evidence, disputes, payment, margin |
 | 4 | [Notifications](notifications.md) | Alerts and the Notification Center: any event → rules → Telegram / WhatsApp / email / bell |
 | 5 | Agents, one file each: | |
+| | [Business Pulse](agents/business-pulse.md) | Morning brief and Monday week in review: what needs you, today, good news |
 | | [Lead engine (shared)](agents/lead-engine.md) | One contact per person, one agent per lead, opt-outs: what every lead agent shares |
 | | [Inbox triage](agents/inbox-triage.md) | Gmail sorted, urgent alerts and escalation, reply drafts, digest |
 | | [Website chat agent](agents/website-chat.md) | The chat bubble on the client's site: answers, qualifies, books, hands off |

@@ -629,3 +629,13 @@ export async function saveNotificationSettings(quietFrom: string | null, quietTo
   return run<unknown>("/org/notification-settings", { method: "PUT", body: { quiet_from: quietFrom, quiet_to: quietTo, max_per_hour: maxPerHour } },
     ["/settings/notifications"]);
 }
+
+// ---------- Business Pulse ----------
+
+export async function savePulseSettings(enabled: boolean, hour: number, weekly: boolean) {
+  return run<unknown>("/org/pulse/settings", { method: "PUT", body: { enabled, hour, weekly } }, ["/home"]);
+}
+
+export async function sendPulseNow() {
+  return run<{ event_id: number }>("/org/pulse/send-now", { method: "POST" }, []);
+}

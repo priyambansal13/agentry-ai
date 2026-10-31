@@ -1,5 +1,6 @@
 import { Badge, Card, CardBody, CardHeader, CardTitle, Stat } from "@agentry/ui";
 import Link from "next/link";
+import { type Pulse, PulseCard } from "@/components/pulse";
 import { redirect } from "next/navigation";
 import { Sparkline } from "@/components/sparkline";
 import { TrendChart } from "@/components/trend-chart";
@@ -47,6 +48,7 @@ export default async function HomePage() {
   ]);
   const doneSteps = org.onboarding.filter((s) => s.status === "done").length;
   // Skip titles and initials ("Dr.", "S.") so "Dr. Neha Kulkarni" -> "Neha", "S. Natarajan" -> "Natarajan".
+  const brief = org.settings?.status === "live" ? await api<Pulse>("/org/pulse", { orgId: active.id }).catch(() => null) : null;
   const firstName = session.user.name.split(" ").find((w) => w.length > 2 && !w.endsWith(".")) || session.user.name || "there";
 
   return (
@@ -60,6 +62,8 @@ export default async function HomePage() {
         </div>
         <Badge tone={statusLabels[active.status]?.tone ?? "neutral"}>{statusLabels[active.status]?.label ?? active.status}</Badge>
       </header>
+
+      {brief && <PulseCard p={brief} />}
 
       {pending > 0 && (
         <Link href="/needs-you" className="flex items-center justify-between gap-4 rounded-2xl border-2 border-ink bg-lime px-5 py-4 text-lime-ink transition-transform hover:-translate-y-0.5">

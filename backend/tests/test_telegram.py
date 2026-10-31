@@ -124,13 +124,13 @@ async def test_linking_tools_menu_and_notification_channel(client, team_org, tg)
     # the Tools menu follows the business's agents and the person's role
     await telegram_team.handle_update(message(owner, "/tools"))
     menu = {b["callback_data"] for b in tg.to(owner)[-1]["buttons"]}
-    assert menu == {"t:needs", "t:inbox", "t:invoices", "t:leads", "t:content", "t:results"}
+    assert menu == {"t:pulse", "t:needs", "t:inbox", "t:invoices", "t:leads", "t:content", "t:results"}
     finance = await link(client, h, "finance", tg)
     await telegram_team.handle_update(message(finance, "/tools"))
-    assert {b["callback_data"] for b in tg.to(finance)[-1]["buttons"]} == {"t:needs", "t:invoices", "t:results"}
+    assert {b["callback_data"] for b in tg.to(finance)[-1]["buttons"]} == {"t:pulse", "t:needs", "t:invoices", "t:results"}
     viewer = await link(client, h, "viewer", tg)
     await telegram_team.handle_update(message(viewer, "/tools"))
-    assert {b["callback_data"] for b in tg.to(viewer)[-1]["buttons"]} == {"t:invoices", "t:results"}
+    assert {b["callback_data"] for b in tg.to(viewer)[-1]["buttons"]} == {"t:pulse", "t:invoices", "t:results"}
     for tool in ("needs", "inbox", "invoices", "leads", "content", "results"):  # every tool answers
         await telegram_team.handle_update(press(owner, f"t:{tool}"))
     replies = [m["text"] for m in tg.to(owner)[-6:]]

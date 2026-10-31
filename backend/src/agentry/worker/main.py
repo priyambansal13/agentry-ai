@@ -30,7 +30,7 @@ from agentry.worker.billing_jobs import (
 )
 from agentry.worker.delivery import poll_gmail, poll_outlook, renew_gmail_watches
 from agentry.worker.handlers import HANDLERS
-from agentry.worker.notify_jobs import cards_waiting, release_notifications
+from agentry.worker.notify_jobs import cards_waiting, release_notifications, send_pulses
 from agentry.worker.sales_jobs import check_sales_inbox
 from agentry.worker.sequence_handlers import sequence_watchdog
 from agentry.worker.telegram_jobs import poll_forever
@@ -135,6 +135,8 @@ async def run() -> None:
         {"schedule_name": "finalize-statements", "workflow_fn": finalize_statements, "schedule": "0 15 7 * * *",
          "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
         {"schedule_name": "notifications-release", "workflow_fn": release_notifications, "schedule": "0 */5 * * * *",
+         "context": None, "automatic_backfill": False, "cron_timezone": None, "queue_name": None},
+        {"schedule_name": "business-pulse", "workflow_fn": send_pulses, "schedule": "0 1 * * * *",
          "context": None, "automatic_backfill": False, "cron_timezone": None, "queue_name": None},
         {"schedule_name": "cards-waiting", "workflow_fn": cards_waiting, "schedule": "0 */15 * * * *",
          "context": None, "automatic_backfill": False, "cron_timezone": None, "queue_name": None},

@@ -161,6 +161,10 @@ async def d_chat(conn, p):
             "facts": {"text": p.get("text")}}
 
 
+async def d_pulse(conn, p):
+    return {"title": p.get("title") or "Your brief", "body": p.get("body") or "", "link": "/home", "facts": {"todo": p.get("todo")}}
+
+
 CATALOGUE: dict[str, EventSpec] = {
     "payment.received": EventSpec("A payment arrives", "Money", d_payment, ("invoice", "read"), ("invoice_follow_up",),
                                   {"amount": "number", "currency": "text", "gateway": "text", "invoice": "text"}),
@@ -184,20 +188,28 @@ CATALOGUE: dict[str, EventSpec] = {
     "content.published": EventSpec("A post is published", "Content", d_content_published, ("conversation", "read"), ("content_repurposing",), {"platform": "text"}),
     "connection.broken": EventSpec("A connection stops working", "Platform", d_broken, ("connection", "manage"), None, {"provider": "text"}),
     "org.went_live": EventSpec("Your agents go live", "Platform", d_live),
+    "pulse.daily": EventSpec("The morning brief is ready", "Business Pulse", d_pulse, ("dashboard", "read"), None, {"todo": "number"}),
+    "pulse.weekly": EventSpec("The Monday week in review is ready", "Business Pulse", d_pulse, ("dashboard", "read"), None, {"todo": "number"}),
 }
 
 # Sensible defaults: created once per business (owners can edit or switch them off). Only for events the business has.
-DEFAULTS = [
-    {"name": "Money in", "event_type": "payment.received", "roles": ["owner", "finance"], "channels": ["telegram", "in_app"]},
-    {"name": "New bookings", "event_type": "booking.created", "roles": ["owner", "manager", "staff"], "channels": ["in_app", "telegram"]},
-    {"name": "New leads, daily digest", "event_type": "lead.created", "roles": ["owner", "manager"], "channels": ["telegram", "email"],
+DEFAULTS = [  # each added once per business, by key (a business that edits or deletes one keeps its choice)
+    {"key": "money_in", "name": "Money in", "event_type": "payment.received", "roles": ["owner", "finance"], "channels": ["telegram", "in_app"]},
+    {"key": "bookings", "name": "New bookings", "event_type": "booking.created", "roles": ["owner", "manager", "staff"], "channels": ["in_app", "telegram"]},
+    {"key": "leads_digest", "name": "New leads, daily digest", "event_type": "lead.created", "roles": ["owner", "manager"], "channels": ["telegram", "email"],
      "cadence": "digest", "digest_hour": 18},
-    {"name": "Cards waiting too long", "event_type": "approval.waiting_long", "roles": [], "assignee": True, "channels": ["telegram", "email"]},
-    {"name": "Cards waiting too long (owner)", "event_type": "approval.waiting_long", "roles": ["owner"], "channels": ["telegram", "in_app"]},
-    {"name": "Interested cold-email replies", "event_type": "cold_email.interested", "roles": ["owner", "manager"], "channels": ["telegram", "email"]},
-    {"name": "Posts ready to review", "event_type": "content.ready", "roles": ["owner", "manager"], "channels": ["in_app", "telegram"]},
-    {"name": "Broken connections", "event_type": "connection.broken", "roles": ["owner", "manager"], "channels": ["telegram", "email"], "critical": True},
+    {"key": "waiting_assignee", "name": "Cards waiting too long", "event_type": "approval.waiting_long", "roles": [], "assignee": True,
+     "channels": ["telegram", "email"]},
+    {"key": "waiting_owner", "name": "Cards waiting too long (owner)", "event_type": "approval.waiting_long", "roles": ["owner"], "channels": ["telegram", "in_app"]},
+    {"key": "cold_interested", "name": "Interested cold-email replies", "event_type": "cold_email.interested", "roles": ["owner", "manager"],
+     "channels": ["telegram", "email"]},
+    {"key": "content_ready", "name": "Posts ready to review", "event_type": "content.ready", "roles": ["owner", "manager"], "channels": ["in_app", "telegram"]},
+    {"key": "broken", "name": "Broken connections", "event_type": "connection.broken", "roles": ["owner", "manager"], "channels": ["telegram", "email"],
+     "critical": True},
+    {"key": "pulse_daily", "name": "Morning brief", "event_type": "pulse.daily", "roles": ["owner"], "channels": ["telegram", "email"]},
+    {"key": "pulse_weekly", "name": "Monday week in review", "event_type": "pulse.weekly", "roles": ["owner", "manager"], "channels": ["email", "telegram"]},
 ]
+LEGACY_KEYS = ["money_in", "bookings", "leads_digest", "waiting_assignee", "waiting_owner", "cold_interested", "content_ready", "broken"]
 
 
 def available(event_type: str, automations: list[str]) -> bool:
@@ -206,21 +218,24 @@ def available(event_type: str, automations: list[str]) -> bool:
 
 
 async def ensure_defaults(conn: AsyncConnection, org_id: str) -> int:
-    """Create the default rules once per business (marked in org_settings.profile)."""
-    done = (await conn.execute(text("select coalesce(profile->>'notification_defaults', '') from app.org_settings"))).scalar_one_or_none()
-    if done is None or done:
+    """Add any default rule this business hasn't had yet (remembered by key in org_settings.profile)."""
+    profile = (await conn.execute(text("select profile from app.org_settings"))).scalar_one_or_none()
+    if profile is None:
         return 0
+    seeded = set(profile.get("notification_default_keys") or (LEGACY_KEYS if profile.get("notification_defaults") else []))
     autos = list((await conn.execute(text("select template_key from app.automation_instances"))).scalars())
     n = 0
     for d in DEFAULTS:
-        if available(d["event_type"], autos):
-            await conn.execute(text("""insert into app.notification_rules (org_id, name, event_type, roles, assignee, channels, cadence, digest_hour,
+        if d["key"] in seeded or not available(d["event_type"], autos):
+            continue  # an agent switched on later still gets its defaults then
+        seeded.add(d["key"])
+        await conn.execute(text("""insert into app.notification_rules (org_id, name, event_type, roles, assignee, channels, cadence, digest_hour,
                 critical, is_default) values (:o, :n, :e, :r, :a, :c, :cad, :h, :crit, true)"""),
                 {"o": org_id, "n": d["name"], "e": d["event_type"], "r": d["roles"], "a": d.get("assignee", False), "c": d["channels"],
                  "cad": d.get("cadence", "now"), "h": d.get("digest_hour", 18), "crit": d.get("critical", False)})
-            n += 1
-    await conn.execute(text("update app.org_settings set profile = profile || jsonb_build_object('notification_defaults', cast(:t as text))"),
-                       {"t": datetime.now(UTC).isoformat(timespec="seconds")})
+        n += 1
+    await conn.execute(text("update app.org_settings set profile = profile || jsonb_build_object('notification_default_keys', cast(:k as jsonb))"),
+                       {"k": json.dumps(sorted(seeded))})
     return n
 
 

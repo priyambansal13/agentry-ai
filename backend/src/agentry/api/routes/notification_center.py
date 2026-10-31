@@ -249,3 +249,48 @@ async def delivery_log(org_id: str, _: Annotated[Principal, Depends(require_staf
             order by n.created_at desc limit :l"""), {"s": status, "l": limit})).mappings().all()
         counts = dict((await conn.execute(text("select status, count(*) from app.notifications where created_at > now() - interval '7 days' group by status"))).all())
     return {"items": [dict(r) for r in rows], "last_7_days": counts}
+
+
+# ---------- Business Pulse (ROADMAP-V2 9.1) ----------
+
+@router.get("/org/pulse")
+async def get_pulse(ctx: Annotated[OrgContext, Depends(current_org)], period: Literal["daily", "weekly"] = "daily") -> dict:
+    """Today's brief, worked out now (the plain opener: the model writes one only for the version that's sent)."""
+    from agentry import pulse
+    if not ctx.can("dashboard", "read"):
+        raise HTTPException(403, "missing permission dashboard:read")
+    b = await pulse.build(ctx.org_id, period, with_opener=False)
+    async with tenant_session(ctx.org_id) as conn:
+        profile = (await conn.execute(text("select profile from app.org_settings"))).scalar_one_or_none() or {}
+    return {k: b[k] for k in ("period", "title", "opener", "items", "from", "to")} | {"settings": pulse.settings_of(profile),
+                                                                                    "can_edit": ctx.can("automation", "configure")}
+
+
+class PulseSettings(BaseModel):
+    enabled: bool = True
+    hour: Annotated[int, Field(ge=5, le=12)] = 8
+    weekly: bool = True
+
+
+@router.put("/org/pulse/settings")
+async def pulse_settings(b: PulseSettings, request: Request, ctx: Annotated[OrgContext, Depends(current_org)]) -> dict:
+    if not ctx.can("automation", "configure"):
+        raise HTTPException(403, "only owners and managers change the brief")
+    async with tenant_session(ctx.org_id) as conn:
+        await conn.execute(text("update app.org_settings set profile = profile || jsonb_build_object('pulse', cast(:p as jsonb))"),
+                           {"p": json.dumps(b.model_dump())})
+        await audit.record(conn, org_id=ctx.org_id, actor_type=ctx.actor_type, actor_user_id=ctx.principal.user_id, action="pulse.settings_changed",
+                           target_type="org", target_id=ctx.org_id, ip=client_ip(request), metadata=b.model_dump())
+    return b.model_dump()
+
+
+@router.post("/org/pulse/send-now")
+async def pulse_send_now(ctx: Annotated[OrgContext, Depends(current_org)], period: Literal["daily", "weekly"] = "daily") -> dict:
+    """Send the brief now (to see how it arrives); it goes to whoever the Morning brief / Week in review rules say."""
+    from agentry import pulse
+    if not ctx.can("automation", "configure"):
+        raise HTTPException(403, "only owners and managers send the brief")
+    async with tenant_session(ctx.org_id) as conn:
+        from agentry.notify.center import ensure_defaults
+        await ensure_defaults(conn, ctx.org_id)
+    return {"event_id": await pulse.send(ctx.org_id, period)}
