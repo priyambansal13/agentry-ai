@@ -1,14 +1,14 @@
 "use client";
 
 import { Badge, Button, Card, Input, Label } from "@agentry/ui";
-import { Mail, MessageCircle, Send } from "lucide-react";
+import { Camera, Mail, MessageCircle, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { connectTelegram, connectWhatsApp, disconnect, setAlertTemplate, setInboxRouting, startGmail, startOutlook, syncGmail, syncOutlook, testWhatsApp } from "@/app/(app)/actions";
+import { connectTelegram, connectWhatsApp, disconnect, startInstagram, setAlertTemplate, setInboxRouting, startGmail, startOutlook, syncGmail, syncOutlook, testWhatsApp } from "@/app/(app)/actions";
 import { timeAgo } from "@/lib/format";
 
 export type Connection = {
-  id: string; provider: "gmail" | "whatsapp" | "outlook" | "razorpay" | "stripe" | "phone" | "telegram"; account_ref: string; display_name: string | null;
+  id: string; provider: "gmail" | "whatsapp" | "outlook" | "razorpay" | "stripe" | "phone" | "telegram" | "instagram"; account_ref: string; display_name: string | null;
   status: "connected" | "error"; last_sync_at: string | null; last_error: string | null; created_at: string;
   assign_to?: string | null; baseline_minutes?: number | null;
 };
@@ -265,6 +265,47 @@ export function TelegramCard({ conn, canManage }: { conn?: Connection; canManage
               <Button type="submit" disabled={pending || token.trim().length < 20}>{pending ? "Checking with Telegram…" : "Connect Telegram"}</Button>
             </form>
           ) : null}
+          <div className="mt-3"><Msg m={msg} /></div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+
+/** Instagram for content publishing: Meta's login picks the professional account; approved posts then go out at their slot. */
+export function InstagramCard({ conn, available, canManage }: { conn?: Connection; available: boolean; canManage: boolean }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const connect = () => start(async () => { const r = await startInstagram(); if (r.ok) window.location.href = r.data.url; else setMsg({ ok: false, text: r.error }); });
+  return (
+    <Card className="p-6">
+      <div className="flex items-start gap-4">
+        <Camera className="mt-1 h-6 w-6 shrink-0" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2"><h2 className="font-display text-xl font-bold">Instagram</h2>{conn && <Status c={conn} />}</div>
+          <p className="mt-1 text-sm text-muted">
+            Approved posts from Content go out on Instagram at their scheduled time, with their quote card. Needs an Instagram Business or
+            Creator account linked to a Facebook Page. Until it&apos;s connected, posts are only recorded (test mode).
+          </p>
+          {conn && (
+            <div className="mt-4 space-y-1 text-sm">
+              <p><strong>{conn.display_name ?? conn.account_ref}</strong> · connected {timeAgo(conn.created_at)}</p>
+              {conn.last_error && <p className="text-danger">{conn.last_error}. Scheduled posts wait until you reconnect.</p>}
+            </div>
+          )}
+          {!available && <p className="mt-4 text-sm text-warning">Instagram isn&apos;t enabled on this Agentry server yet. Ask your account manager.</p>}
+          {canManage && available && (
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Button variant={conn && conn.status === "connected" ? "secondary" : "primary"} disabled={pending} onClick={connect}>
+                {conn ? "Reconnect Instagram" : "Connect Instagram"}
+              </Button>
+              {conn && <Button variant="ghost" disabled={pending} onClick={() => confirm("Disconnect Instagram? Scheduled posts go back to test mode.") && start(async () => {
+                const r = await disconnect(conn.id); setMsg(r.ok ? { ok: true, text: "Disconnected" } : { ok: false, text: r.error }); router.refresh();
+              })}>Disconnect</Button>}
+            </div>
+          )}
           <div className="mt-3"><Msg m={msg} /></div>
         </div>
       </div>

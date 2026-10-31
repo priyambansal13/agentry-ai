@@ -41,6 +41,7 @@ export default async function ContentCalendarPage() {
                   <span className="font-semibold tabular-nums">{new Date(i.scheduled_at).toLocaleTimeString("en-IN", { timeZone: d.timezone, hour: "numeric", minute: "2-digit" })}</span>
                   <Badge>{PLATFORM[i.platform]}</Badge>
                   {i.published_at && <Badge tone="success">Published{i.publish_ref?.startsWith("test-mode") ? " (test mode)" : ""}</Badge>}
+                  {i.publish_ref?.startsWith("https://") && <a href={i.publish_ref} target="_blank" rel="noreferrer" className="text-xs font-semibold underline">View post</a>}
                   {i.publish_error && <Badge tone="danger">{i.publish_error}</Badge>}
                   <span className="text-xs text-muted">from {i.source_title}</span>
                 </div>

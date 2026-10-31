@@ -134,3 +134,30 @@ async def unsubscribe(token: str) -> dict:
         if not await do_unsubscribe(conn, org_id, pid, "unsubscribe_link"):
             raise HTTPException(404, "this unsubscribe link isn't valid")
     return {"unsubscribed": True}
+
+
+@router.get("/content-image/{token}", include_in_schema=False)
+async def content_image(token: str):
+    """A quote card at a signed, expiring public address: Instagram fetches the image from a URL when posting (JPEG only)."""
+    import io
+
+    from fastapi.responses import Response
+    from PIL import Image
+
+    from agentry.automations.content import sources
+    from agentry.db import tenant_session
+    from agentry.secrets import SecretError, verify_state
+    try:
+        t = verify_state(token)
+    except (SecretError, ValueError) as e:
+        raise HTTPException(404, "not found") from e
+    if t.get("p") != "content-image":
+        raise HTTPException(404, "not found")
+    async with tenant_session(t["org"]) as conn:
+        rel = (await conn.execute(text("select image_path from app.content_posts where id = cast(:i as uuid)"), {"i": t["post"]})).scalar_one_or_none()
+    path = sources.resolve(rel)
+    if not path:
+        raise HTTPException(404, "not found")
+    buf = io.BytesIO()
+    Image.open(path).convert("RGB").save(buf, "JPEG", quality=92)
+    return Response(buf.getvalue(), media_type="image/jpeg", headers={"Cache-Control": "public, max-age=600"})

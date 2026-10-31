@@ -678,3 +678,7 @@ export async function trySampleDocuments() {
 export async function reviewDocument(id: string, action: "accept" | "reject", fields?: Record<string, unknown>) {
   return run<{ status: string }>(`/org/bookkeeping/documents/${id}`, { method: "PUT", body: { action, fields } }, ["/bookkeeping", `/bookkeeping/${id}`, "/needs-you"]);
 }
+
+export async function startInstagram() {
+  return run<{ url: string }>("/org/connections/instagram/start", { method: "POST" });
+}

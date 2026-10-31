@@ -96,6 +96,10 @@ class Settings(BaseSettings):
     whatsapp_app_secret: str | None = None  # verifies X-Hub-Signature-256 on webhooks
     whatsapp_verify_token: str | None = None  # Meta's webhook subscription handshake
     whatsapp_graph_version: str = "v23.0"
+    # Instagram publishing (6.5): the Meta app (same app as WhatsApp) + its Facebook Login for Business configuration
+    meta_app_id: str | None = None
+    meta_app_secret: str | None = None  # defaults to whatsapp_app_secret (one Meta app)
+    instagram_config_id: str | None = None
 
     # Agentry's own billing (charging clients). Each optional: without keys, statements are issued without a pay link.
     company_name: str = "Agentry"

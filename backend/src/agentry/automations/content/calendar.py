@@ -13,6 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from agentry.config import settings
+from agentry.connectors.store import get_connections, update_state
 from agentry.db import system_session, tenant_session
 from agentry.events import emit
 
@@ -61,7 +62,18 @@ async def publish_due(org_id: str, now: datetime | None = None) -> dict:
     async with tenant_session(org_id) as conn:
         rows = (await conn.execute(text("""select id, platform from app.content_posts where review = 'approved' and published_at is null
             and publish_error is null and scheduled_at <= :n order by scheduled_at"""), {"n": now})).all()
-        for pid, platform in rows:
+    ig_all = await get_connections(org_id, "instagram") if any(p == "instagram" for _i, p in rows) else []
+    ig = next((c for c in ig_all if c["status"] == "connected"), None)
+    for pid, platform in rows:
+        if platform == "instagram" and ig_all:  # the business connected Instagram: post for real (never "test mode")
+            if not ig:
+                continue  # connection broken: the post waits until it's reconnected (the owner was alerted)
+            result = await publish_instagram(org_id, str(pid), ig)
+            published, failed = published + (result == "ok"), failed + (result == "failed")
+            if result == "auth":
+                ig = None
+            continue
+        async with tenant_session(org_id) as conn:
             if settings.content_publisher == "mock":
                 await conn.execute(text("""update app.content_posts set published_at = :n, publish_ref = :r, updated_at = now() where id = :i"""),
                                    {"n": datetime.now(UTC), "r": f"test-mode:{platform}:{pid}", "i": pid})  # when it went out
@@ -72,6 +84,45 @@ async def publish_due(org_id: str, now: datetime | None = None) -> dict:
                                    {"e": f"{platform} isn't connected yet", "i": pid})
                 failed += 1
     return {"published": published, "failed": failed}
+
+
+def image_url(org_id: str, post_id: str) -> str:
+    """A signed public link to the post's quote card, valid for an hour (Instagram downloads it while posting)."""
+    from agentry.secrets import sign_state
+    return f"{settings.api_public_url.rstrip('/')}/public/content-image/{sign_state({'p': 'content-image', 'org': org_id, 'post': post_id}, 3600)}"
+
+
+async def publish_instagram(org_id: str, post_id: str, conn_row: dict) -> str:
+    """Post to the connected Instagram account. A problem with the post is recorded on it; a dead token marks the
+    connection broken (the owner is alerted) and leaves the post waiting so it goes out once reconnected."""
+    from agentry.connectors import instagram
+    async with tenant_session(org_id) as conn:
+        post = (await conn.execute(text("select body, image_path from app.content_posts where id = cast(:i as uuid)"), {"i": post_id})).mappings().one()
+    if not post["image_path"]:
+        error = "Instagram posts need an image: add a quote card"
+    else:
+        try:
+            token, refreshed = await instagram.fresh_token(conn_row["secret"])
+            if refreshed:
+                await update_state(org_id, conn_row["id"], secret=refreshed)
+                conn_row["secret"] = refreshed
+            out = await instagram.publish(conn_row["account_ref"], token, image_url(org_id, post_id), post["body"])
+        except instagram.InstagramError as e:
+            if e.auth:
+                await update_state(org_id, conn_row["id"], error="Instagram access expired or was removed: reconnect it")
+                return "auth"
+            if e.transient:
+                return "later"  # left waiting: the next run (every 5 minutes) tries again
+            error = str(e)
+        else:
+            async with tenant_session(org_id) as conn:
+                await conn.execute(text("""update app.content_posts set published_at = now(), publish_ref = :r, publish_error = null,
+                    updated_at = now() where id = cast(:i as uuid)"""), {"r": out["permalink"] or f"instagram:{out['id']}", "i": post_id})
+                await emit(conn, org_id, "content.published", {"post_id": post_id, "platform": "instagram", "url": out["permalink"]})
+            return "ok"
+    async with tenant_session(org_id) as conn:
+        await conn.execute(text("update app.content_posts set publish_error = :e where id = cast(:i as uuid)"), {"e": error[:300], "i": post_id})
+    return "failed"
 
 
 @DBOS.step()
