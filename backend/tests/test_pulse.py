@@ -28,7 +28,8 @@ async def busy_invoice_client(client, team_org):
         from agentry.invoices import apply_payment
         inv = (await conn.execute(text("select id::text from app.invoices where number = 'E-1'"))).scalar_one()
         await apply_payment(conn, oid, invoice_id=inv, amount=12000, currency="INR", gateway="razorpay", reference="pay_y1", match="strong")
-        await conn.execute(text("update app.payments set received_at = now() - interval '20 hours' where reference = 'pay_y1'"))
+        yesterday_noon = datetime.combine(datetime.now(IST).date() - timedelta(days=1), datetime.min.time().replace(hour=12), IST)
+        await conn.execute(text("update app.payments set received_at = :t where reference = 'pay_y1'"), {"t": yesterday_noon})  # any hour of the day
         await conn.execute(text("""insert into app.approvals (org_id, kind, automation_key, title, body, created_at)
             values (:o, 'escalation', 'invoice_follow_up', 'Call Rohan about E-2', 'x', now() - interval '5 hours')"""), {"o": oid})
     return oid, h

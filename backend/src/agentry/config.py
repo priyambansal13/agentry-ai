@@ -101,6 +101,10 @@ class Settings(BaseSettings):
     meta_app_id: str | None = None
     meta_app_secret: str | None = None  # defaults to whatsapp_app_secret (one Meta app)
     instagram_config_id: str | None = None
+    # LinkedIn publishing (content 8.1): a LinkedIn app with "Share on LinkedIn" + "Sign In with LinkedIn using OpenID Connect"
+    linkedin_client_id: str | None = None
+    linkedin_client_secret: str | None = None
+    linkedin_version: str = "202510"  # LinkedIn-Version header (YYYYMM); LinkedIn retires versions after about a year
 
     # Agentry's own billing (charging clients). Each optional: without keys, statements are issued without a pay link.
     company_name: str = "Agentry"

@@ -1,14 +1,14 @@
 "use client";
 
 import { Badge, Button, Card, Input, Label } from "@agentry/ui";
-import { Camera, Mail, MessageCircle, Send, Sheet } from "lucide-react";
+import { Briefcase, Camera, Mail, MessageCircle, Send, Sheet } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { connectTelegram, connectWhatsApp, disconnect, startGoogleSheets, startInstagram, setAlertTemplate, setInboxRouting, startGmail, startOutlook, syncGmail, syncOutlook, testWhatsApp } from "@/app/(app)/actions";
+import { connectTelegram, connectWhatsApp, disconnect, startGoogleSheets, startInstagram, startLinkedIn, setAlertTemplate, setInboxRouting, startGmail, startOutlook, syncGmail, syncOutlook, testWhatsApp } from "@/app/(app)/actions";
 import { timeAgo } from "@/lib/format";
 
 export type Connection = {
-  id: string; provider: "gmail" | "whatsapp" | "outlook" | "razorpay" | "stripe" | "phone" | "telegram" | "instagram" | "google_sheets"; account_ref: string; display_name: string | null;
+  id: string; provider: "gmail" | "whatsapp" | "outlook" | "razorpay" | "stripe" | "phone" | "telegram" | "instagram" | "google_sheets" | "linkedin"; account_ref: string; display_name: string | null;
   status: "connected" | "error"; last_sync_at: string | null; last_error: string | null; created_at: string;
   assign_to?: string | null; baseline_minutes?: number | null; url?: string | null;
 };
@@ -341,6 +341,43 @@ export function GoogleSheetsCard({ conn, available, canManage }: { conn?: Connec
                 {conn ? "Reconnect (new spreadsheet)" : "Connect Google Sheets"}
               </Button>
               {conn && <Button variant="ghost" disabled={pending} onClick={() => confirm("Disconnect Google Sheets? The spreadsheet stays in your Drive.") && start(async () => {
+                const r = await disconnect(conn.id); setMsg(r.ok ? { ok: true, text: "Disconnected" } : { ok: false, text: r.error }); router.refresh();
+              })}>Disconnect</Button>}
+            </div>
+          )}
+          <div className="mt-3"><Msg m={msg} /></div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+
+/** LinkedIn for content publishing: approved posts go out on the connected person's LinkedIn profile at their slot. */
+export function LinkedInCard({ conn, available, canManage }: { conn?: Connection; available: boolean; canManage: boolean }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const connect = () => start(async () => { const r = await startLinkedIn(); if (r.ok) window.location.href = r.data.url; else setMsg({ ok: false, text: r.error }); });
+  return (
+    <Card className="p-6">
+      <div className="flex items-start gap-4">
+        <Briefcase className="mt-1 h-6 w-6 shrink-0" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2"><h2 className="font-display text-xl font-bold">LinkedIn</h2>{conn && <Status c={conn} />}</div>
+          <p className="mt-1 text-sm text-muted">Approved LinkedIn posts from Content go out on your LinkedIn profile at their scheduled time, with their quote card.
+            LinkedIn asks you to sign in again about every 60 days: when it expires, Agentry tells you and posts wait until you reconnect.</p>
+          {conn && (
+            <div className="mt-4 space-y-1 text-sm">
+              <p><strong>{conn.display_name ?? "LinkedIn profile"}</strong> · connected {timeAgo(conn.created_at)}</p>
+              {conn.last_error && <p className="text-danger">{conn.last_error}. Scheduled posts wait until you reconnect.</p>}
+            </div>
+          )}
+          {!available && <p className="mt-4 text-sm text-warning">LinkedIn isn&apos;t enabled on this Agentry server yet. Ask your account manager.</p>}
+          {canManage && available && (
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Button variant={conn && conn.status === "connected" ? "secondary" : "primary"} disabled={pending} onClick={connect}>{conn ? "Reconnect LinkedIn" : "Connect LinkedIn"}</Button>
+              {conn && <Button variant="ghost" disabled={pending} onClick={() => confirm("Disconnect LinkedIn? Scheduled posts go back to test mode.") && start(async () => {
                 const r = await disconnect(conn.id); setMsg(r.ok ? { ok: true, text: "Disconnected" } : { ok: false, text: r.error }); router.refresh();
               })}>Disconnect</Button>}
             </div>

@@ -62,16 +62,17 @@ async def publish_due(org_id: str, now: datetime | None = None) -> dict:
     async with tenant_session(org_id) as conn:
         rows = (await conn.execute(text("""select id, platform from app.content_posts where review = 'approved' and published_at is null
             and publish_error is null and scheduled_at <= :n order by scheduled_at"""), {"n": now})).all()
-    ig_all = await get_connections(org_id, "instagram") if any(p == "instagram" for _i, p in rows) else []
-    ig = next((c for c in ig_all if c["status"] == "connected"), None)
+    real = {"instagram": publish_instagram, "linkedin": publish_linkedin}
+    known = {p: await get_connections(org_id, p) for p in real if any(pl == p for _i, pl in rows)}
+    live = {p: next((c for c in cs if c["status"] == "connected"), None) for p, cs in known.items()}
     for pid, platform in rows:
-        if platform == "instagram" and ig_all:  # the business connected Instagram: post for real (never "test mode")
-            if not ig:
+        if known.get(platform):  # the business connected this platform: post for real (never "test mode")
+            if not live[platform]:
                 continue  # connection broken: the post waits until it's reconnected (the owner was alerted)
-            result = await publish_instagram(org_id, str(pid), ig)
+            result = await real[platform](org_id, str(pid), live[platform])
             published, failed = published + (result == "ok"), failed + (result == "failed")
             if result == "auth":
-                ig = None
+                live[platform] = None
             continue
         async with tenant_session(org_id) as conn:
             if settings.content_publisher == "mock":
@@ -123,6 +124,32 @@ async def publish_instagram(org_id: str, post_id: str, conn_row: dict) -> str:
     async with tenant_session(org_id) as conn:
         await conn.execute(text("update app.content_posts set publish_error = :e where id = cast(:i as uuid)"), {"e": error[:300], "i": post_id})
     return "failed"
+
+
+async def publish_linkedin(org_id: str, post_id: str, conn_row: dict) -> str:
+    """Post to the connected LinkedIn profile, with the quote card when there is one. Same outcomes as Instagram."""
+    from agentry.automations.content import sources
+    from agentry.connectors import linkedin
+    async with tenant_session(org_id) as conn:
+        post = (await conn.execute(text("select body, hashtags, image_path from app.content_posts where id = cast(:i as uuid)"), {"i": post_id})).mappings().one()
+    path = sources.resolve(post["image_path"])
+    tags = " ".join(f"#{h.lstrip('#')}" for h in (post["hashtags"] or []))
+    try:
+        out = await linkedin.publish(conn_row["secret"], path.read_bytes() if path else None, f"{post['body']}\n\n{tags}".strip())
+    except linkedin.LinkedInError as e:
+        if e.auth:
+            await update_state(org_id, conn_row["id"], error="LinkedIn access expired or was removed: reconnect it")
+            return "auth"
+        if e.transient:
+            return "later"
+        async with tenant_session(org_id) as conn:
+            await conn.execute(text("update app.content_posts set publish_error = :e where id = cast(:i as uuid)"), {"e": str(e)[:300], "i": post_id})
+        return "failed"
+    async with tenant_session(org_id) as conn:
+        await conn.execute(text("""update app.content_posts set published_at = now(), publish_ref = :r, publish_error = null, updated_at = now()
+            where id = cast(:i as uuid)"""), {"r": out["permalink"] or f"linkedin:{out['id']}", "i": post_id})
+        await emit(conn, org_id, "content.published", {"post_id": post_id, "platform": "linkedin", "url": out["permalink"]})
+    return "ok"
 
 
 @DBOS.step()

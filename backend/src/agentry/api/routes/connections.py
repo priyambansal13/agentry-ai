@@ -10,7 +10,7 @@ from sqlalchemy import text
 from agentry import audit
 from agentry.auth import OrgContext, client_ip, membership_role, require
 from agentry.config import settings
-from agentry.connectors import gmail, instagram, outlook, whatsapp
+from agentry.connectors import gmail, instagram, linkedin, outlook, whatsapp
 from agentry.connectors.http import client
 from agentry.connectors.store import get_connection, public_view, save_connection
 from agentry.db import tenant_session
@@ -29,7 +29,7 @@ async def list_connections(ctx: Annotated[OrgContext, Depends(require("dashboard
     return {"items": [dict(r) for r in rows],
             "available": {"gmail": gmail.configured(), "outlook": outlook.configured(),
                           "whatsapp": bool(settings.whatsapp_app_secret and settings.whatsapp_verify_token),
-                          "instagram": instagram.configured(), "google_sheets": gmail.configured()},
+                          "instagram": instagram.configured(), "google_sheets": gmail.configured(), "linkedin": linkedin.configured()},
             "whatsapp_webhook": {"url": settings.api_public_url.rstrip("/") + "/webhooks/whatsapp",
                                  "verify_token_set": bool(settings.whatsapp_verify_token)}}
 
@@ -164,6 +164,42 @@ async def instagram_callback(request: Request, state: str = "", code: str | None
         await audit.record(conn, org_id=s["org"], actor_type="user", actor_user_id=s["uid"], action="connection.instagram.connected",
                            target_type="connection", target_id=ig["id"], ip=client_ip(request), metadata={"username": ig["username"]})
     return back(connected="instagram", account=f"@{ig['username']}")
+
+
+# ---------- LinkedIn (content publishing, 8.1) ----------
+
+@router.post("/org/connections/linkedin/start", dependencies=[Depends(require_connection("linkedin"))])
+async def linkedin_start(ctx: Annotated[OrgContext, Depends(require("connection", "manage"))]) -> dict:
+    if not linkedin.configured():
+        raise HTTPException(503, "LinkedIn isn't set up on this Agentry server yet (LinkedIn app missing)")
+    return {"url": linkedin.auth_url(sign_state({"org": ctx.org_id, "uid": ctx.principal.user_id, "p": "linkedin"}))}
+
+
+@router.get("/connect/linkedin/callback", include_in_schema=False)
+async def linkedin_callback(request: Request, state: str = "", code: str | None = None, error: str | None = None,
+                            error_description: str | None = None):
+    def back(**params: str) -> RedirectResponse:
+        return RedirectResponse(f"{settings.dashboard_url}/settings/connections?{urlencode(params)}", status_code=303)
+
+    try:
+        s = verify_state(state)
+    except (SecretError, ValueError):
+        return back(error="This sign-in link expired or was tampered with. Please try again.")
+    if error or not code:
+        return back(error="LinkedIn sign-in was cancelled." if error in ("user_cancelled_login", "user_cancelled_authorize") else
+                    f"LinkedIn returned: {error_description or error}")
+    if await membership_role(s["uid"], s["org"]) is None and not await _is_staff(s["uid"]):
+        return back(error="You no longer have access to this organisation.")
+    try:
+        secret = await linkedin.exchange_code(code)
+    except linkedin.LinkedInError as e:
+        return back(error=str(e))
+    await save_connection(s["org"], provider="linkedin", account_ref=secret["person"], display_name=secret["name"], secret=secret,
+                          state={"expires_at": secret["expires_at"]}, connected_by=s["uid"])
+    async with tenant_session(s["org"]) as conn:
+        await audit.record(conn, org_id=s["org"], actor_type="user", actor_user_id=s["uid"], action="connection.linkedin.connected",
+                           target_type="connection", target_id=secret["person"], ip=client_ip(request))
+    return back(connected="linkedin", account=secret["name"])
 
 
 # ---------- Outlook / Microsoft 365 (#6) ----------
