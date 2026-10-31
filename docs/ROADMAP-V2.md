@@ -155,6 +155,8 @@ today's invoice import (photographed invoices).
 
 ### 2.6 Agentry MCP server, and MCP tools for agents
 
+✅ Server built 2026-10-31 (`docs/flows/agents/ask-and-mcp.md`); MCP tools for agents not yet.
+
 - **Server:** a business (or Agentry staff) can connect Claude Desktop or ChatGPT to their Agentry, read-only first:
   "what's overdue?", "summarise this week's leads". Per-person tokens, the same permissions as the portal. SwarmAI's
   StoryForge MCP server (`swarm-ai/brain/src/studio/mcp.controller.ts`) is the reference.
@@ -165,9 +167,9 @@ today's invoice import (photographed invoices).
 
 | # | Milestone | Done when |
 |---|---|---|
-| 8.1 | **Real publishing** (was 6.5): LinkedIn (company page) and Instagram (business account through the existing Meta app) behind the publisher interface; posting retries; a link back to the live post | A scheduled post appears on both platforms; failures retry, then show in the portal and notify (§2.1) |
+| 8.1 ✅ (Instagram + LinkedIn profile, 2026-10-31) | **Real publishing** (was 6.5): LinkedIn (company page) and Instagram (business account through the existing Meta app) behind the publisher interface; posting retries; a link back to the live post | A scheduled post appears on both platforms; failures retry, then show in the portal and notify (§2.1) |
 | 8.2 | **Vertical clips** (9:16 Reels/Shorts): cut each moment from the video with ffmpeg; burn in captions from the transcript's word timestamps; frame the speaker (centre crop first, face tracking later); add a brand intro and outro | A 45-min video gives 10 clips of 20–60 s, captioned, in the brand style; for video sources only |
-| 8.3 | **Newsletter + SEO blog** from the same moments: a 600–900 word article (headings, quotes, FAQ, meta description) and an email newsletter (Mailchimp/Brevo export, or our SMTP) | One recording yields posts, clips, a blog article and a newsletter; quote checks apply to all |
+| 8.3 ✅ (2026-10-31, export; sending via Mailchimp/Brevo later) | **Newsletter + SEO blog** from the same moments: a 600–900 word article (headings, quotes, FAQ, meta description) and an email newsletter (Mailchimp/Brevo export, or our SMTP) | One recording yields posts, clips, a blog article and a newsletter; quote checks apply to all |
 | 8.4 | **Topic → script mode** (StoryForge): no recording? Give a topic; it researches and writes a timed Shorts script for the owner to record, in 8 languages. Ported from `swarm-ai/docs/STUDIO.md` | A clinic owner gets 4 scripts a week to film on their phone; the recordings come back through the normal flow |
 | 8.5 | **Languages:** Hindi and regional transcription (Sarvam), posts in the language spoken or chosen, Hinglish | A Hindi podcast gives Hindi posts with exact Hindi quotes |
 | 8.6 | **Engagement loop:** fetch likes, comments and reach at +24 h and +7 d; learn which hooks and topics work for this business; feed that into moment ranking; a "top post" event | Ranking weights change per business based on results; the monthly report shows the best posts |

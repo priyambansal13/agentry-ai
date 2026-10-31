@@ -75,3 +75,14 @@ Everything is in the audit log. Deleting a recording deletes its file, transcrip
 
 6.5: real publishing (LinkedIn and Instagram first, through the platforms' APIs). v2: short vertical clips, newsletter
 and blog outputs, engagement metrics feeding back into which moments are picked.
+
+## Content v2 (2026-10-31)
+
+- **Blog article + newsletter** (8.3): on a recording's page, *Write a blog article + newsletter*. The `writer` model
+  drafts both from the ranked moments in the brand voice; quotes must be word for word, numbers must be in the
+  recording, no AI filler (one rewrite, else "needs attention"). Edit, approve (never with a misquote), download
+  Markdown or HTML for WordPress, Mailchimp or Brevo. Code: `content/longform.py`.
+- **Real publishing** (8.1): connect **Instagram** (Meta login; needs a Facebook Page linked to the Instagram account)
+  or **LinkedIn** (a person's profile) under Settings → Connections. Once a platform is connected, its approved posts go
+  out for real at their slot (never test mode), with the quote card and a *View post* link; an expired connection holds
+  posts and alerts the owner. LinkedIn company pages need LinkedIn's Community Management API (not yet).
