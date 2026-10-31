@@ -102,7 +102,6 @@ async def run() -> None:
     DBOS.launch()
     await DBOS.register_queue_async(EVENTS_QUEUE, worker_concurrency=8)
     if telegram.mode() == "polling":  # local development: no public address for Telegram to call
-        import asyncio
         _telegram_task = asyncio.create_task(poll_forever())
     if telegram_team.enabled() and telegram.mode() == "webhook":  # production: Telegram calls us (polling locally)
         try:

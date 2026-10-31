@@ -37,6 +37,10 @@ def migrate() -> None:
     from agentry.config import settings
     with create_engine(settings.migrate_database_url).connect() as c:
         typer.echo(f"database at revision {c.execute(text('select version_num from app.alembic_version')).scalar_one()}")
+    # the chat agents' conversation memory (LangGraph checkpoints in schema agent): its own tables, created idempotently
+    from agentry.agents.runtime import setup_checkpointer
+    asyncio.run(setup_checkpointer())
+    typer.echo("agent checkpoints ready")
 
 
 @app.command()
