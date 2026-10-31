@@ -9,7 +9,8 @@ Read in this order:
 | 1 | [Sales: demo, proposal, plan](01-sales-demo-proposal.md) | A prospect fills in the website form → demo → follow-ups → reply → proposal → becomes a client |
 | 2 | [Client onboarding](02-client-onboarding.md) | Creating the client in HQ, invitations, the setup steps, go-live, the team |
 | 3 | [Billing and statements](03-billing.md) | Plans, monthly statements, evidence, disputes, payment, margin |
-| 4 | [Notifications](notifications.md) | Alerts and the Notification Center: any event → rules → Telegram / WhatsApp / email / bell |
+| 4 | [Governance](governance.md) | Autonomy levels and limits per action, the tamper-evident audit log, the eval gate |
+| 4b | [Notifications](notifications.md) | Alerts and the Notification Center: any event → rules → Telegram / WhatsApp / email / bell |
 | 5 | Agents, one file each: | |
 | | [Business Pulse](agents/business-pulse.md) | Morning brief and Monday week in review: what needs you, today, good news |
 | | [Lead engine (shared)](agents/lead-engine.md) | One contact per person, one agent per lead, opt-outs: what every lead agent shares |

@@ -9,6 +9,7 @@ from agentry.api.routes import (
     cold_email,
     connections,
     content,
+    governance_api,
     hq,
     me,
     notification_center,
@@ -44,7 +45,7 @@ app.add_middleware(
 )
 load_all()
 for r in (public.router, me.router, org.router, work.router, setup.router, connections.router, business.router,
-          billing_api.router, hq.router, voice.router, webhooks.router, cold_email.router, content.router, notification_center.router, runs_api.router):
+          billing_api.router, hq.router, voice.router, webhooks.router, cold_email.router, content.router, notification_center.router, runs_api.router, governance_api.router):
     app.include_router(r)
 
 

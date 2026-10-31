@@ -42,6 +42,7 @@ export default async function HqClient({ params, searchParams }: { params: Promi
     `/hq/orgs/${orgId}/notifications-log?limit=8`).catch(() => null);
   const costs = await api<{ agents: { agent: string; runs: number; failed: number; avg_seconds: number | null; cost_usd: number; cost_per_run: number }[];
     outside_runs_usd: number }>(`/hq/orgs/${orgId}/agent-costs?days=30`).catch(() => null);
+  const chain = await api<{ rows: number; intact: boolean; first_broken_id: number | null }>(`/hq/orgs/${orgId}/audit-chain`).catch(() => null);
   const coldEmail = d.automations.some((a) => a.template_key === "cold_email");
   const mailboxes = coldEmail ? await api<{ items: SendingMailbox[] }>(`/hq/orgs/${orgId}/sending-mailboxes`).then((r) => r.items) : [];
   const phones = receptionist ? await api<{ items: PhoneNumber[] }>("/hq/phone-numbers").then((r) => r.items).catch(() => null) : null;
@@ -129,6 +130,11 @@ export default async function HqClient({ params, searchParams }: { params: Promi
         </Card>
       )}
 
+      {chain && (
+        <p className={`text-sm ${chain.intact ? "text-muted" : "font-semibold text-danger"}`}>
+          {chain.intact ? `✓ Audit log intact (${chain.rows} entries, hash-chained)` : `⚠ Audit log altered: the chain breaks at entry #${chain.first_broken_id}. Investigate before trusting it.`}
+        </p>
+      )}
       {notes && (
         <Card>
           <CardHeader><CardTitle>Notifications</CardTitle>

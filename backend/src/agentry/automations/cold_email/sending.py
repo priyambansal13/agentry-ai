@@ -170,6 +170,14 @@ async def send_due(org_id: str, now: datetime | None = None) -> dict:
             subject, body = compose(pr["next_step"], pr, cfg, box, org["business"], first_subject)
             unsub_api = f"{settings.api_public_url}/public/unsubscribe/{unsubscribe_token(org_id, str(pr['id']))}"
             headers = {"List-Unsubscribe": f"<{unsub_api}>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"}
+            from agentry import governance
+            d = await governance.decide(conn, org_id, "cold_email.send", now)
+            if d.mode == "shadow":  # watching only: nothing goes out; the person stays queued
+                waiting += 1
+                continue
+            if d.mode != "send":  # today's business-wide limit: the rest wait until tomorrow
+                waiting += 1
+                break
             msg_id = await p.send(box, pr["email"], subject, body, headers)
             left[str(box["id"])] -= 1
             sent += 1

@@ -172,5 +172,32 @@ def eval_cmd(prompt: str, dataset: Path, field: str = "label", version: str | No
         raise typer.Exit(code=1)
 
 
+@app.command("eval-gate")
+def eval_gate(require_models: bool = False) -> None:
+    """Every prompt in config/eval-gates.yaml must keep its accuracy on its labelled set (ROADMAP-V2 §2.2).
+    Without a model configured the gate is skipped (or fails with --require-models, as in CI with keys)."""
+    import yaml
+
+    from agentry.config import BACKEND, ROOT
+    from agentry.llm.evals import run_eval
+    gates = yaml.safe_load((BACKEND / "config" / "eval-gates.yaml").read_text())["gates"]
+    failed = []
+    for g in gates:
+        report = asyncio.run(run_eval(g["prompt"], (ROOT / g["dataset"]).resolve(), field=g.get("field", "label"),
+                                      defaults={"business": g.get("business", "a small business")}))
+        if report["mock"]:
+            typer.secho(f"{g['prompt']}: SKIPPED (no model configured)", fg="yellow")
+            if require_models:
+                failed.append(g["prompt"])
+            continue
+        ok = report["accuracy"] >= g["min_accuracy"]
+        typer.secho(f"{g['prompt']}: {report['accuracy']:.0%} on {report['n']} (needs {g['min_accuracy']:.0%})", fg="green" if ok else "red")
+        if not ok:
+            failed.append(g["prompt"])
+    if failed:
+        typer.secho(f"eval gate failed: {', '.join(failed)}", fg="red")
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()

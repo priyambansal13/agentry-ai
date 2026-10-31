@@ -639,3 +639,10 @@ export async function savePulseSettings(enabled: boolean, hour: number, weekly: 
 export async function sendPulseNow() {
   return run<{ event_id: number }>("/org/pulse/send-now", { method: "POST" }, []);
 }
+
+// ---------- governance ----------
+
+export async function saveAutonomy(action: string, level: string, maxPerDay: number | null, quietHours: boolean) {
+  return run<unknown>(`/org/governance/${action}`, { method: "PUT", body: { level, max_per_day: maxPerDay, quiet_hours: quietHours } },
+    ["/settings/autonomy"]);
+}

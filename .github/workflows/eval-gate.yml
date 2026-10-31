@@ -1,0 +1,26 @@
+# A prompt or model change must keep the labelled eval sets above their gates (backend/config/eval-gates.yaml).
+# Needs repository secrets OPENAI_API_KEY (and optionally GEMINI_API_KEY) plus variables AGENTRY_MODEL_FAST /
+# AGENTRY_MODEL_WRITER, e.g. openai/gpt-5.4-mini. Without a key the job explains and skips.
+name: eval-gate
+on:
+  pull_request:
+    paths: ["backend/prompts/**", "backend/src/agentry/llm/**", "backend/config/eval-gates.yaml", "mock-data/**/*.jsonl"]
+  workflow_dispatch:
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      AGENTRY_MODEL_FAST: ${{ vars.AGENTRY_MODEL_FAST }}
+      AGENTRY_MODEL_WRITER: ${{ vars.AGENTRY_MODEL_WRITER }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Run the eval gate
+        working-directory: backend
+        run: |
+          if [ -z "$OPENAI_API_KEY$GEMINI_API_KEY" ]; then
+            echo "No model key in repository secrets: eval gate skipped. Add OPENAI_API_KEY to enable it."; exit 0
+          fi
+          uv run agentry eval-gate --require-models

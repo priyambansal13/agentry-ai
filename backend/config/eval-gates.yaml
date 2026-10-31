@@ -1,0 +1,12 @@
+# Eval gates (ROADMAP-V2 §2.2): a prompt or model change ships only if every gate still passes.
+# Run: `cd backend && uv run agentry eval-gate` (skips without a model; CI runs it with keys on prompt changes).
+# Measured: inbox triage 95% (category + urgent, 20 held-out emails), invoice replies 95% (20 real-style replies).
+gates:
+  - prompt: inbox_triage_classifier
+    dataset: mock-data/inbox-triage/heldout.jsonl
+    field: category,urgent
+    min_accuracy: 0.85
+  - prompt: invoice_reply_classifier
+    dataset: mock-data/replies.jsonl
+    field: label
+    min_accuracy: 0.85

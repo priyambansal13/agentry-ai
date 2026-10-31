@@ -12,7 +12,7 @@ export type Approval = {
   assigned_to?: string | null; assigned_name?: string | null; channel_problem?: string | null;
   payload: { category?: string; urgent?: boolean; kb_sources?: string[]; ai_failed?: boolean; phone?: string | null;
              suspicious?: boolean; risk?: string[]; language?: string | null; nudge?: boolean;
-             invoice_id?: string; payment_id?: string; utr?: string | null; withdrawn?: string };
+             invoice_id?: string; payment_id?: string; utr?: string | null; withdrawn?: string; held_because?: string };
 };
 
 export type SavedReply = { id: string; title: string; body: string };
@@ -81,6 +81,7 @@ export function ApprovalCard({ a, canAct, templates = [], assignees = [], openIn
           {a.last_inbound}
         </blockquote>
       )}
+      {a.payload?.held_because && <p className="mt-2 text-xs text-muted">Waiting for you because: {a.payload.held_because}</p>}
       {a.channel_problem && (
         <p role="alert" className="mt-3 rounded-xl border-2 border-warning px-4 py-3 text-sm text-warning">
           This can&apos;t be sent: {a.channel_problem}. Discard it, or fix that in Settings → Connections first.

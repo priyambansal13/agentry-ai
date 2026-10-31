@@ -13,11 +13,12 @@ Code: https://github.com/priyambansal13/agentry-ai (`main`). Everything below is
 | Website | 3200 | `cd apps/web && pnpm dev --port 3200` |
 
 - Database: `postgresql://postgres:postgres@localhost:55432/agentry` (superuser, sees every company).
-- Tests: `cd backend && uv run pytest -q` → 205 passed, 2 skipped. Stop the dev worker first if tests get flaky.
+- Tests: `cd backend && uv run pytest -q` → 210 passed, 2 skipped. Stop the dev worker first if tests get flaky.
 - The API and worker don't auto-reload: restart them after backend changes.
 
 ## Built this session (latest first)
 
+- **Governance** (2026-10-31, ROADMAP-V2 7.2) — `governance.py`: levels shadow/recommend/auto_limited/auto per action, daily limits + quiet hours (held sends become cards with the reason), track record + suggestions, owner-only (Automations → Autonomy & limits); hash-chained audit log by trigger with HQ check, app can't update/delete audit rows; `agentry eval-gate` + `.github/workflows/eval-gate.yml` (migration 0023). Tests pin governance to daytime (conftest).
 - **Business Pulse** (2026-10-31, ROADMAP-V2 9.1) — morning brief + Monday week in review via the Notification Center (events pulse.daily/weekly, default rules), Today card on Home with settings and Send now, ☀️ Today in the Telegram bot (`pulse.py`). Default notification rules are now versioned by key.
 - **Agent runs** (2026-10-31, ROADMAP-V2 7.5) — `runs.py` + `app.agent_runs`, `llm_calls.run_id` (migration 0022); runs for triage, chat turns, content, cold email lists, call summaries, sequence steps; "What it did recently" on agent pages; cost per agent on HQ client pages.
 - **Notification Center** (2026-10-31, ROADMAP-V2 7.1) — any event → rules (conditions, roles/people/assignee, channels, now/digest, critical) → Telegram/WhatsApp/email with email fallback, quiet hours, hourly limit, digests; bell in the portal; Settings → Notification rules; HQ delivery log; new events `approval.waiting_long`, `connection.broken` (migration 0021, `notify/center.py`, `worker/notify_jobs.py`). Flow: `docs/flows/notifications.md`.

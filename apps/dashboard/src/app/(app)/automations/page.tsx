@@ -18,6 +18,7 @@ export default async function AutomationsPage() {
   const [active, me] = await Promise.all([getActiveOrg(), getMe()]);
   if (!active) redirect("/home");
   const canTalk = me.is_staff || can(active.role, "automation", "configure");
+  const canGovern = canTalk;  // owners and managers see autonomy settings (only the owner changes them)
   let items: Automation[];
   try {
     items = (await api<{ items: Automation[] }>("/org/automations", { orgId: active.id })).items;
@@ -32,9 +33,12 @@ export default async function AutomationsPage() {
           <h1 className="font-display text-3xl font-bold tracking-tight">Automations</h1>
           <p className="mt-1 text-muted">The agents working for {active.name}.</p>
         </div>
-        {canTalk && items.some((a) => CONVERSATIONAL.includes(a.template_key)) && (
-          <Link href="/talk" className="inline-flex h-10 items-center rounded-xl border-2 border-ink px-4 text-sm font-semibold hover:bg-lime-soft">🎙 Talk to your agent</Link>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {canGovern && <Link href="/settings/autonomy" className="inline-flex h-10 items-center rounded-xl border-2 border-line px-4 text-sm font-semibold hover:border-ink">Autonomy &amp; limits</Link>}
+          {canTalk && items.some((a) => CONVERSATIONAL.includes(a.template_key)) && (
+            <Link href="/talk" className="inline-flex h-10 items-center rounded-xl border-2 border-ink px-4 text-sm font-semibold hover:bg-lime-soft">🎙 Talk to your agent</Link>
+          )}
+        </div>
       </header>
       <div className="grid gap-4 md:grid-cols-2">
         {items.map((a) => (

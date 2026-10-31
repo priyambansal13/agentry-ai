@@ -22,6 +22,14 @@ def mock_completion_models(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def daytime_for_governance(monkeypatch):
+    """Tests don't depend on the clock: automatic sends aren't held for quiet hours (tests/test_governance.py checks
+    quiet hours itself, with fixed times)."""
+    from agentry import governance
+    monkeypatch.setattr(governance, "_quiet", lambda now, tz: False)
+
+
+@pytest.fixture(autouse=True)
 def local_mailbox(monkeypatch):
     """Tests never send real email, whatever SMTP .env points at: everything goes to the local Mailpit."""
     from agentry.config import settings
@@ -66,7 +74,7 @@ async def cleanup_test_rows():
             delete from app.contacts where id in (select contact_id from lead_contacts) and source in ('email', 'inbox', 'web_chat')"""))
 
 
-TABLES = ["statement_lines", "statements", "outcomes", "pricing_plans", "notification_preferences", "agent_runs", "notifications", "notification_rules", "telegram_links", "approvals", "content_posts", "content_moments", "content_sources", "brand_kits", "messages", "bookings", "sequence_enrollments", "prospects", "prospect_companies", "campaigns", "sequences", "payments", "invoices",
+TABLES = ["statement_lines", "statements", "outcomes", "pricing_plans", "notification_preferences", "autonomy", "action_counts", "agent_runs", "notifications", "notification_rules", "telegram_links", "approvals", "content_posts", "content_moments", "content_sources", "brand_kits", "messages", "bookings", "sequence_enrollments", "prospects", "prospect_companies", "campaigns", "sequences", "payments", "invoices",
           "lead_sources", "leads", "consents", "suppressions", "conversations", "events", "connections", "automation_instances",
           "audit_log", "llm_calls", "kb_chunks", "kb_documents", "staff", "services", "onboarding_progress", "metrics_daily"]
 

@@ -243,6 +243,13 @@ async def maybe_auto_send(org_id: str, email: dict, triage: dict, approval_id: s
             where id = cast(:a as uuid)"""), {"a": approval_id})).one()
         if failed or "[" in body or triage["category"] not in await trusted_categories(conn, int(cfg.get("auto_send_min_approved", 10))):
             return None
+        from agentry import governance
+        d = await governance.decide(conn, org_id, "inbox_triage.send_reply")  # the owner's level and today's limit
+        if d.mode != "send":
+            if d.reason:
+                await conn.execute(text("update app.approvals set payload = payload || jsonb_build_object('held_because', cast(:r as text)) where id = cast(:a as uuid)"),
+                                   {"r": d.reason, "a": approval_id})
+            return None
         await approve_as_agent(conn, org_id, approval_id, f"auto-send: {triage['category']}")
     return "auto_sent"
 

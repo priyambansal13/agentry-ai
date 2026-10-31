@@ -21,6 +21,7 @@ from dbos import DBOS, SetWorkflowID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from agentry import governance
 from agentry.db import tenant_session
 from agentry.events import emit
 from agentry.leads import can_contact
@@ -286,7 +287,15 @@ async def _send_step(org_id: str, enrollment_id: str, step_index: int) -> dict:
             if why := await channel_problem(org_id, channel, step.get("whatsapp_template")):  # no card for a message that can't go
                 results.append({"channel": channel, "status": "skipped", "reason": why})
                 continue
-            if e["automation_status"] == "approval_mode":
+            action = f"{e['automation_key']}.send"
+            if action in governance.ACTIONS:
+                d = await governance.decide(conn, org_id, action)
+            else:
+                d = governance.Decision("card" if e["automation_status"] == "approval_mode" else "send", "")
+            if d.mode == "shadow":  # watching only: what it would have sent is kept, nothing goes out
+                results.append({"channel": channel, "status": "shadow", "would_send": {"subject": msg["subject"], "body": msg["body"][:2000]}})
+                continue
+            if d.mode == "card":
                 await conn.execute(text("""insert into app.approvals (org_id, kind, automation_key, title, body, payload)
                     values (:o, 'outbound_draft', :a, :t, :b, cast(:p as jsonb))"""),
                     {"o": org_id, "a": e["automation_key"], "b": msg["body"],
@@ -294,8 +303,8 @@ async def _send_step(org_id: str, enrollment_id: str, step_index: int) -> dict:
                           + (f" · invoice {subj['number']}" if e["subject_type"] == "invoice" else ""),
                      "p": json.dumps({"enrollment_id": enrollment_id, "step": step_index, "channel": channel,
                                       "subject": msg["subject"], "template": step.get("whatsapp_template"),
-                                      "template_params": msg["template_params"]})})
-                results.append({"channel": channel, "status": "awaiting_approval"})
+                                      "template_params": msg["template_params"], **({"held_because": d.reason} if d.reason else {})})})
+                results.append({"channel": channel, "status": "awaiting_approval", **({"reason": d.reason} if d.reason else {})})
             else:
                 results.append({"channel": channel, **await deliver_outbound(
                     conn, org_id, enrollment=e, channel=channel, subject=msg["subject"], body=msg["body"],
