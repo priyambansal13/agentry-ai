@@ -22,6 +22,10 @@ for img in $IMAGES; do
   echo "copying $img"
   docker save "$img:$TAG" | gzip -1 | ssh -i "$KEY" "$HOST" 'gunzip | sudo docker load'
 done
+if [ "$WHAT" = backend ]; then
+  # one version number for every service: the unchanged portal and website images get the new tag too
+  ssh -i "$KEY" "$HOST" "OLD=\$(grep '^AGENTRY_TAG=' ~/agentry/infra/.env.prod | cut -d= -f2) && for img in agentry-dashboard agentry-dashboard-tools agentry-web; do sudo docker tag \$img:\$OLD \$img:$TAG; done"
+fi
 scp -i "$KEY" -q docker-compose.prod.yml docker-compose.server.yml "$HOST:agentry/"
 scp -i "$KEY" -q infra/caddy/Caddyfile "$HOST:agentry/infra/caddy/"
 ssh -i "$KEY" "$HOST" "cd ~/agentry && sed -i 's/^AGENTRY_TAG=.*/AGENTRY_TAG=$TAG/' infra/.env.prod && \
