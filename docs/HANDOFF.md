@@ -13,11 +13,12 @@ Code: https://github.com/priyambansal13/agentry-ai (`main`). Everything below is
 | Website | 3200 | `cd apps/web && pnpm dev --port 3200` |
 
 - Database: `postgresql://postgres:postgres@localhost:55432/agentry` (superuser, sees every company).
-- Tests: `cd backend && uv run pytest -q` → 192 passed, 2 skipped. Stop the dev worker first if tests get flaky.
+- Tests: `cd backend && uv run pytest -q` → 197 passed, 2 skipped. Stop the dev worker first if tests get flaky.
 - The API and worker don't auto-reload: restart them after backend changes.
 
 ## Built this session (latest first)
 
+- **Notification Center** (2026-10-31, ROADMAP-V2 7.1) — any event → rules (conditions, roles/people/assignee, channels, now/digest, critical) → Telegram/WhatsApp/email with email fallback, quiet hours, hourly limit, digests; bell in the portal; Settings → Notification rules; HQ delivery log; new events `approval.waiting_long`, `connection.broken` (migration 0021, `notify/center.py`, `worker/notify_jobs.py`). Flow: `docs/flows/notifications.md`.
 - **Telegram** (2026-10-30) — (A) `telegram_assistant`: a business's own bot answers customers (Connections → Telegram, paste BotFather token); (B) Agentry team bot: link per person (Account & notifications), cards with Approve/Edit/Discard, alerts with email fallback, Tools menu per agent, send a recording for content. Polling locally, webhooks when deployed (migration 0020, `connectors/telegram.py`, `telegram_team.py`, `worker/telegram_jobs.py`). Card decisions now go through one shared `approvals.decide`. Setup: `docs/setup/telegram.md`.
 - **Content results + billing (6.6)** (2026-10-30) — content funnel on the Content page and Reports (incl. monthly email), `posts_published` metric, videos-per-month meter in plans/statements (`content_videos`; sample not billed), transcription cost in HQ margin.
 - **Content repurposing 6.1–6.4** (2026-10-30) — upload (streamed via `/api/content-upload`) or sample podcast → OpenAI transcription (ffmpeg splits long files) → 10 moments (exact quotes) → LinkedIn/Instagram/X posts via a LangGraph draft/critic loop → Pillow quote cards from the brand kit → review board → calendar → test-mode publishing every 5 min (migration 0019, `automations/content/`, portal `/content`). Switched on for SmileCraft with a sample run scheduled. Flow: `docs/flows/agents/content-repurposing.md`.

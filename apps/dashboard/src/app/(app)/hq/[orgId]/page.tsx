@@ -37,6 +37,9 @@ export default async function HqClient({ params, searchParams }: { params: Promi
   }
   const [{ automations: catalog }, invites] = await Promise.all([api<{ automations: CatalogItem[] }>("/hq/catalog"), pendingInvitations(orgId)]);
   const receptionist = d.automations.some((a) => a.template_key === "ai_receptionist");
+  const notes = await api<{ items: { id: number; title: string; status: string; person: string | null; created_at: string;
+    deliveries: { channel: string; status: string; error?: string | null; fallback?: boolean }[] }[]; last_7_days: Record<string, number> }>(
+    `/hq/orgs/${orgId}/notifications-log?limit=8`).catch(() => null);
   const coldEmail = d.automations.some((a) => a.template_key === "cold_email");
   const mailboxes = coldEmail ? await api<{ items: SendingMailbox[] }>(`/hq/orgs/${orgId}/sending-mailboxes`).then((r) => r.items) : [];
   const phones = receptionist ? await api<{ items: PhoneNumber[] }>("/hq/phone-numbers").then((r) => r.items).catch(() => null) : null;
@@ -103,6 +106,25 @@ export default async function HqClient({ params, searchParams }: { params: Promi
         <CardHeader><CardTitle>Pricing plan</CardTitle><span className="text-sm text-muted">{d.plan ? "changes apply to the next statement" : "no plan yet"}</span></CardHeader>
         <CardBody><PlanEditor orgId={orgId} plan={d.plan} automations={d.automations.map((a) => a.template_key)} /></CardBody>
       </Card>
+
+      {notes && (
+        <Card>
+          <CardHeader><CardTitle>Notifications</CardTitle>
+            <span className="text-sm text-muted">last 7 days: {Object.entries(notes.last_7_days).map(([k, v]) => `${v} ${k.replace("_", " ")}`).join(" · ") || "none"}</span></CardHeader>
+          <CardBody>
+            {notes.items.length === 0 ? <p className="text-sm text-muted">Nothing sent yet.</p> : (
+              <ul className="divide-y divide-line text-sm">{notes.items.map((n) => (
+                <li key={n.id} className="flex flex-wrap items-baseline gap-2 py-2">
+                  <span className="min-w-0 flex-1 truncate">{n.title} <span className="text-muted">→ {n.person ?? "?"}</span></span>
+                  <span className={`text-xs ${n.status === "failed" ? "text-danger" : "text-muted"}`}>
+                    {n.status}{n.deliveries.length ? ": " + n.deliveries.map((x) => `${x.channel} ${x.status}${x.fallback ? " (fallback)" : ""}${x.error ? ` (${x.error})` : ""}`).join(", ") : ""}
+                  </span>
+                </li>
+              ))}</ul>
+            )}
+          </CardBody>
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card><CardHeader><CardTitle>Automations</CardTitle><span className="text-sm text-muted">what the client sees follows these</span></CardHeader><CardBody>

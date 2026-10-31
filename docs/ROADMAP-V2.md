@@ -6,7 +6,7 @@
 > **This plan:** what to build next, and in what order. It is split into a platform layer every agent benefits from, the
 > content agent's v2, notifications for any event, and 14 new agents. It draws on your other projects, the cloned apps
 > and the `awesome-llm-apps` catalogue (§9 lists exact references).
-> **Status:** plan. Decisions in §10 are yours. Nothing here is built yet.
+> **Status:** plan, with **7.1 Notification Center built 2026-10-31** (flow: [flows/notifications.md](flows/notifications.md)). Decisions in §10 are yours.
 
 ## 0. The plan at a glance
 
@@ -336,7 +336,7 @@ outcome or usage meters per agent. Meters needed: documents, reviews, watchers, 
 
 | Order | Milestone | Size | Unblocks |
 |---|---|---|---|
-| 1 | 7.1 Notification Center (rules, engine, channels, bell, delivery log) | M | Everything below (all agents emit events) |
+| 1 ✅ | 7.1 Notification Center (rules, engine, channels, bell, delivery log) | M | Everything below (all agents emit events) |
 | 2 | 7.5 Run traces + cost per run | S | Pricing and debugging for every new agent |
 | 3 | 9.1 Business Pulse (brief first) | S | A daily habit for owners; shows value |
 | 4 | 7.2 Governance (autonomy levels, policy checks, hash-chained audit, eval gate) | M | Safe auto-actions for reviews, refunds and the copilot |

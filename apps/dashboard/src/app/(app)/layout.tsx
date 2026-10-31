@@ -1,4 +1,5 @@
 import { Logo } from "@agentry/ui";
+import { Bell } from "@/components/bell";
 import { Nav } from "@/components/nav";
 import { OrgSwitcher } from "@/components/org-switcher";
 import { SignOut } from "@/components/sign-out";
@@ -28,7 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <aside className="border-b border-line bg-card px-4 py-5 lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:border-r lg:border-b-0">
         <div className="flex items-center justify-between px-2">
           <Logo />
-          <span className="lg:hidden"><SignOut /></span>
+          <span className="flex items-center gap-2">{active && <Bell />}<span className="lg:hidden"><SignOut /></span></span>
         </div>
         <div className="mt-6">
           {active?.viewing_as_staff

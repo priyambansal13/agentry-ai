@@ -64,6 +64,7 @@ async def all_connected(provider: str) -> list[dict]:
 async def update_state(org_id: str, connection_id: str, *, state: dict | None = None, secret: dict | None = None,
                        error: str | None = None, synced: bool = False) -> None:
     async with tenant_session(org_id) as conn:
+        before = (await conn.execute(text("select provider, account_ref, status from app.connections where id = :id"), {"id": connection_id})).first()
         await conn.execute(text("""update app.connections set
               state = state || cast(:st as jsonb),
               secret_enc = coalesce(:sec, secret_enc),
@@ -72,6 +73,9 @@ async def update_state(org_id: str, connection_id: str, *, state: dict | None = 
               last_sync_at = case when :synced then now() else last_sync_at end
             where id = :id"""), {"st": json.dumps(state or {}), "sec": encrypt_json(secret) if secret else None,
                                   "err": error, "synced": synced, "id": connection_id})
+        if error and before and before.status != "error":  # it just broke (not every failed retry)
+            from agentry.events import emit
+            await emit(conn, org_id, "connection.broken", {"provider": before.provider, "account": before.account_ref, "error": error[:300]})
 
 
 def _with_secret(row) -> dict | None:

@@ -594,3 +594,38 @@ export async function telegramLinkUrl() {
 export async function unlinkTelegram() {
   return run<{ linked: boolean }>("/org/telegram", { method: "DELETE" }, ["/settings/account"]);
 }
+
+// ---------- Notification Center ----------
+
+export type InboxItem = { id: number; event_type: string; title: string; body: string; link: string | null; status: string; critical: boolean;
+                          created_at: string; read_at: string | null };
+
+export async function getInbox() {
+  return run<{ items: InboxItem[]; unread: number }>("/org/notifications/inbox?limit=20", { method: "GET" }, []);
+}
+
+export async function markInboxRead(ids?: number[]) {
+  return run<{ read: number }>("/org/notifications/inbox/read", { method: "POST", body: { ids: ids ?? null } }, []);
+}
+
+export type RuleIn = { name: string; event_type: string; conditions: { field: string; op: string; value: string | number }[]; roles: string[];
+                       user_ids: string[]; assignee: boolean; channels: string[]; cadence: "now" | "digest"; digest_hour: number; critical: boolean;
+                       personal: boolean };
+
+export async function saveRule(rule: RuleIn, id?: string) {
+  return run<{ id: string }>(id ? `/org/notification-rules/${id}` : "/org/notification-rules", { method: id ? "PUT" : "POST", body: rule },
+    ["/settings/notifications"]);
+}
+
+export async function ruleAction(id: string, action: "enable" | "disable" | "mute" | "unmute" | "delete" | "test") {
+  if (action === "delete") return run<unknown>(`/org/notification-rules/${id}`, { method: "DELETE" }, ["/settings/notifications"]);
+  if (action === "test") return run<{ results: Record<string, string> }>(`/org/notification-rules/${id}/test`, { method: "POST" }, []);
+  if (action === "enable" || action === "disable")
+    return run<unknown>(`/org/notification-rules/${id}/enabled`, { method: "POST", body: { enabled: action === "enable" } }, ["/settings/notifications"]);
+  return run<unknown>(`/org/notification-rules/${id}/mute`, { method: "POST", body: { muted: action === "mute" } }, ["/settings/notifications"]);
+}
+
+export async function saveNotificationSettings(quietFrom: string | null, quietTo: string | null, maxPerHour: number) {
+  return run<unknown>("/org/notification-settings", { method: "PUT", body: { quiet_from: quietFrom, quiet_to: quietTo, max_per_hour: maxPerHour } },
+    ["/settings/notifications"]);
+}

@@ -1,4 +1,5 @@
 import { Card, CardBody, CardHeader, CardTitle } from "@agentry/ui";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { NotificationPrefs, PasswordForm, TelegramLink, WhatsAppNumberForm } from "@/components/settings-forms";
 import { hasPassword } from "@/lib/clients";
@@ -25,7 +26,7 @@ export default async function AccountSettings({ searchParams }: { searchParams: 
   return (
     <div className="space-y-6">
       <header><h1 className="font-display text-3xl font-bold tracking-tight">Account, notifications &amp; data</h1></header>
-      <Card><CardHeader><CardTitle>Notifications for you</CardTitle></CardHeader><CardBody>
+      <Card><CardHeader><CardTitle>Notifications for you</CardTitle><Link href="/settings/notifications" className="text-sm font-medium underline">Notification rules →</Link></CardHeader><CardBody>
         {Object.keys(n.prefs).length
           ? <>{n.channels.includes("whatsapp") && <WhatsAppNumberForm number={n.whatsapp_to} />}<NotificationPrefs prefs={n.prefs} channels={n.channels} /></>
           : <p className="text-sm text-muted">There are no alerts for your role. Your dashboard and reports are always up to date.</p>}
