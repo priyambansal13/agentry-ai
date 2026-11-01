@@ -10,7 +10,7 @@ COPY backend/ ./
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
 
 FROM python:3.12-slim
-# ffmpeg: content repurposing splits long recordings before transcription
+# ffmpeg: content repurposing splits long recordings before transcription and cuts vertical clips (8.2)
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/* \
     && useradd --uid 10001 --create-home agentry
 # Paths mirror the repo (config.ROOT = /srv): backend code, packs, prompts, migrations + the shared config/roles.json.

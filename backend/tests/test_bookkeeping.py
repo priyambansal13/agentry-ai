@@ -267,7 +267,7 @@ async def test_filed_documents_go_to_google_sheets(client, team_org, monkeypatch
 async def test_all_my_clients(client, team_org):
     oid, h = await books(team_org)
     await load_samples(client, h)
-    mine = (await client.get("/me/bookkeeping-clients", headers={"Authorization": h["finance"]["Authorization"]})).json()["items"]
+    mine = (await client.get("/me/bookkeeping-clients?month=2026-10", headers={"Authorization": h["finance"]["Authorization"]})).json()["items"]
     row = next(i for i in mine if i["id"] == oid)
     assert (row["to_check"], row["filed"], row["to_export"], row["month_total"]) == (1, 2, 2, 11166.76)
     viewer = (await client.get("/me/bookkeeping-clients", headers={"Authorization": h["staff"]["Authorization"]})).json()["items"]

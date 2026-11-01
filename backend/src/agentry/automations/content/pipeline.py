@@ -8,10 +8,11 @@ from dbos import DBOS, SetWorkflowID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from agentry.automations.content import brand, drafts, moments, sources
+from agentry.automations.content import brand, clips, drafts, moments, sources
 from agentry.db import tenant_session
 from agentry.events import emit
 from agentry.runs import current, run
+from agentry.worker.handlers import on
 
 CONTEXT_SECONDS = 60
 
@@ -93,6 +94,27 @@ async def content_write_moment(org_id: str, sid: str, moment_id: str) -> int:
 
 
 @DBOS.step()
+async def content_cut_clip(org_id: str, moment_id: str) -> str:
+    """8.2: the moment as a 9:16 clip. A clip that can't be made is recorded on the moment; the posts still stand."""
+    async with tenant_session(org_id) as conn:
+        return (await clips.make(conn, org_id, moment_id))["status"]
+
+
+@DBOS.step()
+async def is_video(org_id: str, sid: str) -> bool:
+    async with tenant_session(org_id) as conn:
+        return (await conn.execute(text("select kind from app.content_sources where id = cast(:i as uuid)"), {"i": sid})).scalar_one() == "video"
+
+
+@on("content.clips_requested")
+@DBOS.workflow()
+async def content_cut_clips(event: dict) -> None:
+    """(Re)cut clips on request, e.g. for a video uploaded before clips existed or after the brand kit changed."""
+    for mid in event["payload"]["moment_ids"]:
+        await content_cut_clip(event["org_id"], mid)
+
+
+@DBOS.step()
 async def content_finish(org_id: str, sid: str, error: str | None = None) -> None:
     async with tenant_session(org_id) as conn:
         if error:
@@ -120,6 +142,11 @@ async def _content_process_source(org_id: str, sid: str) -> str:
         for mid in mids:
             await content_write_moment(org_id, sid, mid)
         current().step("posts written")
+        if await is_video(org_id, sid):
+            async with tenant_session(org_id) as conn:
+                await _status(conn, sid, "cutting_clips")
+            made = [await content_cut_clip(org_id, mid) for mid in mids]
+            current().step("clips cut", ready=made.count("ready"), failed=made.count("failed"))
     except Exception as e:  # noqa: BLE001 - shown on the source with a retry button; finished moments are kept
         await content_finish(org_id, sid, str(e))
         return "failed"

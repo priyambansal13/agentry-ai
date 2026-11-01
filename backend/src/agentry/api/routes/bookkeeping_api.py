@@ -149,9 +149,11 @@ clients_router = APIRouter()
 
 
 @clients_router.get("/me/bookkeeping-clients")
-async def my_clients(p: Annotated[Principal, Depends(current_principal)]) -> dict:
+async def my_clients(p: Annotated[Principal, Depends(current_principal)],
+                     month: Annotated[str | None, Query(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")] = None) -> dict:
     """Every business this person keeps books for (finance, manager or owner there; Agentry staff: all), with what's
-    waiting: documents to check, unread ones, this month's total, not yet exported. One place for a CA firm."""
+    waiting: documents to check, unread ones, the month's total (this month unless ?month=YYYY-MM), not yet exported.
+    One place for a CA firm."""
     from agentry.db import system_session
     from agentry.permissions import can
     async with system_session() as conn:
@@ -162,7 +164,7 @@ async def my_clients(p: Annotated[Principal, Depends(current_principal)]) -> dic
             rows = (await conn.execute(text("""select o.id, o.name, m.role from auth.member m join auth.organization o on o.id = m."organizationId"
                 join app.automation_instances a on a.org_id = o.id and a.template_key = 'bookkeeping' where m."userId" = :u order by o.name"""),
                 {"u": p.user_id})).all()
-    month = datetime.now(UTC).date().isoformat()[:7]
+    month = month or datetime.now(UTC).date().isoformat()[:7]
     out = []
     for org_id, name, role in rows:
         if not p.is_staff and not can(role, "invoice", "read"):

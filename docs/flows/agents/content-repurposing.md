@@ -82,6 +82,14 @@ and blog outputs, engagement metrics feeding back into which moments are picked.
   drafts both from the ranked moments in the brand voice; quotes must be word for word, numbers must be in the
   recording, no AI filler (one rewrite, else "needs attention"). Edit, approve (never with a misquote), download
   Markdown or HTML for WordPress, Mailchimp or Brevo. Code: `content/longform.py`.
+- **Vertical clips** (8.2, 2026-11-01): for **video** uploads, each moment is also cut as a 9:16 MP4 (1080x1920) for
+  Reels/Shorts: whole transcript sentences, 20-60 s; captions burned in from the transcript (short lines, timed by word
+  count inside each segment); the moment's hook as a banner for the first 3 s; a 2 s end card in the brand colour with
+  the business name, logo and handle. Framing is a centre crop (face tracking later). A moment past the end of the video
+  is skipped, a failed clip never fails the recording. On the recording's page each moment shows its clip (play,
+  download); *Make vertical clips* / *Recut clips* (owner, manager) cuts them for older videos or after a brand kit
+  change. Captions and cards are drawn with Pillow and overlaid by ffmpeg, so any ffmpeg build works. Code:
+  `content/clips.py`, migration 0032. Publishing clips as Reels comes next.
 - **Real publishing** (8.1): connect **Instagram** (Meta login; needs a Facebook Page linked to the Instagram account)
   or **LinkedIn** (a person's profile) under Settings → Connections. Once a platform is connected, its approved posts go
   out for real at their slot (never test mode), with the quote card and a *View post* link; an expired connection holds

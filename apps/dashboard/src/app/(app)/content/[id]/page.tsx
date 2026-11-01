@@ -2,7 +2,7 @@ import { Badge, Card } from "@agentry/ui";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RefreshWhileBuilding } from "@/components/cold-email";
-import { BulkActions, type ContentPost, DropMoment, LongformPanel, PostCard, SourceActions } from "@/components/content";
+import { BulkActions, type Clip, ClipCard, type ContentPost, CutClips, DropMoment, LongformPanel, PostCard, SourceActions } from "@/components/content";
 import { api, ApiError, requirePage } from "@/lib/session";
 
 export const metadata = { title: "Content review" };
@@ -10,9 +10,9 @@ export const metadata = { title: "Content review" };
 type Moment = { id: string; rank: number; start_s: number; end_s: number; quote: string; speaker: string | null; hook: string; insight: string;
                 topic: string | null; dropped: boolean };
 type Source = { id: string; title: string; kind: string; status: string; error: string | null; progress: { moments_total?: number; moments_done?: number };
-                duration_seconds: number | null; moments: Moment[]; posts: (ContentPost & { moment_id: string })[]; can_edit: boolean };
+                duration_seconds: number | null; moments: Moment[]; posts: (ContentPost & { moment_id: string })[]; clips: Record<string, Clip>; can_edit: boolean };
 const STEP: Record<string, string> = { uploaded: "Queued…", transcribing: "Transcribing the recording…", finding_moments: "Finding the best moments…",
-                                       writing: "Writing posts and drawing images…" };
+                                       writing: "Writing posts and drawing images…", cutting_clips: "Cutting vertical clips…" };
 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
@@ -28,7 +28,8 @@ export default async function ContentSourcePage({ params }: { params: Promise<{ 
   }
   const longform = await api<{ items: Parameters<typeof LongformPanel>[0]["items"] }>(`/org/content/sources/${id}/longform`, { orgId: active.id })
     .then((r) => r.items).catch(() => []);
-  const working = !["ready", "failed"].includes(s.status) || longform.some((l) => l.status === "writing");
+  const working = !["ready", "failed"].includes(s.status) || longform.some((l) => l.status === "writing")
+    || Object.values(s.clips).some((c) => c.status === "cutting");
   const ready = s.posts.filter((p) => p.review === "pending").length;
   const unscheduled = s.posts.filter((p) => p.review === "approved" && !p.scheduled_at && !p.published_at).length;
   const attention = s.posts.filter((p) => p.review === "needs_attention").length;
@@ -42,7 +43,9 @@ export default async function ContentSourcePage({ params }: { params: Promise<{ 
             <h1 className="font-display text-3xl font-bold tracking-tight">{s.title}</h1>
             <p className="mt-1 text-muted">{s.duration_seconds ? `${Math.round(s.duration_seconds / 60)} minutes · ` : ""}{s.moments.length} moments · {s.posts.length} posts</p>
           </div>
-          {s.can_edit && <SourceActions id={s.id} failed={s.status === "failed"} />}
+          {s.can_edit && <span className="inline-flex flex-wrap items-center gap-2">
+            {s.kind === "video" && s.status === "ready" && <CutClips sourceId={s.id} hasClips={Object.keys(s.clips).length > 0} />}
+            <SourceActions id={s.id} failed={s.status === "failed"} /></span>}
         </div>
       </header>
       {working && <p role="status" className="rounded-xl border-2 border-lime bg-lime-soft px-4 py-3 text-sm">
@@ -71,6 +74,7 @@ export default async function ContentSourcePage({ params }: { params: Promise<{ 
             {s.can_edit && <div className="mt-2"><DropMoment id={m.id} /></div>}
           </Card>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {(() => { const c = s.clips[m.id]; return c ? <ClipCard momentId={m.id} clip={c} hook={m.hook} /> : null; })()}
             {s.posts.filter((p) => p.moment_id === m.id && p.review !== "dropped").map((p) => <PostCard key={p.id} p={p} canEdit={s.can_edit} />)}
           </div>
         </section>

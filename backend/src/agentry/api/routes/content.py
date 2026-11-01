@@ -143,8 +143,10 @@ async def get_source(sid: str, ctx: Viewer) -> dict:
             from app.content_moments where source_id = cast(:i as uuid) order by rank"""), {"i": sid})).mappings().all()
         posts = (await conn.execute(text(POST_SQL + " where p.source_id = cast(:i as uuid) order by m.rank, p.platform"), {"i": sid})).mappings().all()
         kit = await brand.get_kit(conn, ctx.org_id)
+        cl = (await conn.execute(text("""select moment_id::text, status, start_s, end_s, duration_s, error, updated_at
+            from app.content_clips where source_id = cast(:i as uuid)"""), {"i": sid})).mappings().all()
     return {**dict(s), "moments": [dict(m) for m in ms], "posts": [dict(p) for p in posts], "platforms": kit["platforms"],
-            "can_edit": ctx.can("automation", "configure")}
+            "clips": {c["moment_id"]: dict(c) for c in cl}, "can_edit": ctx.can("automation", "configure")}
 
 
 # ---------- review ----------
@@ -210,6 +212,41 @@ async def post_image(pid: str, ctx: Viewer) -> FileResponse:
     if not path:
         raise HTTPException(404, "no image")
     return FileResponse(path, media_type="image/png", headers={"Cache-Control": "private, max-age=60"})
+
+
+# ---------- vertical clips (8.2) ----------
+
+@router.post("/sources/{sid}/clips", status_code=202)
+async def cut_clips(sid: str, request: Request, ctx: Editor) -> dict:
+    """Cut (or recut, e.g. after a brand kit change) a 9:16 clip for every moment still in play."""
+    async with tenant_session(ctx.org_id) as conn:
+        src = (await conn.execute(text("select kind, status from app.content_sources where id = cast(:i as uuid)"), {"i": sid})).mappings().first()
+        if not src:
+            raise HTTPException(404, "not found")
+        if src["kind"] != "video":
+            raise HTTPException(409, "clips are made from video uploads only")
+        if src["status"] != "ready":
+            raise HTTPException(409, "the recording is still being processed")
+        mids = [r[0] for r in (await conn.execute(text("""select id::text from app.content_moments where source_id = cast(:i as uuid)
+            and not dropped order by rank"""), {"i": sid})).all()]
+        for mid in mids:
+            await conn.execute(text("""insert into app.content_clips (org_id, source_id, moment_id) values (:o, cast(:s as uuid), cast(:m as uuid))
+                on conflict (moment_id) do update set status = 'cutting', error = null, updated_at = now()"""), {"o": ctx.org_id, "s": sid, "m": mid})
+        await emit(conn, ctx.org_id, "content.clips_requested", {"source_id": sid, "moment_ids": mids})
+        await _record(conn, ctx, request, "clips_requested", sid, moments=len(mids))
+    return {"status": "cutting", "moments": len(mids)}
+
+
+@router.get("/clips/{mid}/video")
+async def clip_video(mid: str, ctx: Viewer) -> FileResponse:
+    async with tenant_session(ctx.org_id) as conn:
+        rel = (await conn.execute(text("select path from app.content_clips where moment_id = cast(:i as uuid) and status = 'ready'"),
+                                  {"i": mid})).scalar_one_or_none()
+    path = sources.resolve(rel)
+    if not path:
+        raise HTTPException(404, "no clip")
+    return FileResponse(path, media_type="video/mp4", filename=f"clip-{mid[:8]}.mp4", content_disposition_type="inline",
+                        headers={"Cache-Control": "private, max-age=60"})
 
 
 # ---------- calendar ----------

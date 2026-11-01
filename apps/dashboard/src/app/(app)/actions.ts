@@ -731,6 +731,10 @@ export async function requestLongform(sourceId: string) {
   return run<{ status: string }>(`/org/content/sources/${sourceId}/longform`, { method: "POST", body: {} }, [`/content/${sourceId}`]);
 }
 
+export async function cutContentClips(sourceId: string) {
+  return run<{ status: string; moments: number }>(`/org/content/sources/${sourceId}/clips`, { method: "POST" }, [`/content/${sourceId}`]);
+}
+
 export async function saveLongform(id: string, sourceId: string, v: { title: string; summary: string | null; body: string; approve: boolean }) {
   return run<{ status: string; problems: string[] }>(`/org/content/longform/${id}`, { method: "PUT", body: v }, [`/content/${sourceId}`]);
 }

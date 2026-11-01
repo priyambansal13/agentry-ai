@@ -1,7 +1,7 @@
 """Review management + Watchers: reviews are classified, bad ones alert at once, good ones may be answered on their own
 (governance), the rest wait for a person; review requests go once, never to unhappy reviewers; watchers notice real
 changes (not timestamps), prices past the threshold, stock, and stop after repeated failures."""
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from conftest import expect
 from sqlalchemy import text
@@ -88,7 +88,8 @@ async def test_review_requests_once_and_never_to_unhappy_reviewers(team_org):
 async def test_monthly_report(team_org):
     oid, _h = await team_org(["reviews"])
     await rv.sync(oid)
-    start = datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    # the month of yesterday's sample review (on the 1st, that's last month)
+    start = (datetime.now(UTC) - timedelta(days=1)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     s = await rv.monthly(oid, start)
     assert s["title"] == f"Reviews for {start.strftime('%B %Y')}" and s["count"] >= 1 and "Replied to" in s["body"]
 

@@ -4,7 +4,7 @@ import { Badge, Button, Card, Input, Label, Select, Textarea } from "@agentry/ui
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
-  approveContentReady, deleteContent, dropContentMoment, learnBrandVoice, moveContentPost, requestLongform, retryContent, reviewContentPost, sampleContent,
+  approveContentReady, cutContentClips, deleteContent, dropContentMoment, learnBrandVoice, moveContentPost, requestLongform, retryContent, reviewContentPost, sampleContent,
   saveBrandKit, saveLongform, scheduleContent, uploadBrandLogo,
 } from "@/app/(app)/actions";
 import { PLATFORM } from "@/lib/format";
@@ -397,5 +397,47 @@ function LongformCard({ item, sourceId, canEdit }: { item: Longform; sourceId: s
         </>
       )}
     </Card>
+  );
+}
+
+// ---------- vertical clips (8.2) ----------
+
+export type Clip = { moment_id: string; status: "cutting" | "ready" | "failed" | "skipped"; start_s: number | null; end_s: number | null;
+                     duration_s: number | null; error: string | null; updated_at: string };
+
+export function ClipCard({ momentId, clip, hook }: { momentId: string; clip: Clip; hook: string }) {
+  if (clip.status === "cutting") return <Card className="flex aspect-[9/16] max-w-[220px] items-center justify-center p-4 text-center text-sm text-muted">Cutting the clip…</Card>;
+  if (clip.status !== "ready") {
+    return <Card className="max-w-[220px] p-4 text-sm"><Badge tone={clip.status === "failed" ? "danger" : "neutral"}>{clip.status === "failed" ? "Clip failed" : "No clip"}</Badge>
+      <p className="mt-2 text-muted">{clip.error}</p></Card>;
+  }
+  const src = `/api/content-clip/${momentId}?v=${encodeURIComponent(clip.updated_at)}`;
+  return (
+    <Card className="max-w-[220px] space-y-2 p-2">
+      <video src={src} controls preload="metadata" playsInline className="aspect-[9/16] w-full rounded-lg bg-black" aria-label={`Vertical clip: ${hook}`} />
+      <div className="flex items-center justify-between px-1 text-xs text-muted">
+        <span>Reel / Short · {Math.round(clip.duration_s ?? 0)} s</span>
+        <a href={src} download={`clip-${momentId.slice(0, 8)}.mp4`} className="underline hover:text-ink">Download</a>
+      </div>
+    </Card>
+  );
+}
+
+export function CutClips({ sourceId, hasClips }: { sourceId: string; hasClips: boolean }) {
+  const router = useRouter();
+  const [msg, setMsg] = useState<Msg>(null);
+  const [pending, start] = useTransition();
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <Button size="sm" variant="secondary" disabled={pending} onClick={() => {
+        if (hasClips && !confirm("Cut every clip again (for example after changing the brand kit)? Takes a minute or two.")) return;
+        start(async () => {
+          const r = await cutContentClips(sourceId);
+          setMsg(r.ok ? { ok: true, text: `Cutting ${r.data.moments} clips` } : { ok: false, text: r.error });
+          router.refresh();
+        });
+      }}>{hasClips ? "Recut clips" : "Make vertical clips"}</Button>
+      <Status msg={msg} />
+    </span>
   );
 }
