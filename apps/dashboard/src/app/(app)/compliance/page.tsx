@@ -1,6 +1,7 @@
 import { Badge, Card, CardBody } from "@agentry/ui";
 import Link from "next/link";
-import { type CaMeta, day, RefreshCalendar } from "@/components/ca";
+import { type CaMeta, RefreshCalendar } from "@/components/ca";
+import { day } from "@/lib/ca";
 import { api, requirePage } from "@/lib/session";
 
 export const metadata = { title: "Compliance calendar" };

@@ -2,10 +2,10 @@ import { Badge, Card, CardBody, CardHeader, CardTitle } from "@agentry/ui";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  type CaClient, type CaMeta, Checklist, ClientForm, day, DeleteClient, FileActions, type Filing, FilingControls, NewFiling, STATUS_TONE,
-  TrySamples, UploadFile,
+  type CaClient, type CaMeta, Checklist, ClientForm, DeleteClient, FileActions, type Filing, FilingControls, NewFiling, TrySamples, UploadFile,
 } from "@/components/ca";
 import { CaTools } from "@/components/ca-tools";
+import { day, STATUS_TONE } from "@/lib/ca";
 import { api, ApiError, requirePage } from "@/lib/session";
 
 export const metadata = { title: "Client" };

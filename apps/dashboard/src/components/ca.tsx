@@ -8,6 +8,7 @@ import {
   caAddFiling, caChecklist, caDeleteClient, caDeleteFile, caDeleteFiling, caEditFiling, caImportClients, caPauseChase, caReadFile,
   caRebuildChecklist, caRefreshCalendar, caSaveClient, caSeason, caTrySamples, caUploadFile,
 } from "@/app/(app)/actions";
+import { day } from "@/lib/ca";
 
 /** CA Firm pack (docs/PACKS.md): the firm's clients, the filing board, documents and the compliance calendar. */
 export type CaMeta = { enabled: string[]; statuses: { key: string; label: string }[]; kinds: Record<string, string>; client_kinds: string[];
@@ -19,9 +20,6 @@ export type Filing = { id: string; client_id: string; client: string; pan: strin
   status: string; assignee: string | null; ack_no: string | null; filed_on: string | null; notes: string | null; source: string; missing: string[];
   overdue: boolean; files: number; checklist?: { key: string; label: string; status: string; file_ids: string[] }[]; chase?: { sent?: number; last_at?: string; paused?: boolean } };
 
-export const STATUS_TONE: Record<string, "neutral" | "warning" | "success" | "danger"> = {
-  docs_pending: "warning", in_prep: "neutral", review: "neutral", filed: "success", verified: "success" };
-export const day = (d: string | null) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : "");
 
 function useRun() {
   const router = useRouter();
