@@ -59,6 +59,8 @@ class FakeTelegram:
         if method in ("setWebhook", "deleteWebhook"):
             self.webhooks[token] = body.get("url")
             return ok(True)
+        if method == "sendChatAction":
+            return httpx.Response(200, json={"ok": True, "result": True})
         if method == "answerCallbackQuery":
             return ok(True)
         if method == "getFile":
@@ -296,3 +298,27 @@ async def test_send_a_recording_to_the_bot(client, team_org, tg, monkeypatch, tm
     await telegram_team.handle_update(message(owner, **big))
     assert "up to 20 MB" in tg.to(owner)[-1]["text"]
     assert ALL
+
+
+async def test_send_a_link_to_the_bot(client, team_org, tg, monkeypatch, tmp_path):
+    from agentry.automations.content import links
+    monkeypatch.setattr(settings, "content_dir", str(tmp_path))
+    oid, h = await team_org(["content_repurposing"])
+    owner = await link(client, h, "owner", tg)
+    staff = await link(client, h, "staff", tg)
+
+    async def check(url):
+        if "private" in url:
+            raise links.LinkError("that video is private, removed or not available to us")
+        return {"url": url, "title": "Clinic talk on YouTube", "duration": 900, "site": "Youtube"}
+    monkeypatch.setattr(links, "check", check)
+    await telegram_team.handle_update(message(staff, "https://youtu.be/abc"))
+    assert "open Agentry for that link" in tg.to(staff)[-1]["text"]
+    await telegram_team.handle_update(message(owner, "https://youtu.be/private1"))
+    assert tg.to(owner)[-1]["text"] == "I can't use that link: that video is private, removed or not available to us."
+    await telegram_team.handle_update(message(owner, " https://youtu.be/abc "))
+    assert tg.to(owner)[-1]["text"].startswith("Got it: “Clinic talk on YouTube”. I'm downloading it")
+    async with tenant_session(oid) as conn:
+        s = (await conn.execute(text("select status, source_url, kind from app.content_sources"))).mappings().one()
+        audited = (await conn.execute(text("select metadata->>'via' from app.audit_log where action = 'content.source_added'"))).scalar_one()
+    assert dict(s) == {"status": "downloading", "source_url": "https://youtu.be/abc", "kind": "video"} and audited == "telegram"

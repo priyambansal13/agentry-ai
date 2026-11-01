@@ -83,6 +83,10 @@ class Settings(BaseSettings):
     content_transcriber: str = "openai"
     content_transcribe_model: str = "whisper-1"  # gives timestamped segments
     content_publisher: str = "mock"
+    # Recordings from a link (yt-dlp). YouTube blocks most datacenter IPs ("sign in to confirm you're not a bot"):
+    # route downloads through a residential proxy, and/or give a cookies.txt from a signed-in YouTube account
+    content_download_proxy: str | None = None  # e.g. http://user:pass@proxy.example:8080
+    content_download_cookies: str | None = None  # path to a Netscape cookies.txt inside the container
     reviews_source: str = "sample"  # Google Business Profile once its API access is approved (9.2)
     google_client_id: str | None = None
     google_client_secret: str | None = None

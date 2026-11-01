@@ -15,7 +15,7 @@ from sqlalchemy import text
 
 from agentry import audit
 from agentry.auth import OrgContext, client_ip, require
-from agentry.automations.content import brand, calendar, pipeline, results, sources
+from agentry.automations.content import brand, calendar, links, pipeline, results, sources
 from agentry.db import tenant_session
 from agentry.events import emit
 from agentry.features import require_page
@@ -90,6 +90,32 @@ async def upload(request: Request, ctx: Editor, file: Annotated[UploadFile, File
     return {"id": sid, "kind": kind}
 
 
+class LinkIn(BaseModel):
+    url: Annotated[str, Field(min_length=8, max_length=2000)]
+    title: Annotated[str | None, Field(max_length=200)] = None
+    owns_rights: bool = False
+
+
+@router.post("/sources/link", status_code=201)
+async def add_link(b: LinkIn, request: Request, ctx: Editor) -> dict:
+    """A recording from a link (YouTube, Vimeo, Instagram, LinkedIn, Drive, a direct MP4/MP3…): checked now, downloaded
+    in the background."""
+    if not b.owns_rights:
+        raise HTTPException(422, "confirm the business owns this recording (or has the rights to post from it)")
+    try:
+        info = await links.check(b.url)
+    except links.LinkError as e:
+        raise HTTPException(422, str(e)) from e
+    title = (b.title or "").strip()
+    async with tenant_session(ctx.org_id) as conn:
+        sid = await _new_source(conn, ctx, request, title if len(title) >= 2 else (info["title"] or "Recording from a link"), "video")
+        await conn.execute(text("""update app.content_sources set source_url = :u, status = 'downloading',
+            progress = progress || cast(:p as jsonb) where id = cast(:i as uuid)"""),
+            {"u": info["url"], "p": json.dumps({"title_from_link": len(title) < 2, "site": info["site"]}), "i": sid})
+        await emit(conn, ctx.org_id, "content.source_added", {"source_id": sid})
+    return {"id": sid, "kind": "link", "title": title or info["title"], "duration": info["duration"], "site": info["site"]}
+
+
 @router.post("/sources/sample", status_code=201)
 async def sample(request: Request, ctx: Editor) -> dict:
     """Try it without an upload: a 45-minute clinic podcast (mock-data/content)."""
@@ -134,7 +160,7 @@ POST_SQL = """select p.id, p.platform, p.body, p.hashtags, p.critic, p.review, p
 @router.get("/sources/{sid}")
 async def get_source(sid: str, ctx: Viewer) -> dict:
     async with tenant_session(ctx.org_id) as conn:
-        s = (await conn.execute(text("""select id, title, kind, status, error, progress, created_at, ready_at, cost_usd,
+        s = (await conn.execute(text("""select id, title, kind, status, error, progress, created_at, ready_at, cost_usd, source_url,
             (transcript->>'duration_seconds')::int as duration_seconds, jsonb_array_length(coalesce(transcript->'segments', '[]')) as segments
             from app.content_sources where id = cast(:i as uuid)"""), {"i": sid})).mappings().first()
         if not s:

@@ -31,6 +31,7 @@ dependencies = [
   "livekit-agents[openai,silero]>=1.2",
   "livekit-api>=1.0",
   "pillow>=13.0.0",
+  "yt-dlp>=2026.10.26",
 ]
 
 [dependency-groups]

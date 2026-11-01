@@ -9,9 +9,9 @@ export const metadata = { title: "Content review" };
 
 type Moment = { id: string; rank: number; start_s: number; end_s: number; quote: string; speaker: string | null; hook: string; insight: string;
                 topic: string | null; dropped: boolean };
-type Source = { id: string; title: string; kind: string; status: string; error: string | null; progress: { moments_total?: number; moments_done?: number };
+type Source = { id: string; title: string; kind: string; source_url: string | null; status: string; error: string | null; progress: { moments_total?: number; moments_done?: number };
                 duration_seconds: number | null; moments: Moment[]; posts: (ContentPost & { moment_id: string })[]; clips: Record<string, Clip>; can_edit: boolean };
-const STEP: Record<string, string> = { uploaded: "Queued…", transcribing: "Transcribing the recording…", finding_moments: "Finding the best moments…",
+const STEP: Record<string, string> = { downloading: "Downloading from the link…", uploaded: "Queued…", transcribing: "Transcribing the recording…", finding_moments: "Finding the best moments…",
                                        writing: "Writing posts and drawing images…", cutting_clips: "Cutting vertical clips…" };
 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -41,6 +41,8 @@ export default async function ContentSourcePage({ params }: { params: Promise<{ 
         <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="font-display text-3xl font-bold tracking-tight">{s.title}</h1>
+            {s.source_url && <p className="mt-1 text-sm"><a href={s.source_url} target="_blank" rel="noopener noreferrer" className="text-muted underline hover:text-ink">
+              From {new URL(s.source_url).hostname.replace(/^www\./, "")} ↗</a></p>}
             <p className="mt-1 text-muted">{s.duration_seconds ? `${Math.round(s.duration_seconds / 60)} minutes · ` : ""}{s.moments.length} moments · {s.posts.length} posts</p>
           </div>
           {s.can_edit && <span className="inline-flex flex-wrap items-center gap-2">

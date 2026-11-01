@@ -536,6 +536,10 @@ export async function changeSendingMailbox(orgId: string, mailboxId: string, sta
 
 // ---------- content repurposing (Phase 6) ----------
 
+export async function addContentLink(url: string, title: string, ownsRights: boolean) {
+  return run<{ id: string; title: string | null }>("/org/content/sources/link", { method: "POST", body: { url, title: title || null, owns_rights: ownsRights } }, ["/content"]);
+}
+
 export async function sampleContent() {
   return run<{ id: string }>("/org/content/sources/sample", { method: "POST" }, ["/content"]);
 }

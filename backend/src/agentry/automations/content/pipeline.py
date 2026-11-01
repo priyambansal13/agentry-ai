@@ -8,7 +8,7 @@ from dbos import DBOS, SetWorkflowID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from agentry.automations.content import brand, clips, drafts, moments, sources
+from agentry.automations.content import brand, clips, drafts, links, moments, sources
 from agentry.db import tenant_session
 from agentry.events import emit
 from agentry.runs import current, run
@@ -24,6 +24,28 @@ async def _status(conn: AsyncConnection, sid: str, status: str, **progress: obje
 
 def context_around(transcript: dict, start: float, end: float) -> str:
     return " ".join(s["text"] for s in transcript["segments"] if s["end"] >= start - CONTEXT_SECONDS and s["start"] <= end + CONTEXT_SECONDS)
+
+
+@DBOS.step()
+async def content_download(org_id: str, sid: str) -> None:
+    """A recording added as a link: download it (and the platform's own captions, which save the transcription)."""
+    async with tenant_session(org_id) as conn:
+        s = (await conn.execute(text("select source_url, file_path, title from app.content_sources where id = cast(:i as uuid)"),
+                                {"i": sid})).mappings().one()
+        if not s["source_url"] or sources.resolve(s["file_path"]):
+            return
+        await _status(conn, sid, "downloading")
+    folder = sources.folder(org_id, sid)
+    for old in folder.glob("source*"):  # a half-finished earlier attempt
+        old.unlink(missing_ok=True)
+    got = await links.fetch(s["source_url"], folder)
+    async with tenant_session(org_id) as conn:
+        await conn.execute(text("""update app.content_sources set file_path = :p, file_bytes = :b, kind = :k,
+            title = case when progress->>'title_from_link' = 'true' then coalesce(cast(:t as text), title) else title end,
+            transcript = coalesce(transcript, cast(:tr as jsonb)) where id = cast(:i as uuid)"""),
+            {"p": sources.relative(got["path"]), "b": got["bytes"], "k": got["kind"], "t": got["title"],
+             "tr": json.dumps(got["transcript"]) if got["transcript"] else None, "i": sid})
+    current().step("downloaded", kind=got["kind"], megabytes=round(got["bytes"] / 1e6, 1), captions=bool(got["transcript"]))
 
 
 @DBOS.step()
@@ -136,6 +158,7 @@ async def content_process_source(org_id: str, sid: str) -> str:
 
 async def _content_process_source(org_id: str, sid: str) -> str:
     try:
+        await content_download(org_id, sid)
         await content_transcribe(org_id, sid)
         mids = await content_find_moments(org_id, sid)
         current().step("moments found", moments=len(mids))

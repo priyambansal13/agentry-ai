@@ -4,7 +4,7 @@ import { Badge, Button, Card, Input, Label, Select, Textarea } from "@agentry/ui
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
-  approveContentReady, cutContentClips, deleteContent, dropContentMoment, learnBrandVoice, moveContentPost, requestLongform, retryContent, reviewContentPost, sampleContent,
+  addContentLink, approveContentReady, cutContentClips, deleteContent, dropContentMoment, learnBrandVoice, moveContentPost, requestLongform, retryContent, reviewContentPost, sampleContent,
   saveBrandKit, saveLongform, scheduleContent, uploadBrandLogo,
 } from "@/app/(app)/actions";
 import { PLATFORM } from "@/lib/format";
@@ -16,6 +16,8 @@ const Status = ({ msg }: { msg: Msg }) => msg && <span role="status" className={
 /** Upload a recording (streamed to the API: videos are big) or try the sample podcast. */
 export function NewContent() {
   const router = useRouter();
+  const [mode, setMode] = useState<"file" | "link">("file");
+  const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [owns, setOwns] = useState(false);
@@ -25,6 +27,14 @@ export function NewContent() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (mode === "link") {
+      setUploading(true);
+      setMsg({ ok: true, text: "Checking the link…" });
+      const r = await addContentLink(url.trim(), title.trim(), owns);
+      setUploading(false);
+      if (!r.ok) return setMsg({ ok: false, text: r.error });
+      return router.push(`/content/${r.data.id}`);
+    }
     if (!file) return;
     setUploading(true);
     setMsg({ ok: true, text: `Uploading ${(file.size / 1024 / 1024).toFixed(1)} MB…` });
@@ -41,16 +51,31 @@ export function NewContent() {
 
   return (
     <div className="space-y-4">
+      <div role="radiogroup" aria-label="Add a recording" className="inline-flex rounded-xl border-2 border-line p-1 text-sm">
+        {([["file", "Upload a file"], ["link", "Paste a link"]] as const).map(([m, label]) => (
+          <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => { setMode(m); setMsg(null); }}
+            className={`rounded-lg px-3 py-1.5 font-medium ${mode === m ? "bg-ink text-paper" : "text-muted hover:text-ink"}`}>{label}</button>
+        ))}
+      </div>
       <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
-        <div><Label htmlFor="ct-title">Title</Label><Input id="ct-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Podcast episode 12" /></div>
-        <div><Label htmlFor="ct-file">Video, audio or transcript (MP4, MOV, MP3, M4A, WAV, SRT, VTT, TXT)</Label>
-          <input id="ct-file" type="file" accept="video/*,audio/*,.srt,.vtt,.txt" className="block text-sm" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></div>
+        <div><Label htmlFor="ct-title">Title{mode === "link" ? " (optional: we use the video's own title)" : ""}</Label>
+          <Input id="ct-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Podcast episode 12" /></div>
+        {mode === "file" ? (
+          <div><Label htmlFor="ct-file">Video, audio or transcript (MP4, MOV, MP3, M4A, WAV, SRT, VTT, TXT)</Label>
+            <input id="ct-file" type="file" accept="video/*,audio/*,.srt,.vtt,.txt" className="block text-sm" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></div>
+        ) : (
+          <div><Label htmlFor="ct-url">Link to the video or podcast</Label>
+            <Input id="ct-url" type="url" inputMode="url" value={url} onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=…" />
+            <p className="mt-1 text-xs text-muted">YouTube, Instagram, LinkedIn, Facebook, X, Google Drive (shared with anyone), a direct MP4 or MP3 link, and most video sites. One video, up to 3 hours.</p></div>
+        )}
         <label className="flex items-start gap-2 text-sm sm:col-span-2">
           <input type="checkbox" className="mt-1" checked={owns} onChange={(e) => setOwns(e.target.checked)} />
           <span>This is our own recording (or we have the rights to post from it).</span>
         </label>
         <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
-          <Button type="submit" disabled={!file || !owns || uploading}>{uploading ? "Uploading…" : "Make posts"}</Button>
+          <Button type="submit" disabled={(mode === "file" ? !file : url.trim().length < 8) || !owns || uploading}>
+            {uploading ? (mode === "link" ? "Checking…" : "Uploading…") : "Make posts"}</Button>
           <span className="text-sm text-muted">or</span>
           <Button type="button" variant="secondary" disabled={pending || uploading} onClick={() => start(async () => {
             const r = await sampleContent();

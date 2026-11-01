@@ -7,13 +7,14 @@ Everything goes through the same rules as the portal: a person only sees and act
 decisions use approvals.decide (audited "via telegram"), and links open the portal for anything bigger.
 """
 import json
+import re
 import secrets
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import text
 
-from agentry import approvals
+from agentry import approvals, audit
 from agentry.config import settings
 from agentry.connectors import telegram as tg
 from agentry.db import system_session, tenant_session
@@ -158,6 +159,9 @@ async def _on_message(m: dict) -> None:
         return
     if any(k in m for k in ("video", "audio", "voice", "document")):
         await _content_upload(chat_id, p, m)
+        return
+    if LINK_ONLY.fullmatch(body or ""):  # just a link: a recording for content (no 20 MB limit)
+        await _content_link(chat_id, p, body.strip())
         return
     cmd = body.lower().split()[0] if body else ""
     if cmd in ("/needs", "/needsyou"):
@@ -440,6 +444,40 @@ TOOLS = {  # each tool appears when the business has that part of the portal and
     "content": {"label": "🎬 Content", "run": t_content, "when": lambda f, p: "content" in f["pages"] and p.can("conversation", "read")},
     "results": {"label": "📈 Results", "run": t_results, "when": lambda f, p: p.can("dashboard", "read")},
 }
+
+
+LINK_ONLY = re.compile(r"\s*https?://\S+\s*", re.IGNORECASE)
+
+
+async def _content_link(chat_id: int, p: Person, url: str) -> None:
+    """A link sent on its own (YouTube, Instagram, Drive, a direct MP4…) becomes a content recording, downloaded by the
+    server, so it has no Telegram size limit. Sending a link means the sender confirms the business may post from it."""
+    from agentry.automations.content import links
+    from agentry.events import emit
+    async with tenant_session(p.org_id) as conn:
+        f = await org_features(conn)
+    if "content_repurposing" not in f["automations"] or not p.can("automation", "configure"):
+        await _say(chat_id, "Send me a question about your business in words, or open Agentry for that link.")
+        return
+    try:
+        await tg.call(settings.telegram_bot_token, "sendChatAction", chat_id=chat_id, action="typing")
+    except tg.TelegramError:
+        pass  # only the "typing…" hint
+    try:
+        info = await links.check(url)
+    except links.LinkError as e:
+        await _say(chat_id, f"I can't use that link: {e}.")
+        return
+    title = info["title"] or "Recording from a link"
+    async with tenant_session(p.org_id) as conn:
+        sid = str((await conn.execute(text("""insert into app.content_sources (org_id, title, kind, created_by, source_url, status, progress)
+            values (:o, :t, 'video', :u, :url, 'downloading', cast(:pr as jsonb)) returning id"""),
+            {"o": p.org_id, "t": title, "u": p.user_id, "url": info["url"],
+             "pr": json.dumps({"title_from_link": True, "site": info["site"]})})).scalar_one())
+        await audit.record(conn, org_id=p.org_id, actor_type="agentry_staff" if p.is_staff else "user", actor_user_id=p.user_id, action="content.source_added",
+                           target_type="content", target_id=sid, metadata={"title": title, "kind": "link", "via": "telegram"})
+        await emit(conn, p.org_id, "content.source_added", {"source_id": sid})
+    await _say(chat_id, f"Got it: “{title}”. I'm downloading it now and will message you when the posts are ready.\n{link_to(f'/content/{sid}')}")
 
 
 async def _content_upload(chat_id: int, p: Person, m: dict) -> None:

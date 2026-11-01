@@ -18,6 +18,7 @@ Code: https://github.com/priyambansal13/agentry-ai (`main`). Everything below is
 
 ## Built this session (latest first)
 
+- **Content from a link** (2026-11-01) — paste a YouTube/Instagram/Drive/MP4… link in Content or send it to the Telegram team bot (`content/links.py`, yt-dlp, platform captions as a free transcript, migration 0033, deno in the backend image). YouTube refuses the Oracle IP: needs `AGENTRY_CONTENT_DOWNLOAD_PROXY` and/or `AGENTRY_CONTENT_DOWNLOAD_COOKIES` in `infra/.env.prod`. NOT deployed yet.
 - **Vertical clips** (2026-11-01, ROADMAP-V2 8.2) — video uploads get a 9:16 clip per moment (`content/clips.py`: whole sentences 20-60 s, burned-in captions, hook banner, brand end card; migration 0032; recording page plays/downloads them, *Recut clips*). Also: demo builder reads Medium profiles via RSS (Medium blocks bots); `/me/bookkeeping-clients?month=YYYY-MM`; two tests no longer break on the 1st of a month. NOT deployed yet.
 
 - **Content v2** (2026-10-31, ROADMAP-V2 8.1 + 8.3) — blog article + newsletter per recording (`content/longform.py`, exact-quote and number checks, Markdown/HTML export, migration 0031); LinkedIn publishing (`connectors/linkedin.py`, needs a LinkedIn app: Share on LinkedIn + Sign In with OpenID Connect, redirect `https://api.agentry.duckdns.org/connect/linkedin/callback`, then AGENTRY_LINKEDIN_CLIENT_ID/SECRET on the server). Fixed: content and cold-email workflows are registered at start, so deploys no longer break running jobs. NOT deployed yet (server runs cd70972).

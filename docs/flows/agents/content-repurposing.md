@@ -82,6 +82,15 @@ and blog outputs, engagement metrics feeding back into which moments are picked.
   drafts both from the ranked moments in the brand voice; quotes must be word for word, numbers must be in the
   recording, no AI filler (one rewrite, else "needs attention"). Edit, approve (never with a misquote), download
   Markdown or HTML for WordPress, Mailchimp or Brevo. Code: `content/longform.py`.
+- **From a link** (2026-11-01): *Paste a link* next to the upload (or send just the link to the Telegram team bot, which
+  has no 20 MB limit for links): YouTube, Instagram, LinkedIn, Facebook, X, Google Drive, a direct MP4/MP3, most video
+  and podcast sites (yt-dlp). The link is checked first (public address, one video not a playlist, not live, up to
+  3 hours); the server downloads it at up to 720p (or audio only) and uses the platform's **own captions** as the
+  transcript when the uploader wrote them (English or Hindi), so no transcription cost. Errors in plain words ("private
+  video", "the site asked us to sign in: upload the file instead"); *Try again* re-downloads. **YouTube blocks most
+  servers** (tested on the Oracle VM: "sign in to confirm you're not a bot"): set `AGENTRY_CONTENT_DOWNLOAD_PROXY`
+  (a residential proxy) and/or `AGENTRY_CONTENT_DOWNLOAD_COOKIES` (a cookies.txt from a signed-in YouTube account,
+  ideally a separate one) on the server. Code: `content/links.py`, migration 0033.
 - **Vertical clips** (8.2, 2026-11-01): for **video** uploads, each moment is also cut as a 9:16 MP4 (1080x1920) for
   Reels/Shorts: whole transcript sentences, 20-60 s; captions burned in from the transcript (short lines, timed by word
   count inside each segment); the moment's hook as a banner for the first 3 s; a 2 s end card in the brand colour with
