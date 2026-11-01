@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { getActiveOrg } from "@/lib/session";
 
 // downloads from the CA desk: a client's file, or a sheet the CA agents made (tax.xlsx, reconciliations…)
-const ALLOWED = [/^files\/[0-9a-f-]{36}$/, /^clients\/[0-9a-f-]{36}\/[a-z0-9-]+\.(xlsx|csv|json)$/, /^[a-z0-9-]+\/[0-9a-f-]{36}\.(xlsx|csv)$/];
+const ALLOWED = [/^files\/[0-9a-f-]{36}$/, /^clients\/[0-9a-f-]{36}\/[a-z0-9-]+\.(xlsx|csv|json)$/, /^work\/[0-9a-f-]{36}\/sheet\.xlsx$/];
 
 export async function GET(req: Request, { params }: { params: Promise<{ path: string[] }> }) {
   const org = await getActiveOrg();

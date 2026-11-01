@@ -3,6 +3,8 @@
 Who: owners, managers, front desk and finance work on it; viewers read. Each part needs its agent switched on
 (clients and files: any CA agent).
 """
+import json
+import re
 from datetime import UTC, date, datetime
 from typing import Annotated, Literal
 
@@ -13,7 +15,22 @@ from sqlalchemy import text
 
 from agentry import audit
 from agentry.auth import OrgContext, current_org
-from agentry.automations.ca import calendar, chaser, core, taxdocs, tracker
+from agentry.automations.ca import (
+    audit3cd,
+    bank,
+    calendar,
+    capgains,
+    chaser,
+    core,
+    excel,
+    gst,
+    itr,
+    notices,
+    recurring,
+    taxdocs,
+    tds,
+    tracker,
+)
 from agentry.db import tenant_session
 from agentry.features import enabled_automations
 
@@ -437,3 +454,403 @@ async def client_dates(cid: str, ctx: Cal) -> dict:
     if not c:
         raise HTTPException(404, "client not found")
     return {"items": calendar.deadlines(c["kind"], c["profile"], today, date(today.year + 1, today.month, 1))}
+
+
+# ---------- agents 5-13: work on a client's documents (results kept in ca_work) ----------
+
+GstOn = Annotated[OrgContext, Depends(needs("ca_gst_reconciliation"))]
+ItrOn = Annotated[OrgContext, Depends(needs("ca_itr_prep"))]
+CgOn = Annotated[OrgContext, Depends(needs("ca_capital_gains"))]
+BankOn = Annotated[OrgContext, Depends(needs("ca_bank_classifier"))]
+NoticeOn = Annotated[OrgContext, Depends(needs("ca_notice_handler"))]
+TdsOn = Annotated[OrgContext, Depends(needs("ca_tds_returns"))]
+AuditOn = Annotated[OrgContext, Depends(needs("ca_tax_audit"))]
+ExcelOn = Annotated[OrgContext, Depends(needs("excel_desk"))]
+RecurringOn = Annotated[OrgContext, Depends(needs("recurring_books"))]
+SAMPLE = taxdocs.SAMPLES
+SHEETS = {"ca_gst_reconciliation": gst.sheet, "ca_capital_gains": capgains.sheet, "ca_bank_classifier": bank.sheet, "ca_tds_returns": tds.sheet,
+          "ca_tax_audit": audit3cd.sheet}
+
+
+async def _client(conn, cid: str) -> dict:
+    c = (await conn.execute(text("select id::text, name, pan, gstin, kind from app.ca_clients where id = cast(:i as uuid)"), {"i": cid})).mappings().first()
+    if not c:
+        raise HTTPException(404, "client not found")
+    return dict(c)
+
+
+async def _keep(ctx: OrgContext, cid: str, data: bytes, filename: str | None, mime: str | None, doc_type: str) -> tuple[str, str]:
+    """Store an input file on the client's file (so every result can be traced back to it). Returns (file id, mime)."""
+    async with tenant_session(ctx.org_id) as conn:
+        await _client(conn, cid)
+        try:
+            fid = await core.store_file(conn, ctx.org_id, cid, data, filename=filename, mime=mime, doc_type=doc_type, user_id=ctx.principal.user_id)
+        except core.CaError as e:
+            raise _err(e) from e
+        return fid, core.mime_of(filename, mime) or ""
+
+
+async def _save(ctx: OrgContext, cid: str | None, agent: str, title: str, result: dict, file_ids: list[str], params: dict | None = None) -> dict:
+    async with tenant_session(ctx.org_id) as conn:
+        wid = await core.save_work(conn, ctx.org_id, cid, agent, title, result, file_ids=file_ids, params=params, user_id=ctx.principal.user_id)
+        await audit.record(conn, org_id=ctx.org_id, actor_type=ctx.actor_type, actor_user_id=ctx.principal.user_id, action=f"{agent}.run",
+                           target_type="ca_work", target_id=wid, metadata={"title": title})
+    return {"id": wid, "agent": agent, "title": title, "result": result}
+
+
+@router.get("/clients/{cid}/work")
+async def client_work(cid: str, ctx: Any) -> dict:
+    async with tenant_session(ctx.org_id) as conn:
+        rows = (await conn.execute(text("""select id::text, agent, title, created_at from app.ca_work where client_id = cast(:c as uuid)
+            order by created_at desc limit 200"""), {"c": cid})).mappings().all()
+    return {"items": [dict(r) for r in rows]}
+
+
+async def _work_row(conn, wid: str) -> dict:
+    w = (await conn.execute(text("select * from app.ca_work where id = cast(:i as uuid)"), {"i": wid})).mappings().first()
+    if not w:
+        raise HTTPException(404, "not found")
+    return dict(w)
+
+
+@router.get("/work/{wid}")
+async def work(wid: str, ctx: Any) -> dict:
+    async with tenant_session(ctx.org_id) as conn:
+        w = await _work_row(conn, wid)
+    return {k: (str(v) if k in ("id", "client_id") and v else v) for k, v in w.items() if k != "org_id"} | {"file_ids": [str(x) for x in w["file_ids"]]}
+
+
+@router.delete("/work/{wid}")
+async def delete_work(wid: str, ctx: Any) -> dict:
+    _work(ctx)
+    async with tenant_session(ctx.org_id) as conn:
+        await conn.execute(text("delete from app.ca_work where id = cast(:i as uuid)"), {"i": wid})
+    return {"deleted": True}
+
+
+@router.get("/work/{wid}/sheet.xlsx")
+async def work_sheet(wid: str, ctx: Any) -> Response:
+    async with tenant_session(ctx.org_id) as conn:
+        w = await _work_row(conn, wid)
+        client_name = (await conn.execute(text("select name from app.ca_clients where id = :c"), {"c": w["client_id"]})).scalar_one_or_none() if w["client_id"] else ""
+    r = w["result"]
+    if w["agent"] == "ca_itr_prep":
+        body = itr.sheet(client_name or "", r)
+    elif w["agent"] == "excel_desk":
+        body = excel.sheet_reco(r) if "counts" in r else excel.sheet_table(r) if "columns" in r else core.xlsx_bytes({"Answer": [["Question", w["title"]], ["Answer", json.dumps(r.get("answer"))]]})
+    elif w["agent"] == "ca_gst_reconciliation":
+        body = gst.sheet(r)
+    elif w["agent"] in SHEETS:
+        body = SHEETS[w["agent"]](r)
+    else:
+        raise HTTPException(404, "no sheet for this")
+    name = re.sub(r"[^A-Za-z0-9-]+", "-", f"{client_name or 'agentry'}-{w['title']}")[:80].strip("-")
+    return Response(body, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="{name}.xlsx"'})
+
+
+def _read_error(e: Exception) -> HTTPException:
+    return _err(e) if isinstance(e, core.CaError) else HTTPException(422, "this file couldn't be read")
+
+
+# GST reconciliation
+
+async def _gst(ctx: OrgContext, cid: str, two_b: tuple[bytes, str | None, str | None], books: tuple[bytes, str | None, str | None], period: str) -> dict:
+    f1, m1 = await _keep(ctx, cid, *two_b, "gstr2b")
+    f2, m2 = await _keep(ctx, cid, *books, "purchase_register")
+    async with tenant_session(ctx.org_id) as conn:
+        client = await _client(conn, cid)
+        cfg = await core.enabled(conn, "ca_gst_reconciliation") or {}
+    try:
+        r = gst.reconcile(gst.records(two_b[0], m1), gst.records(books[0], m2), float(cfg.get("tolerance", 10)))
+    except (core.CaError, ValueError) as e:
+        raise _read_error(e) from e
+    r["messages"] = gst.supplier_messages(r, client["name"], client["gstin"], period)
+    return await _save(ctx, cid, "ca_gst_reconciliation", f"GST reconciliation {period}", r, [f1, f2], {"period": period})
+
+
+@router.post("/clients/{cid}/gst", status_code=201)
+async def gst_run(cid: str, ctx: GstOn, gstr2b: Annotated[UploadFile, File()], books: Annotated[UploadFile, File()],
+                  period: Annotated[str, Form(min_length=2, max_length=30)]) -> dict:
+    _work(ctx)
+    return await _gst(ctx, cid, (await gstr2b.read(), gstr2b.filename, gstr2b.content_type), (await books.read(), books.filename, books.content_type), period)
+
+
+@router.post("/clients/{cid}/gst/sample", status_code=201)
+async def gst_sample(cid: str, ctx: GstOn) -> dict:
+    _work(ctx)
+    return await _gst(ctx, cid, ((SAMPLE / "gstr2b_sample.json").read_bytes(), "gstr2b_sample.json", "application/json"),
+                      ((SAMPLE / "purchase_register_sample.csv").read_bytes(), "purchase_register_sample.csv", "text/csv"), "Oct 2026 (sample)")
+
+
+# ITR preparation
+
+@router.get("/clients/{cid}/itr/prefill")
+async def itr_prefill(cid: str, ctx: ItrOn, ay: str | None = None) -> dict:
+    async with tenant_session(ctx.org_id) as conn:
+        await _client(conn, cid)
+        docs = await taxdocs.client_docs(conn, cid, ay)
+        cg = (await conn.execute(text("""select result->'summary' from app.ca_work where client_id = cast(:c as uuid) and agent = 'ca_capital_gains'
+            order by created_at desc limit 1"""), {"c": cid})).scalar_one_or_none()
+    return {"inputs": itr.prefill(docs, cg), "fields": itr.FIELDS, "from": {"documents": len(docs), "capital_gains": bool(cg)}}
+
+
+class ItrIn(BaseModel):
+    inputs: dict[str, float | int | str | None]
+    age: Literal["below60", "60to80", "above80"] = "below60"
+    assessment_year: Annotated[str, Field(max_length=10)] = "2026-27"
+
+
+@router.post("/clients/{cid}/itr", status_code=201)
+async def itr_run(cid: str, body: ItrIn, ctx: ItrOn) -> dict:
+    _work(ctx)
+    p = {k: v for k, v in body.inputs.items() if k in itr.FIELDS} | {"age": body.age}
+    r = itr.prepare(p)
+    return await _save(ctx, cid, "ca_itr_prep", f"ITR computation AY {body.assessment_year}", r, [], {"age": body.age})
+
+
+# capital gains, bank statements, TDS, tax audit: one file in, a result out
+
+async def _one(ctx: OrgContext, cid: str, agent: str, upload: tuple[bytes, str | None, str | None], doc_type: str, title: str, run) -> dict:
+    fid, mime = await _keep(ctx, cid, *upload, doc_type)
+    try:
+        r = await run(upload[0], mime)
+    except (core.CaError, ValueError, KeyError, IndexError) as e:
+        raise _read_error(e) from e
+    return await _save(ctx, cid, agent, title, r, [fid])
+
+
+async def _cg(data: bytes, mime: str) -> dict:
+    return capgains.compute(data, mime)
+
+
+@router.post("/clients/{cid}/capital-gains", status_code=201)
+async def cg_run(cid: str, ctx: CgOn, file: Annotated[UploadFile, File()]) -> dict:
+    _work(ctx)
+    return await _one(ctx, cid, "ca_capital_gains", (await file.read(), file.filename, file.content_type), "broker_pnl", f"Capital gains: {file.filename}", _cg)
+
+
+@router.post("/clients/{cid}/capital-gains/sample", status_code=201)
+async def cg_sample(cid: str, ctx: CgOn) -> dict:
+    _work(ctx)
+    p = SAMPLE / "broker_pnl_sample.csv"
+    return await _one(ctx, cid, "ca_capital_gains", (p.read_bytes(), p.name, "text/csv"), "broker_pnl", "Capital gains: sample broker P&L", _cg)
+
+
+async def _bank(ctx: OrgContext, cid: str, upload: tuple[bytes, str | None, str | None]) -> dict:
+    async def run(data: bytes, mime: str) -> dict:
+        async with tenant_session(ctx.org_id) as conn:
+            cfg = await core.enabled(conn, "ca_bank_classifier") or {}
+            return await bank.run(ctx.org_id, conn, data, mime, bool(cfg.get("use_model", True)))
+    return await _one(ctx, cid, "ca_bank_classifier", upload, "bank_statement", f"Bank statement: {upload[1]}", run)
+
+
+@router.post("/clients/{cid}/bank", status_code=201)
+async def bank_run(cid: str, ctx: BankOn, file: Annotated[UploadFile, File()]) -> dict:
+    _work(ctx)
+    return await _bank(ctx, cid, (await file.read(), file.filename, file.content_type))
+
+
+@router.post("/clients/{cid}/bank/sample", status_code=201)
+async def bank_sample(cid: str, ctx: BankOn) -> dict:
+    _work(ctx)
+    p = SAMPLE / "bank_statement_sample.csv"
+    return await _bank(ctx, cid, (p.read_bytes(), p.name, "text/csv"))
+
+
+class BankLine(BaseModel):
+    row: int
+    category: str
+    learn: bool = True
+
+
+@router.post("/work/{wid}/bank-line")
+async def bank_line(wid: str, body: BankLine, ctx: BankOn) -> dict:
+    _work(ctx)
+    async with tenant_session(ctx.org_id) as conn:
+        w = await _work_row(conn, wid)
+        if w["agent"] != "ca_bank_classifier":
+            raise HTTPException(404, "not a bank statement")
+        try:
+            r = await bank.correct(conn, ctx.org_id, w["result"], body.row, body.category, body.learn, ctx.principal.user_id)
+        except core.CaError as e:
+            raise _err(e) from e
+        learned = r.pop("pattern")
+        await conn.execute(text("update app.ca_work set result = cast(:r as jsonb), updated_at = now() where id = cast(:i as uuid)"),
+                           {"r": json.dumps(r, default=str), "i": wid})
+    return {"learned": learned, "totals": r["totals"]}
+
+
+async def _tds(data: bytes, mime: str) -> dict:
+    return tds.compute(data, mime)
+
+
+@router.post("/clients/{cid}/tds", status_code=201)
+async def tds_run(cid: str, ctx: TdsOn, file: Annotated[UploadFile, File()]) -> dict:
+    _work(ctx)
+    return await _one(ctx, cid, "ca_tds_returns", (await file.read(), file.filename, file.content_type), "tds_register", f"TDS: {file.filename}", _tds)
+
+
+@router.post("/clients/{cid}/tds/sample", status_code=201)
+async def tds_sample(cid: str, ctx: TdsOn) -> dict:
+    _work(ctx)
+    p = SAMPLE / "tds_register_sample.csv"
+    return await _one(ctx, cid, "ca_tds_returns", (p.read_bytes(), p.name, "text/csv"), "tds_register", "TDS: sample payments register", _tds)
+
+
+def _audit_runner(fy: int, days: int):
+    async def run(data: bytes, mime: str) -> dict:
+        return audit3cd.compute(data, mime, fy, days)
+    return run
+
+
+async def _audit(ctx: OrgContext, cid: str, upload: tuple[bytes, str | None, str | None], fy: int) -> dict:
+    async with tenant_session(ctx.org_id) as conn:
+        cfg = await core.enabled(conn, "ca_tax_audit") or {}
+    return await _one(ctx, cid, "ca_tax_audit", upload, "ledger", f"3CD checks FY {fy}-{str(fy + 1)[2:]}",
+                      _audit_runner(fy, int(cfg.get("msme_default_days", 15))))
+
+
+@router.post("/clients/{cid}/audit", status_code=201)
+async def audit_run(cid: str, ctx: AuditOn, file: Annotated[UploadFile, File()], fy: Annotated[int, Form(ge=2020, le=2035)]) -> dict:
+    _work(ctx)
+    return await _audit(ctx, cid, (await file.read(), file.filename, file.content_type), fy)
+
+
+@router.post("/clients/{cid}/audit/sample", status_code=201)
+async def audit_sample(cid: str, ctx: AuditOn) -> dict:
+    _work(ctx)
+    p = SAMPLE / "ledger_sample.csv"
+    return await _audit(ctx, cid, (p.read_bytes(), p.name, "text/csv"), 2025)
+
+
+# notices
+
+@router.post("/clients/{cid}/notices", status_code=201)
+async def notice_run(cid: str, ctx: NoticeOn, file: Annotated[UploadFile, File()]) -> dict:
+    _work(ctx)
+    fid, _ = await _keep(ctx, cid, await file.read(), file.filename, file.content_type, "notice")
+    try:
+        return await notices.handle(ctx.org_id, cid, fid, ctx.principal.user_id)
+    except core.CaError as e:
+        raise _err(e) from e
+
+
+@router.post("/clients/{cid}/notices/sample", status_code=201)
+async def notice_sample(cid: str, ctx: NoticeOn) -> dict:
+    _work(ctx)
+    p = SAMPLE / "notice_143_1_sample.txt"
+    fid, _ = await _keep(ctx, cid, p.read_bytes(), p.name, "text/plain", "notice")
+    return await notices.handle(ctx.org_id, cid, fid, ctx.principal.user_id)
+
+
+# ---------- Excel desk (the firm's own; no client needed) ----------
+
+@router.get("/excel")
+async def excel_list(ctx: ExcelOn) -> dict:
+    async with tenant_session(ctx.org_id) as conn:
+        rows = (await conn.execute(text("""select id::text, title, created_at, params from app.ca_work where agent = 'excel_desk'
+            order by created_at desc limit 50"""))).mappings().all()
+    return {"items": [dict(r) for r in rows]}
+
+
+def _mime(f: UploadFile, data: bytes) -> str:
+    m = core.mime_of(f.filename, f.content_type)
+    if not m:
+        raise HTTPException(422, "upload a PDF, photo, CSV or Excel file")
+    if len(data) > core.MAX_FILE:
+        raise HTTPException(422, "files can be up to 20 MB")
+    return m
+
+
+@router.post("/excel/table", status_code=201)
+async def excel_table(ctx: ExcelOn, file: Annotated[UploadFile, File()], columns: Annotated[str | None, Form(max_length=500)] = None) -> dict:
+    _work(ctx)
+    data = await file.read()
+    try:
+        t = await excel.to_excel(ctx.org_id, data, _mime(file, data), [c.strip() for c in (columns or "").split(",") if c.strip()] or None)
+    except core.CaError as e:
+        raise _err(e) from e
+    return await _save(ctx, None, "excel_desk", f"To Excel: {file.filename}", t, [], {"kind": "table"})
+
+
+@router.post("/excel/reconcile", status_code=201)
+async def excel_reconcile(ctx: ExcelOn, first: Annotated[UploadFile, File()], second: Annotated[UploadFile, File()],
+                          tolerance: Annotated[float, Form(ge=0, le=100000)] = 1) -> dict:
+    _work(ctx)
+    a, b = await first.read(), await second.read()
+    try:
+        r = excel.reconcile(core.table_rows(a, _mime(first, a)), core.table_rows(b, _mime(second, b)), tolerance)
+    except (core.CaError, ValueError, IndexError) as e:
+        raise _read_error(e) from e
+    return await _save(ctx, None, "excel_desk", f"Reconcile: {first.filename} vs {second.filename}", r, [], {"kind": "reconcile"})
+
+
+@router.post("/excel/ask", status_code=201)
+async def excel_ask(ctx: ExcelOn, file: Annotated[UploadFile, File()], question: Annotated[str, Form(min_length=3, max_length=300)]) -> dict:
+    _work(ctx)
+    data = await file.read()
+    try:
+        r = await excel.ask(ctx.org_id, core.table_rows(data, _mime(file, data)), question)
+    except (core.CaError, ValueError, IndexError) as e:
+        raise _read_error(e) from e
+    return await _save(ctx, None, "excel_desk", question, r, [], {"kind": "ask", "file": file.filename})
+
+
+# ---------- recurring entries (the firm's own books) ----------
+
+class RecurringIn(BaseModel):
+    name: Annotated[str, Field(min_length=2, max_length=80)]
+    vendor: Annotated[str, Field(min_length=2, max_length=120)]
+    category: Annotated[str, Field(min_length=2, max_length=60)]
+    amount: Annotated[float, Field(gt=0, le=1e9)]
+    gst_rate: Annotated[float, Field(ge=0, le=28)] = 0
+    frequency: Literal["weekly", "monthly", "quarterly", "yearly"] = "monthly"
+    next_on: date
+    ends_on: date | None = None
+    active: bool = True
+
+
+@router.get("/recurring")
+async def recurring_list(ctx: RecurringOn) -> dict:
+    async with tenant_session(ctx.org_id) as conn:
+        rows = await recurring.entries(conn)
+    return {"items": rows, "monthly_cost": recurring.monthly_cost(rows)}
+
+
+@router.post("/recurring", status_code=201)
+async def recurring_add(body: RecurringIn, ctx: RecurringOn) -> dict:
+    _work(ctx)
+    async with tenant_session(ctx.org_id) as conn:
+        rid = (await conn.execute(text("""insert into app.recurring_entries (org_id, name, vendor, category, amount, gst_rate, frequency, next_on,
+            ends_on, active, created_by) values (:o, :n, :v, :c, :a, :g, :f, :nx, :e, :ac, :u) returning id::text"""),
+            {"o": ctx.org_id, "n": body.name, "v": body.vendor, "c": body.category, "a": body.amount, "g": body.gst_rate, "f": body.frequency,
+             "nx": body.next_on, "e": body.ends_on, "ac": body.active, "u": ctx.principal.user_id})).scalar_one()
+    return {"id": rid}
+
+
+@router.patch("/recurring/{rid}")
+async def recurring_edit(rid: str, body: RecurringIn, ctx: RecurringOn) -> dict:
+    _work(ctx)
+    async with tenant_session(ctx.org_id) as conn:
+        done = (await conn.execute(text("""update app.recurring_entries set name = :n, vendor = :v, category = :c, amount = :a, gst_rate = :g,
+            frequency = :f, next_on = :nx, ends_on = :e, active = :ac where id = cast(:i as uuid) returning id"""),
+            {"n": body.name, "v": body.vendor, "c": body.category, "a": body.amount, "g": body.gst_rate, "f": body.frequency, "nx": body.next_on,
+             "e": body.ends_on, "ac": body.active, "i": rid})).first()
+    if not done:
+        raise HTTPException(404, "not found")
+    return {"id": rid}
+
+
+@router.delete("/recurring/{rid}")
+async def recurring_delete(rid: str, ctx: RecurringOn) -> dict:
+    _work(ctx)
+    async with tenant_session(ctx.org_id) as conn:
+        await conn.execute(text("delete from app.recurring_entries where id = cast(:i as uuid)"), {"i": rid})
+    return {"deleted": True}
+
+
+@router.post("/recurring/run")
+async def recurring_run(ctx: RecurringOn) -> dict:
+    _work(ctx)
+    return {"booked": await recurring.book_due(ctx.org_id)}

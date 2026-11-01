@@ -1,0 +1,20 @@
+INCOME TAX DEPARTMENT
+Centralized Processing Center, Bengaluru
+Intimation under section 143(1)(a) of the Income-tax Act, 1961 - Proposed adjustment
+
+PAN: ABCPS1234K    Name: PRIYA SHARMA
+Assessment Year: 2025-26
+DIN: CPC/2526/A6/123456789
+Date of issue: 12/10/2026
+
+On processing of your return of income filed on 28/07/2025 (Acknowledgement No. 123456789012345), the following
+variance has been noticed between the income shown in the return and the information available with the Department:
+
+Sl  Schedule      Nature of variance                                         Amount as per ITR   Amount as per 26AS/AIS
+1   Schedule OS   Interest from deposits (Section 194A) not shown in return  0                   48,920
+2   TDS           Credit claimed u/s 192 exceeds Form 26AS                   2,30,000            2,25,000
+
+The proposed adjustment may result in a demand of Rs. 19,840.
+
+You are requested to submit your response on the e-filing portal within 30 days from the date of issue of this
+communication, i.e. on or before 11/11/2026, failing which the return will be processed with the above adjustments.

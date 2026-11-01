@@ -66,15 +66,15 @@ FEATURES |= {
     "ca_compliance_calendar": Feature(pages=("needs-you", "compliance", "ca-clients"), connections=("whatsapp", "gmail"),
                                       steps=("connect", "settings"), go_live=()),
 }
-# sold in packs now, switched on as each is built
-_SOON = {
-    "ca_itr_prep": ("ca-clients", ()), "ca_capital_gains": ("ca-clients", ()), "ca_bank_classifier": ("ca-clients", ()),
-    "ca_notice_handler": ("ca-clients", ("gmail",)), "ca_gst_reconciliation": ("gst", ("whatsapp", "gmail")),
-    "ca_tds_returns": ("ca-clients", ()), "ca_tax_audit": ("ca-clients", ()), "recurring_books": ("recurring", ()),
-    "excel_desk": ("excel", ()),
+FEATURES |= {  # agents that work on one client's documents live on the client's page; the Excel desk and recurring entries have their own
+    k: Feature(pages=("ca-clients",), connections=(), steps=("settings",), go_live=())
+    for k in ("ca_itr_prep", "ca_capital_gains", "ca_bank_classifier", "ca_gst_reconciliation", "ca_tds_returns", "ca_tax_audit")
 }
-FEATURES |= {k: Feature(pages=("needs-you", page), connections=conns, steps=("settings",), go_live=(), available=False)
-             for k, (page, conns) in _SOON.items()}
+FEATURES |= {
+    "ca_notice_handler": Feature(pages=("needs-you", "ca-clients", "filings"), connections=(), steps=("settings",), go_live=()),
+    "recurring_books": Feature(pages=("recurring",), connections=(), steps=("settings",), go_live=()),
+    "excel_desk": Feature(pages=("excel",), connections=(), steps=(), go_live=()),
+}
 ALWAYS_PAGES = ("home", "ask", "automations", "reports", "team", "audit", "billing", "notifications")
 ALWAYS_STEPS = ("profile", "plan", "team")
 STEP_ORDER = ["profile", "plan", "team", "connect", "import", "knowledge", "settings", "persona", "compliance", "test", "go_live"]

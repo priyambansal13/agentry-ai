@@ -814,3 +814,30 @@ export async function caTrySamples(cid: string) {
 export async function caRefreshCalendar() {
   return run<{ created: number }>("/org/ca/compliance/refresh", { method: "POST" }, CA);
 }
+
+export async function caTool(path: string, form: FormData | null, cid?: string) {
+  // path: "/org/ca/clients/{cid}/gst", ".../bank/sample", "/org/ca/excel/table"…
+  if (!/^\/org\/ca\/(clients\/[0-9a-f-]{36}\/(gst|capital-gains|bank|notices|tds|audit)(\/sample)?|excel\/(table|reconcile|ask))$/.test(path)) {
+    return { ok: false as const, error: "unknown tool" };
+  }
+  const paths = [...caPaths(cid), "/excel"];
+  return form ? upload<{ id?: string; work_id?: string }>(path, form, paths) : run<{ id?: string; work_id?: string }>(path, { method: "POST" }, paths);
+}
+export async function caItr(cid: string, body: Record<string, unknown>) {
+  return run<{ id: string }>(`/org/ca/clients/${cid}/itr`, { method: "POST", body }, caPaths(cid));
+}
+export async function caBankLine(wid: string, body: { row: number; category: string; learn: boolean }) {
+  return run<{ learned: string | null }>(`/org/ca/work/${wid}/bank-line`, { method: "POST", body }, [`/ca-work/${wid}`]);
+}
+export async function caDeleteWork(wid: string, cid?: string) {
+  return run<unknown>(`/org/ca/work/${wid}`, { method: "DELETE" }, [...caPaths(cid), "/excel"]);
+}
+export async function caSaveRecurring(body: Record<string, unknown>, rid?: string) {
+  return run<{ id: string }>(rid ? `/org/ca/recurring/${rid}` : "/org/ca/recurring", { method: rid ? "PATCH" : "POST", body }, ["/recurring"]);
+}
+export async function caDeleteRecurring(rid: string) {
+  return run<unknown>(`/org/ca/recurring/${rid}`, { method: "DELETE" }, ["/recurring"]);
+}
+export async function caBookRecurring() {
+  return run<{ booked: number }>("/org/ca/recurring/run", { method: "POST" }, ["/recurring", "/bookkeeping"]);
+}

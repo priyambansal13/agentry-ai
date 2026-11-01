@@ -24,7 +24,7 @@ from agentry.leads import normalize_phone, record_consent, resolve_contact
 
 CA_KEYS = ("ca_filing_tracker", "ca_document_chaser", "ca_tax_docs_reader", "ca_compliance_calendar", "ca_gst_reconciliation",
            "ca_itr_prep", "ca_capital_gains", "ca_bank_classifier", "ca_notice_handler", "ca_tds_returns", "ca_tax_audit",
-           "excel_desk")
+           "excel_desk", "recurring_books")
 STATUSES = ["docs_pending", "in_prep", "review", "filed", "verified"]
 STATUS_LABEL = {"docs_pending": "Documents pending", "in_prep": "In preparation", "review": "In review", "filed": "Filed",
                 "verified": "Verified"}
@@ -301,3 +301,68 @@ async def card(conn: AsyncConnection, org_id: str, agent: str, title: str, body:
 
 def phone_of(raw: str | None) -> str | None:
     return normalize_phone(raw, "IN")
+
+
+# ---------- what agents 5-13 work out (ca_work) ----------
+
+async def save_work(conn: AsyncConnection, org_id: str, client_id: str | None, agent: str, title: str, result: dict, *,
+                    file_ids: list[str] | None = None, params: dict | None = None, user_id: str | None = None) -> str:
+    return str((await conn.execute(text("""insert into app.ca_work (org_id, client_id, agent, title, file_ids, params, result, created_by)
+        values (:o, cast(:c as uuid), :a, :t, cast(:f as uuid[]), cast(:p as jsonb), cast(:r as jsonb), :u) returning id"""),
+        {"o": org_id, "c": client_id, "a": agent, "t": title[:200], "f": file_ids or [], "p": json.dumps(params or {}),
+         "r": json.dumps(result, default=str), "u": user_id})).scalar_one())
+
+
+async def file_bytes(conn: AsyncConnection, file_id: str, client_id: str | None = None) -> tuple[bytes, dict]:
+    f = (await conn.execute(text("select * from app.ca_files where id = cast(:i as uuid)"), {"i": file_id})).mappings().first()
+    if not f or (client_id and str(f["client_id"]) != client_id):
+        raise CaError("file not found")
+    return path_of(f).read_bytes(), dict(f)
+
+
+def find_col(head: list[str], *aliases: str, avoid: tuple[str, ...] = ()) -> int | None:
+    """The column whose header is one of the aliases (exact, then contains), ignoring case, spaces and dots."""
+    norm = [re.sub(r"[^a-z0-9%]", "", h.lower()) for h in head]
+    keys = [re.sub(r"[^a-z0-9%]", "", a.lower()) for a in aliases]
+    bad = [re.sub(r"[^a-z0-9%]", "", a.lower()) for a in avoid]
+    for k in keys:
+        if k in norm:
+            return norm.index(k)
+    for k in keys:
+        for i, h in enumerate(norm):
+            if k and k in h and not any(b and b in h for b in bad):
+                return i
+    return None
+
+
+def header_row(rows: list[list[str]], must: tuple[str, ...], within: int = 15) -> int:
+    """Index of the first row that looks like the header (statements often start with a few lines about the account)."""
+    for i, r in enumerate(rows[:within]):
+        joined = " ".join(c.lower() for c in r)
+        if all(any(m in joined for m in alt.split("|")) for alt in must):
+            return i
+    return 0
+
+
+MONTH = {m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], start=1)}
+
+
+def parse_date(v: object) -> date | None:
+    """2026-07-31, 31/07/2026, 31-07-26, 31-Jul-2026, 31 Jul 2026 -> date (day first, as in India)."""
+    if isinstance(v, date):
+        return v
+    s = str(v or "").strip()[:20]
+    if not s:
+        return None
+    try:
+        if m := re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})", s):
+            return date(int(m[1]), int(m[2]), int(m[3]))
+        if m := re.match(r"^(\d{1,2})[/\-. ](\d{1,2})[/\-. ](\d{2,4})", s):
+            y = int(m[3]) + (2000 if len(m[3]) == 2 else 0)
+            return date(y, int(m[2]), int(m[1]))
+        if m := re.match(r"^(\d{1,2})[\-/ ]([A-Za-z]{3})[A-Za-z]*[\-/ ,]+(\d{2,4})", s):
+            y = int(m[3]) + (2000 if len(m[3]) == 2 else 0)
+            return date(y, MONTH[m[2].lower()], int(m[1]))
+    except (ValueError, KeyError):
+        return None
+    return None

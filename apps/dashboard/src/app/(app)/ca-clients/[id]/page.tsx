@@ -106,7 +106,7 @@ export default async function CaClientPage({ params, searchParams }: { params: P
         </Card>
       )}
 
-      <CaTools clientId={id} meta={meta} />
+      <CaTools clientId={id} meta={meta} orgId={active.id} />
 
       <Card>
         <CardHeader><CardTitle>Files</CardTitle><span className="text-sm text-muted">{d.files.length}</span></CardHeader>

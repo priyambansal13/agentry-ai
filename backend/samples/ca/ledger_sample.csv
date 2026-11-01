@@ -1,0 +1,12 @@
+Date,Party,Head,Type,Amount,Mode,MSME,Invoice Date,Paid On,Transporter,TDS Section,TDS Deducted
+12/06/2025,Ganesh Hardware,Repairs,Expense,8000,Cash,,,12/06/2025,,,
+12/06/2025,Ganesh Hardware,Repairs,Expense,6500,Cash,,,12/06/2025,,,
+03/07/2025,Speedway Transport,Freight,Expense,30000,Cash,,,03/07/2025,Yes,,
+19/08/2025,Mehul Electricals,Purchases,Expense,145000,Bank,Yes,10/02/2026,,No,,
+05/03/2026,Shree Packaging,Purchases,Expense,82000,Bank,Yes,05/03/2026,10/04/2026,,,
+20/03/2026,Sai Components,Purchases,Expense,64000,Bank,Yes,20/03/2026,28/03/2026,,,
+31/03/2026,GST payable March,GST,Statutory,48500,Bank,,,20/11/2026,,,
+31/03/2026,Employees PF March,Employee PF contribution,Employee contribution,22400,Bank,,,25/04/2026,,,
+14/09/2025,Rohan Kapoor,Loan from director,Loan taken,50000,Cash,,,14/09/2025,,,
+22/11/2025,Walk-in customer Ravi,Sales,Receipt,250000,Cash,,,22/11/2025,,,
+30/09/2025,Ajay Consultants,Professional fees,Expense,120000,Bank,,,30/09/2025,,194J,0

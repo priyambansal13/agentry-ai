@@ -17,6 +17,8 @@ suggested price per currency. Every agent stays a **standalone** agent too:
   included usage), and every number stays editable per client.
 - Industry packs (`backend/packs/*.yaml`: persona, FAQs, services for demos) are a different thing and stay as they are.
 
+All 21 agents in the CA Firm pack are built (2026-11-01). How each works: [flows/agents/ca-firm-pack.md](flows/agents/ca-firm-pack.md).
+
 Data: `app.agent_packs` (platform table, edited in HQ), `org_settings.agent_pack` + `agent_pack_agents` (what this
 client bought, including coming-soon agents), `automation_instances.source` (`pack` or `standalone`). Migration 0034.
 
@@ -32,10 +34,10 @@ vision extraction with confidence from *ai-recipe-platform*).
 |---|---|---|
 | Inbox triage | built | Client emails sorted, replies drafted, notices and deadlines flagged |
 | WhatsApp assistant | built | Clients ask questions and send documents on WhatsApp |
-| **Document chaser** | new | A checklist per client per filing (built from last year's return); polite WhatsApp/email reminders until every document is in; files named and filed |
-| **Tax documents reader** | new | Form 16, AIS, TIS, 26AS read into one standard sheet per client; **mismatch finder**: what's in AIS but not declared, TDS not matching |
-| **Filing tracker** | new | A board per period (ITR AY 2026-27, GST Oct 2026): Docs pending → In prep → Review → Filed → Verified, owner and due date per card, "my work" view; clients ask "is my ITR filed?" on WhatsApp and get the answer |
-| **Compliance calendar** | new | GST, TDS, advance tax, ROC (AOC-4, MGT-7, DIR-3 KYC), PF/ESI dates per client; reminders to the client and to the staff member responsible |
+| **Document chaser** | built | A checklist per client per filing (built from last year's return); polite WhatsApp/email reminders until every document is in; files named and filed |
+| **Tax documents reader** | built | Form 16, AIS, TIS, 26AS read into one standard sheet per client; **mismatch finder**: what's in AIS but not declared, TDS not matching |
+| **Filing tracker** | built | A board per period (ITR AY 2026-27, GST Oct 2026): Docs pending → In prep → Review → Filed → Verified, owner and due date per card, "my work" view; clients ask "is my ITR filed?" on WhatsApp and get the answer |
+| **Compliance calendar** | built | GST, TDS, advance tax, ROC (AOC-4, MGT-7, DIR-3 KYC), PF/ESI dates per client; reminders to the client and to the staff member responsible |
 | Invoice follow-up | built | The firm's own fees collected without awkward calls |
 | Bookkeeping | built | Bills by photo → checked → Tally |
 
@@ -43,15 +45,15 @@ vision extraction with confidence from *ai-recipe-platform*).
 
 | Agent | Status | What it does |
 |---|---|---|
-| **ITR preparation** | new | Tax computation in the firm's template, old vs new regime, ITR JSON in the department's schema for the CA to upload |
-| **Capital gains** | new | Broker P&L (Zerodha, Groww, Upstox), CAMS/KFintech statements → STCG/LTCG with grandfathering → Schedule CG |
-| **Bank statement classifier** | new | Statement lines tagged income / expense / drawings / transfer, learning from corrections → trial balance, 44AD/44ADA working |
-| **Notice handler** | new | 143(1), 139(9), 148 notices explained in plain words, difference computed, reply drafted, deadline tracked |
-| **GST reconciliation** | new | GSTR-2B vs purchase register: missing invoices, wrong GSTIN, amount differences; messages to suppliers who haven't filed |
-| **TDS returns** | new | 24Q/26Q data, PAN checks, late deduction interest, Form 16/16A to employees and vendors |
-| **Tax audit (3CD)** | new | 40A(3), 43B, 43B(h) MSME and other clauses from the books, exceptions flagged for the auditor |
-| **Recurring entries & budgets** | new | Rent, retainers, EMIs booked on their dates; an alert at 80% of a budget, once a month |
-| **Excel desk** | new | Any PDF → Excel in the firm's layout, reconciliations (books vs bank, debtors), "ask your spreadsheet" |
+| **ITR preparation** | built | Tax computation in the firm's template, old vs new regime, ITR JSON in the department's schema for the CA to upload |
+| **Capital gains** | built | Broker P&L (Zerodha, Groww, Upstox), CAMS/KFintech statements → STCG/LTCG with grandfathering → Schedule CG |
+| **Bank statement classifier** | built | Statement lines tagged income / expense / drawings / transfer, learning from corrections → trial balance, 44AD/44ADA working |
+| **Notice handler** | built | 143(1), 139(9), 148 notices explained in plain words, difference computed, reply drafted, deadline tracked |
+| **GST reconciliation** | built | GSTR-2B vs purchase register: missing invoices, wrong GSTIN, amount differences; messages to suppliers who haven't filed |
+| **TDS returns** | built | 24Q/26Q data, PAN checks, late deduction interest, Form 16/16A to employees and vendors |
+| **Tax audit (3CD)** | built | 40A(3), 43B, 43B(h) MSME and other clauses from the books, exceptions flagged for the auditor |
+| **Recurring entries & budgets** | built | Rent, retainers, EMIs booked on their dates; an alert at 80% of a budget, once a month |
+| **Excel desk** | built | Any PDF → Excel in the firm's layout, reconciliations (books vs bank, debtors), "ask your spreadsheet" |
 | Appointment concierge | built | Client meetings booked and reminded |
 | AI receptionist | built | Calls answered in tax season |
 | Website chat | built | Enquiries from the firm's website |
@@ -71,13 +73,12 @@ Per-return and per-GSTIN pricing needs new usage metrics (`returns_filed`, `gsti
 
 ## Build order
 
-1. ✅ **Packs** (this change): pack catalog in HQ, assign / tailor / remove per client, add-ons, CA Firm pack seeded with
-   the new agents as *coming soon*.
-2. **Filing tracker + status on WhatsApp**: the board the other CA agents move cards on; `returns_filed` metric.
-3. **Document chaser**: checklists, reminders, documents filed against the card.
-4. **Tax documents reader + mismatch finder** (Document AI with confidence, every number traced).
-5. **Compliance calendar**, then **GST reconciliation** (monthly revenue all year).
-6. ITR preparation, capital gains, bank classifier, notice handler, TDS, 3CD, recurring entries, Excel desk.
+1. ✅ **Packs**: pack catalog in HQ, assign / tailor / remove per client, add-ons (migration 0034).
+2. ✅ **Filing tracker, document chaser, tax documents reader, compliance calendar** (migration 0035).
+3. ✅ **GST reconciliation, ITR preparation, capital gains, bank classifier, notice handler, TDS returns, tax audit (3CD),
+   recurring entries, Excel desk** (migration 0036).
+4. Next: the ITR JSON in the department's schema (today: the computation and figures for the utility), per-return /
+   per-GSTIN billing metrics, Form 16A generation, PDF bank statements (today: Excel / CSV), AIS JSON parsed without the model.
 
 Cross-cutting ideas from the cloned projects, for all agents: a prompt-injection guard on everything strangers type
 (chat, WhatsApp, inbox, reviews); live progress steps instead of spinners; read-only share links and PDF export of

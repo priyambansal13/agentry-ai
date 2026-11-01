@@ -212,12 +212,13 @@ async def due_alerts(org_id: str, today: date | None = None) -> int:
 
 @DBOS.step()
 async def ca_daily_step() -> dict:
-    from agentry.automations.ca import calendar, chaser
+    from agentry.automations.ca import calendar, chaser, recurring
     async with system_session() as conn:
         orgs = list((await conn.execute(text("""select distinct org_id from app.automation_instances
             where template_key = any(:k) and status in ('live','approval_mode')"""), {"k": list(core.CA_KEYS)})).scalars())
-    out = {"due": 0, "reminders": 0, "calendar": 0}
+    out = {"due": 0, "reminders": 0, "calendar": 0, "recurring": 0}
     for o in orgs:
+        out["recurring"] += await recurring.book_due(o)
         out["calendar"] += await calendar.daily(o)
         out["due"] += await due_alerts(o)
         out["reminders"] += await chaser.send_reminders(o)

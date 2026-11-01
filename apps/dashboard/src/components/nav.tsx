@@ -2,7 +2,7 @@
 
 import { cn } from "@agentry/ui";
 import {
-  Bell, BookOpen, Briefcase, CalendarClock, ClipboardList, Package, Bot, Clapperboard, FileSignature, TrendingUp, Building2, CalendarDays, CreditCard, FileBarChart, Home, Inbox, Megaphone, MessagesSquare, Eye, MessageSquareText, Receipt, ReceiptText, Rocket, Star,
+  Bell, BookOpen, Briefcase, CalendarClock, ClipboardList, FileSpreadsheet, Package, Repeat, Bot, Clapperboard, FileSignature, TrendingUp, Building2, CalendarDays, CreditCard, FileBarChart, Home, Inbox, Megaphone, MessagesSquare, Eye, MessageSquareText, Receipt, ReceiptText, Rocket, Star,
   ScrollText, Send, Settings, Sparkles, UserRoundSearch, Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -22,6 +22,8 @@ const clientItems: Item[] = [
   { href: "/ca-clients", label: "Clients", icon: Briefcase },
   { href: "/compliance", label: "Compliance", icon: CalendarClock },
   { href: "/bookkeeping", label: "Bookkeeping", icon: Receipt },
+  { href: "/recurring", label: "Recurring entries", icon: Repeat },
+  { href: "/excel", label: "Excel desk", icon: FileSpreadsheet },
   { href: "/reviews", label: "Reviews", icon: Star },
   { href: "/watch", label: "Competitor watch", icon: Eye },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
@@ -56,7 +58,7 @@ export function Nav({ isStaff, canAudit, canTeam, hasOrg, compact = false, canCo
     .filter((i) => canWork || !["/needs-you", "/conversations"].includes(i.href))
     .filter((i) => canConnect || i.href !== "/settings/connections")
     .filter((i) => canCalendar || i.href !== "/calendar")
-    .filter((i) => canInvoices || !["/invoices", "/bookkeeping"].includes(i.href))
+    .filter((i) => canInvoices || !["/invoices", "/bookkeeping", "/recurring"].includes(i.href))
     .filter((i) => canBilling || i.href !== "/billing")
     .filter((i) => !(compact && i.soon))
     .map((i) => (i.href === "/needs-you" ? { ...i, badge: needsYou } : i));

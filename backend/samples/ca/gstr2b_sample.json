@@ -1,0 +1,11 @@
+{"chksum": "sample", "data": {"gstin": "27AAKFM1234L1Z5", "rtnprd": "102026", "docdata": {"b2b": [
+  {"ctin": "27AABCS1429B1ZU", "trdnm": "Sai Packaging Pvt Ltd", "inv": [
+    {"inum": "SP/1187/26-27", "dt": "04-10-2026", "val": 59000, "items": [{"txval": 50000, "igst": 0, "cgst": 4500, "sgst": 4500, "cess": 0}]},
+    {"inum": "SP/1202/26-27", "dt": "18-10-2026", "val": 23600, "items": [{"txval": 20000, "igst": 0, "cgst": 1800, "sgst": 1800, "cess": 0}]}]},
+  {"ctin": "29AAFCB7707D1ZQ", "trdnm": "Bharat Steel Traders", "inv": [
+    {"inum": "BST-0457", "dt": "11-10-2026", "val": 118000, "items": [{"txval": 100000, "igst": 18000, "cgst": 0, "sgst": 0, "cess": 0}]}]},
+  {"ctin": "27AAGCK4521M1Z2", "trdnm": "Kumar Logistics", "inv": [
+    {"inum": "KL/889", "dt": "21-10-2026", "val": 10500, "items": [{"txval": 10000, "igst": 0, "cgst": 250, "sgst": 250, "cess": 0}]}]},
+  {"ctin": "27AAHCR9876Q1Z9", "trdnm": "Rapid Office Supplies", "inv": [
+    {"inum": "ROS-3321", "dt": "25-10-2026", "val": 5900, "items": [{"txval": 5000, "igst": 0, "cgst": 450, "sgst": 450, "cess": 0}]}]}
+]}}}
