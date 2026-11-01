@@ -1,6 +1,7 @@
 import { Badge, Card } from "@agentry/ui";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { OrgPack } from "@/components/packs";
 import { statusLabels } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { api, ApiError, getActiveOrg, getMe } from "@/lib/session";
@@ -20,8 +21,10 @@ export default async function AutomationsPage() {
   const canTalk = me.is_staff || can(active.role, "automation", "configure");
   const canGovern = canTalk;  // owners and managers see autonomy settings (only the owner changes them)
   let items: Automation[];
+  let pack: OrgPack = null;
   try {
     items = (await api<{ items: Automation[] }>("/org/automations", { orgId: active.id })).items;
+    pack = (await api<{ pack: OrgPack }>("/org", { orgId: active.id })).pack;
   } catch (e) {
     if (e instanceof ApiError && e.status === 403) redirect("/home");
     throw e;
@@ -40,6 +43,19 @@ export default async function AutomationsPage() {
           )}
         </div>
       </header>
+      {pack && (
+        <Card className="p-5">
+          <p className="font-semibold">Your {pack.name} pack{pack.tagline && <span className="font-normal text-muted"> · {pack.tagline}</span>}</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {pack.agents.map((a) => (
+              <span key={a.key} className={`rounded-full border-2 px-2.5 py-0.5 text-sm ${a.on ? "border-ink bg-lime-soft" : "border-line text-muted"}`}>
+                {a.name}{a.coming_soon ? " · coming soon" : a.on ? "" : " · off"}</span>
+            ))}
+            {pack.add_ons.map((a) => <span key={a.key} className="rounded-full border-2 border-dashed border-ink px-2.5 py-0.5 text-sm">{a.name} · add-on</span>)}
+          </div>
+          {pack.agents.some((a) => a.coming_soon) && <p className="mt-2 text-xs text-muted">Coming-soon agents are part of your pack and are switched on for you as soon as they&apos;re ready.</p>}
+        </Card>
+      )}
       <div className="grid gap-4 md:grid-cols-2">
         {items.map((a) => (
           <Link key={a.template_key} href={`/automations/${a.template_key}`}>

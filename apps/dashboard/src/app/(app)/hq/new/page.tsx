@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { DemoRequest } from "@/components/demo-request";
 import { type CatalogItem, NewClientForm, type Prefill } from "@/components/new-client-form";
+import type { Pack } from "@/components/packs";
 import { api, getMe } from "@/lib/session";
 
 export const metadata = { title: "New client · Agentry HQ" };
@@ -9,7 +10,8 @@ export const metadata = { title: "New client · Agentry HQ" };
 export default async function NewClientPage({ searchParams }: { searchParams: Promise<{ from?: string }> }) {
   const [me, { from }] = await Promise.all([getMe(), searchParams]);
   if (!me.is_staff) redirect("/home");
-  const { automations } = await api<{ automations: CatalogItem[] }>("/hq/catalog");
+  const [{ automations }, { items: agentPacks }] = await Promise.all([api<{ automations: CatalogItem[] }>("/hq/catalog"),
+    api<{ items: Pack[] }>("/hq/agent-packs")]);
   // "Convert to client" from a demo request: start from what they told us and the agents their industry starts with
   let prefill: Prefill | undefined;
   if (from) {
@@ -28,10 +30,10 @@ export default async function NewClientPage({ searchParams }: { searchParams: Pr
       <header>
         <p className="font-hand text-xl text-muted">Agentry HQ</p>
         <h1 className="font-display text-3xl font-bold tracking-tight">New client</h1>
-        <p className="mt-1 text-muted">Create the business, switch on what they bought, invite the owner and set the price.</p>
+        <p className="mt-1 text-muted">Create the business, give them a pack and/or switch on agents, invite the owner and set the price.</p>
       </header>
       {prefill && <p className="rounded-2xl border-2 border-ink bg-lime px-4 py-3 text-sm text-lime-ink">From the demo request of {prefill.owner.name}: details filled in. Check the agents and the plan.</p>}
-      <NewClientForm catalog={automations} prefill={prefill} />
+      <NewClientForm catalog={automations} packs={agentPacks} prefill={prefill} />
     </div>
   );
 }

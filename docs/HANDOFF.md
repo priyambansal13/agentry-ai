@@ -18,6 +18,8 @@ Code: https://github.com/priyambansal13/agentry-ai (`main`). Everything below is
 
 ## Built this session (latest first)
 
+- **Packs** (2026-11-01, docs/PACKS.md) — sellable bundles of agents, edited in HQ → Packs; a client gets one pack tailored to them (tick its agents) plus standalone add-ons; `automation_instances.source` = pack/standalone; assigning a pack can set the pricing plan to the pack's price. Seeded: **CA Firm** pack (8 built agents + 13 CA agents registered as coming soon: document chaser, tax documents reader, filing tracker, compliance calendar, ITR prep, capital gains, bank classifier, notice handler, GST reconciliation, TDS, 3CD, recurring entries, Excel desk). Code: `agent_packs.py`, migration 0034, `components/packs.tsx`. Next: build the CA agents in the order in PACKS.md. NOT deployed yet.
+- Content from a link and vertical clips: deployed 2026-11-01 (server runs 0f4ac8e).
 - **Content from a link** (2026-11-01) — paste a YouTube/Instagram/Drive/MP4… link in Content or send it to the Telegram team bot (`content/links.py`, yt-dlp, platform captions as a free transcript, migration 0033, deno in the backend image). YouTube refuses the Oracle IP: needs `AGENTRY_CONTENT_DOWNLOAD_PROXY` and/or `AGENTRY_CONTENT_DOWNLOAD_COOKIES` in `infra/.env.prod`. NOT deployed yet.
 - **Vertical clips** (2026-11-01, ROADMAP-V2 8.2) — video uploads get a 9:16 clip per moment (`content/clips.py`: whole sentences 20-60 s, burned-in captions, hook banner, brand end card; migration 0032; recording page plays/downloads them, *Recut clips*). Also: demo builder reads Medium profiles via RSS (Medium blocks bots); `/me/bookkeeping-clients?month=YYYY-MM`; two tests no longer break on the 1st of a month. NOT deployed yet.
 

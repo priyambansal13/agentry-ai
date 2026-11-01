@@ -224,17 +224,19 @@ export async function hqResolveDispute(orgId: string, sid: string, lineId: strin
 export type NewClientInput = {
   name: string; country: string; timezone: string; currency: string; website: string;
   automations: string[]; owner: { name: string; email: string } | null; plan: unknown | null;
+  pack?: string | null; pack_agents?: string[] | null; // docs/PACKS.md: a pack tailored to them; automations = add-ons
 };
 
 export async function hqCreateClient(input: NewClientInput): Promise<ActionResult<{ orgId: string; invite: string | null }>> {
   const me = await getMe();
   if (!me.is_staff) return { ok: false, error: "Agentry staff only" };
   if (input.name.trim().length < 2) return { ok: false, error: "Enter the business name" };
-  if (!input.automations.length) return { ok: false, error: "Choose at least one automation" };
+  if (!input.automations.length && !input.pack) return { ok: false, error: "Choose a pack or at least one automation" };
   const org = await createOrganization(input.name.trim());
   const res = await hq<{ org_id: string }>("/hq/clients", { method: "POST", body: {
     org_id: org.id, country: input.country, timezone: input.timezone, currency: input.currency,
     website: input.website.trim() || null, automations: input.automations, plan: input.plan,
+    pack: input.pack || null, pack_agents: input.pack ? input.pack_agents ?? null : null,
   } }, ["/hq"]);
   if (!res.ok) {
     await deleteOrganization(org.id); // nothing half-created is left behind
@@ -260,6 +262,21 @@ export async function hqInvite(orgId: string, orgName: string, email: string, ro
 
 export async function hqSwitchAutomation(orgId: string, key: string, enabled: boolean) {
   return hq<{ automations: string[] }>(`/hq/orgs/${orgId}/automations/${key}`, { method: "PUT", body: { enabled } }, [`/hq/${orgId}`]);
+}
+
+// ---------- packs (docs/PACKS.md) ----------
+
+export async function hqSavePack(key: string, body: unknown, create: boolean) {
+  return hq<{ key: string }>(create ? "/hq/agent-packs" : `/hq/agent-packs/${key}`,
+    { method: create ? "POST" : "PUT", body: create ? { ...(body as object), key } : body }, ["/hq/packs"]);
+}
+
+export async function hqAssignPack(orgId: string, pack: string, agents: string[], applyPricing: boolean) {
+  return hq<{ automations: string[] }>(`/hq/orgs/${orgId}/pack`, { method: "PUT", body: { pack, agents, apply_pricing: applyPricing } }, [`/hq/${orgId}`]);
+}
+
+export async function hqRemovePack(orgId: string, keepAgents: boolean) {
+  return hq<{ automations: string[] }>(`/hq/orgs/${orgId}/pack?keep_agents=${keepAgents}`, { method: "DELETE" }, [`/hq/${orgId}`]);
 }
 
 export async function openClientPortal(orgId: string, to = "/home") {

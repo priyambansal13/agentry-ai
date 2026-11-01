@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-from agentry import audit, billing
+from agentry import agent_packs, audit, billing
 from agentry.auth import OrgContext, Principal, client_ip, require, require_staff
 from agentry.db import app_engine, system_session, tenant_session
 from agentry.features import enabled_automations
@@ -208,14 +208,15 @@ async def hq_org(org_id: str, _: Annotated[Principal, Depends(require_staff)]) -
         statements = (await conn.execute(text("""select id, number, period_start, status, total, currency,
             (select count(*) from app.statement_lines l where l.statement_id = s.id and l.disputed and l.dispute_resolution is null) as open_disputes
             from app.statements s order by period_start desc"""))).mappings().all()
-        autos = (await conn.execute(text("select template_key, status from app.automation_instances order by template_key"))).mappings().all()
+        autos = (await conn.execute(text("select template_key, status, source from app.automation_instances order by template_key"))).mappings().all()
+        pack = await agent_packs.org_pack(conn)
         m = await billing.margin(conn, _dt(m_start), _dt(m_end + timedelta(days=1)))
         outcomes = dict((await conn.execute(text("""select kind || ':' || status, count(*) from app.outcomes group by 1"""))).all())
     async with system_session() as conn:
         members = (await conn.execute(text("""select u.name, u.email, m.role from auth.member m join auth."user" u on u.id = m."userId"
             where m."organizationId" = :o"""), {"o": org_id})).mappings().all()
     return {"org": {k: settings_[k] for k in ("name", "slug", "status", "industry_pack", "country", "currency", "website")},
-            "plan": dict(plan) if plan else None, "statements": [dict(s) for s in statements], "automations": [dict(a) for a in autos],
+            "plan": dict(plan) if plan else None, "statements": [dict(s) for s in statements], "automations": [dict(a) for a in autos], "pack": pack,
             "members": [dict(m) for m in members], "margin": {"month": f"{m_start:%Y-%m}", **m}, "outcomes": outcomes}
 
 

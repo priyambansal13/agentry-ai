@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { type SendingMailbox, SendingMailboxes } from "@/components/cold-email";
 import { AutomationSwitches, InviteMember, OpenPortal, PhoneAssign, type PhoneNumber } from "@/components/hq-client";
+import { ClientPack, type OrgPack, type Pack } from "@/components/packs";
 import { GenerateStatement, type PlanIn, PlanEditor } from "@/components/hq-billing";
 import type { CatalogItem } from "@/components/new-client-form";
 import { pendingInvitations } from "@/lib/clients";
@@ -17,7 +18,7 @@ type Detail = {
   org: { name: string; slug: string; status: string | null; industry_pack: string | null; country: string | null; currency: string | null; website: string | null };
   plan: PlanIn | null; margin: Margin; outcomes: Record<string, number>;
   statements: { id: string; number: string; period_start: string; status: string; total: number; currency: string; open_disputes: number }[];
-  automations: { template_key: string; status: string }[]; members: { name: string; email: string; role: string }[];
+  automations: { template_key: string; status: string; source: "pack" | "standalone" }[]; pack: OrgPack; members: { name: string; email: string; role: string }[];
 };
 
 function lastMonth() {
@@ -35,7 +36,8 @@ export default async function HqClient({ params, searchParams }: { params: Promi
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;
   }
-  const [{ automations: catalog }, invites] = await Promise.all([api<{ automations: CatalogItem[] }>("/hq/catalog"), pendingInvitations(orgId)]);
+  const [{ automations: catalog }, invites, { items: packs }] = await Promise.all([api<{ automations: CatalogItem[] }>("/hq/catalog"),
+    pendingInvitations(orgId), api<{ items: Pack[] }>("/hq/agent-packs")]);
   const receptionist = d.automations.some((a) => a.template_key === "ai_receptionist");
   const notes = await api<{ items: { id: number; title: string; status: string; person: string | null; created_at: string;
     deliveries: { channel: string; status: string; error?: string | null; fallback?: boolean }[] }[]; last_7_days: Record<string, number> }>(
@@ -155,6 +157,9 @@ export default async function HqClient({ params, searchParams }: { params: Promi
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">
+        <Card><CardHeader><CardTitle>Pack</CardTitle><span className="text-sm text-muted">a bundle, tailored to them</span></CardHeader><CardBody>
+          <ClientPack orgId={orgId} packs={packs} current={d.pack} catalog={catalog} />
+        </CardBody></Card>
         <Card><CardHeader><CardTitle>Automations</CardTitle><span className="text-sm text-muted">what the client sees follows these</span></CardHeader><CardBody>
           <AutomationSwitches orgId={orgId} catalog={catalog} current={d.automations} />
           {receptionist && (

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-from agentry import audit
+from agentry import agent_packs, audit
 from agentry.auth import OrgContext, client_ip, current_org, require
 from agentry.db import tenant_session
 from agentry.events import emit
@@ -21,8 +21,9 @@ async def get_org(ctx: Annotated[OrgContext, Depends(require("dashboard", "read"
     async with tenant_session(ctx.org_id) as conn:
         settings = (await conn.execute(text("select * from app.org_settings"))).mappings().first()
         automations = (await conn.execute(
-            text("select id, template_key, status, created_at from app.automation_instances order by template_key")
+            text("select id, template_key, status, source, created_at from app.automation_instances order by template_key")
         )).mappings().all()
+        pack = await agent_packs.org_pack(conn)
         rows = {r["step_key"]: dict(r) for r in (await conn.execute(
             text("select step_key, status, done_by, blocker, eta from app.onboarding_progress")
         )).mappings().all()}
@@ -33,6 +34,7 @@ async def get_org(ctx: Annotated[OrgContext, Depends(require("dashboard", "read"
         "role": ctx.role,
         "settings": dict(settings) if settings else None,
         "automations": [dict(a) for a in automations],
+        "pack": pack,
         "onboarding": onboarding,
     }
 

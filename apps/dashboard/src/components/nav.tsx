@@ -2,7 +2,7 @@
 
 import { cn } from "@agentry/ui";
 import {
-  Bell, BookOpen, Bot, Clapperboard, FileSignature, TrendingUp, Building2, CalendarDays, CreditCard, FileBarChart, Home, Inbox, Megaphone, MessagesSquare, Eye, MessageSquareText, Receipt, ReceiptText, Rocket, Star,
+  Bell, BookOpen, Package, Bot, Clapperboard, FileSignature, TrendingUp, Building2, CalendarDays, CreditCard, FileBarChart, Home, Inbox, Megaphone, MessagesSquare, Eye, MessageSquareText, Receipt, ReceiptText, Rocket, Star,
   ScrollText, Send, Settings, Sparkles, UserRoundSearch, Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -71,7 +71,8 @@ export function Nav({ isStaff, canAudit, canTeam, hasOrg, compact = false, canCo
       {isStaff && (
         <>
           <div className={cn("mb-1 px-3 font-hand text-lg text-muted", hasOrg && "mt-5")}>Agentry HQ</div>
-          <NavLink item={{ href: "/hq", label: "All clients", icon: Building2 }} active={pathname === "/hq" || /^\/hq\/(?!demos|proposal|billing)/.test(pathname)} />
+          <NavLink item={{ href: "/hq", label: "All clients", icon: Building2 }} active={pathname === "/hq" || /^\/hq\/(?!demos|proposal|billing|packs)/.test(pathname)} />
+          <NavLink item={{ href: "/hq/packs", label: "Packs", icon: Package }} active={pathname.startsWith("/hq/packs")} />
           <NavLink item={{ href: "/hq/demos", label: "Demo Studio", icon: Sparkles }} active={pathname.startsWith("/hq/demos")} />
           <NavLink item={{ href: "/hq/proposal", label: "Proposal builder", icon: FileSignature }} active={pathname.startsWith("/hq/proposal")} />
           <NavLink item={{ href: "/hq/billing", label: "Revenue & margin", icon: TrendingUp }} active={pathname.startsWith("/hq/billing")} />

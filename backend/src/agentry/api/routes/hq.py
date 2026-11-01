@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import text
 
-from agentry import audit, billing, clients, demo_studio, sales
+from agentry import agent_packs, audit, billing, clients, demo_studio, sales
 from agentry.auth import Principal, require_staff
 from agentry.db import system_session, tenant_session
 from agentry.events import emit
@@ -207,8 +207,10 @@ class NewClient(BaseModel):
     timezone: Annotated[str, Field(min_length=3, max_length=64)] = "Asia/Kolkata"
     currency: Literal["INR", "USD", "EUR", "GBP", "AED"] = "INR"
     website: Annotated[str | None, Field(max_length=300)] = None
-    automations: Annotated[list[str], Field(min_length=1, max_length=20)]
-    plan: billing.PricingPlan | None = None
+    automations: Annotated[list[str], Field(max_length=20)] = []  # standalone add-ons
+    pack: str | None = None
+    pack_agents: list[str] | None = None  # None = the pack's defaults
+    plan: billing.PricingPlan | None = None  # None with a pack = the pack's price
 
 
 @router.post("/clients", status_code=201)
@@ -228,7 +230,8 @@ async def create_client(body: NewClient, staff: Annotated[Principal, Depends(req
         try:
             features = await clients.provision(conn, body.org_id, name=name, country=body.country, timezone=body.timezone,
                                                currency=body.currency, website=body.website, automations=body.automations,
-                                               plan=body.plan, staff_user_id=staff.user_id)
+                                               plan=body.plan, staff_user_id=staff.user_id, pack=body.pack,
+                                               pack_agents=body.pack_agents)
         except clients.ProvisionError as e:
             raise HTTPException(409, str(e)) from e
     return {"org_id": body.org_id, **features}
@@ -244,6 +247,68 @@ async def switch_automation(org_id: str, key: str, body: AutomationSwitch, staff
         try:
             return await clients.set_automation(conn, org_id, key, body.enabled, staff.user_id)
         except clients.ProvisionError as e:
+            raise HTTPException(409, str(e)) from e
+
+
+# ---------- packs (docs/PACKS.md): bundles of agents, tailored per client; agents also sold standalone ----------
+
+@router.get("/agent-packs")
+async def agent_pack_list(_: Annotated[Principal, Depends(require_staff)]) -> dict:
+    async with system_session() as conn:
+        return {"items": await agent_packs.list_packs(conn), "catalog": clients.catalog()}
+
+
+class NewPack(agent_packs.PackIn):
+    key: Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9-]{1,40}$")]
+
+
+@router.post("/agent-packs", status_code=201)
+async def agent_pack_create(body: NewPack, staff: Annotated[Principal, Depends(require_staff)]) -> dict:
+    async with system_session() as conn:
+        try:
+            pack = await agent_packs.save_pack(conn, body.key, body, create=True)
+        except agent_packs.PackError as e:
+            raise HTTPException(409, str(e)) from e
+        await audit.record(conn, org_id=None, actor_type="agentry_staff", actor_user_id=staff.user_id, action="pack.created",
+                           target_type="pack", target_id=body.key)
+    return pack
+
+
+@router.put("/agent-packs/{key}")
+async def agent_pack_update(key: str, body: agent_packs.PackIn, staff: Annotated[Principal, Depends(require_staff)]) -> dict:
+    async with system_session() as conn:
+        try:
+            pack = await agent_packs.save_pack(conn, key, body, create=False)
+        except agent_packs.PackError as e:
+            raise HTTPException(404, str(e)) from e
+        await audit.record(conn, org_id=None, actor_type="agentry_staff", actor_user_id=staff.user_id, action="pack.updated",
+                           target_type="pack", target_id=key)
+    return pack
+
+
+class PackAssign(BaseModel):
+    pack: str
+    agents: list[str] | None = None  # None = the pack's defaults
+    apply_pricing: bool = False
+
+
+@router.put("/orgs/{org_id}/pack")
+async def assign_pack(org_id: str, body: PackAssign, staff: Annotated[Principal, Depends(require_staff)]) -> dict:
+    async with tenant_session(org_id) as conn:
+        try:
+            features = await agent_packs.assign(conn, org_id, body.pack, body.agents, apply_pricing=body.apply_pricing,
+                                                staff_user_id=staff.user_id)
+        except agent_packs.PackError as e:
+            raise HTTPException(409, str(e)) from e
+        return {**features, "pack": await agent_packs.org_pack(conn)}
+
+
+@router.delete("/orgs/{org_id}/pack")
+async def remove_pack(org_id: str, staff: Annotated[Principal, Depends(require_staff)], keep_agents: bool = True) -> dict:
+    async with tenant_session(org_id) as conn:
+        try:
+            return await agent_packs.remove(conn, org_id, keep_agents=keep_agents, staff_user_id=staff.user_id)
+        except agent_packs.PackError as e:
             raise HTTPException(409, str(e)) from e
 
 

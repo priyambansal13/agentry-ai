@@ -57,6 +57,17 @@ FEATURES: dict[str, Feature] = {
     # 6.1-6.4: uploads, moments, posts with quote cards, review and calendar; publishing is test mode until 6.5
     "content_repurposing": Feature(pages=("content",), connections=("linkedin", "instagram"), steps=("settings",), go_live=()),
 }
+# CA Firm pack (docs/PACKS.md): sold in packs now, switched on as each is built
+_SOON = {
+    "ca_document_chaser": ("filings", ("whatsapp", "gmail")), "ca_tax_docs_reader": ("filings", ()),
+    "ca_filing_tracker": ("filings", ("whatsapp",)), "ca_compliance_calendar": ("compliance", ("whatsapp", "gmail")),
+    "ca_itr_prep": ("filings", ()), "ca_capital_gains": ("filings", ()), "ca_bank_classifier": ("bookkeeping", ()),
+    "ca_notice_handler": ("filings", ("gmail",)), "ca_gst_reconciliation": ("gst", ("whatsapp", "gmail")),
+    "ca_tds_returns": ("filings", ()), "ca_tax_audit": ("filings", ()), "recurring_books": ("bookkeeping", ()),
+    "excel_desk": ("excel", ()),
+}
+FEATURES |= {k: Feature(pages=("needs-you", page), connections=conns, steps=("settings",), go_live=(), available=False)
+             for k, (page, conns) in _SOON.items()}
 ALWAYS_PAGES = ("home", "ask", "automations", "reports", "team", "audit", "billing", "notifications")
 ALWAYS_STEPS = ("profile", "plan", "team")
 STEP_ORDER = ["profile", "plan", "team", "connect", "import", "knowledge", "settings", "persona", "compliance", "test", "go_live"]

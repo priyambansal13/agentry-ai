@@ -7,11 +7,12 @@ import { hqAssignPhone, hqInvite, hqSwitchAutomation, hqUnassignPhone, openClien
 import type { CatalogItem } from "@/components/new-client-form";
 import { statusLabels } from "@/lib/format";
 
-export function AutomationSwitches({ orgId, catalog, current }: { orgId: string; catalog: CatalogItem[]; current: { template_key: string; status: string }[] }) {
+export function AutomationSwitches({ orgId, catalog, current }: { orgId: string; catalog: CatalogItem[]; current: { template_key: string; status: string; source?: "pack" | "standalone" }[] }) {
   const router = useRouter();
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const status = Object.fromEntries(current.map((a) => [a.template_key, a.status]));
+  const source = Object.fromEntries(current.map((a) => [a.template_key, a.source]));
   return (
     <div className="space-y-2">
       <ul className="divide-y divide-line">
@@ -22,6 +23,7 @@ export function AutomationSwitches({ orgId, catalog, current }: { orgId: string;
               <div className={!c.available && !on ? "opacity-50" : ""}>
                 <span className="font-medium">{c.name}</span>
                 {on && <Badge className="ml-2" tone={statusLabels[status[c.key]!]?.tone ?? "neutral"}>{statusLabels[status[c.key]!]?.label ?? status[c.key]}</Badge>}
+                {on && <span className="ml-2 text-xs text-muted">{source[c.key] === "pack" ? "in pack" : "add-on"}</span>}
                 {!c.available && <Badge className="ml-2">coming soon</Badge>}
                 {c.note && <p className="text-xs text-muted">{c.note}</p>}
               </div>
