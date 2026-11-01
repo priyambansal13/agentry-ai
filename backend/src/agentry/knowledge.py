@@ -8,6 +8,7 @@ import ipaddress
 import logging
 import re
 import socket
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlparse
 
@@ -246,6 +247,44 @@ async def crawl(start_url: str, max_pages: int = 8, timeout: float = 10.0) -> li
             links.sort(key=lambda h: 0 if priority.search(h) else 1)
             queue.extend(links[:30])
             await asyncio.sleep(0.2)  # be polite
+        if not pages and (feed := medium_feed_url(start_url)):
+            pages = await _from_feed(client, feed, max_pages)
+    return pages
+
+
+def medium_feed_url(url: str) -> str | None:
+    """Medium answers bots with 403, but every author and publication has a public RSS feed."""
+    p = urlparse(url)
+    host = (p.hostname or "").lower()
+    if host == "medium.com" and (m := re.match(r"^/(@[^/]+|[^/@][^/]*)", p.path)):
+        return f"https://medium.com/feed/{m[1]}"
+    if host.endswith(".medium.com"):
+        return f"https://{host}/feed"
+    return None
+
+
+CONTENT = "{http://purl.org/rss/1.0/modules/content/}encoded"
+
+
+async def _from_feed(client: httpx.AsyncClient, feed: str, max_pages: int) -> list[Page]:
+    """An RSS feed as pages: the channel first (name, picture), then one page per article."""
+    try:
+        r = await _get_checked(client, feed)
+        channel = ET.fromstring(r.content).find("channel") if r.status_code == 200 else None
+    except (httpx.HTTPError, UnsafeUrl, ET.ParseError):
+        return []
+    if channel is None:
+        return []
+    name = re.sub(r"^Stories by |\s*\(.*?\)| on Medium$", "", (channel.findtext("title") or "").strip()).strip()
+    link = (channel.findtext("link") or feed).split("?")[0]
+    items = channel.findall("item")
+    meta = {k: v for k, v in {"og:site_name": name, "og:image": channel.findtext("image/url"),
+                              "description": (channel.findtext("description") or "").strip()}.items() if v}
+    titles = [i.findtext("title") or "" for i in items]
+    pages = [Page(url=link, title=name, text="\n\n".join([name, "Articles:"] + [f"- {t}" for t in titles if t]), meta=meta)]
+    for i in items[: max_pages - 1]:
+        body = extract(f"<html><body>{i.findtext(CONTENT) or i.findtext('description') or ''}</body></html>", "")
+        pages.append(Page(url=(i.findtext("link") or link).split("?")[0], title=i.findtext("title") or "", text=body.text, meta={}))
     return pages
 
 

@@ -1,6 +1,7 @@
 """Demo Studio: crawled site -> sandboxed demo tenant with the prospect's name."""
 import uuid
 
+import httpx
 import pytest
 from sqlalchemy import create_engine, text
 
@@ -74,3 +75,32 @@ async def test_hq_demo_endpoints_are_staff_only(client, login):
                               json={"url": "https://example.com"})).status_code == 403
     r = await client.post("/hq/demos/preview", headers=login("admin@agentry.dev"), json={"url": "http://127.0.0.1:8801"})
     assert r.status_code == 422 and "non-public" in r.text
+
+
+FEED = b"""<?xml version="1.0"?><rss xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel>
+<title>Stories by Asha Rao (Designer) on Medium</title><link>https://medium.com/@asha?source=rss</link>
+<image><url>https://cdn-images-1.medium.com/asha.jpg</url></image>
+<item><title>Why grids matter</title><link>https://medium.com/@asha/grids-1?source=rss</link>
+<content:encoded><![CDATA[<p>A grid gives every page the same rhythm.</p>]]></content:encoded></item>
+</channel></rss>"""
+
+
+async def test_medium_blocks_bots_so_the_rss_feed_is_used(monkeypatch):
+    from agentry import knowledge
+    assert knowledge.medium_feed_url("https://medium.com/@asha") == "https://medium.com/feed/@asha"
+    assert knowledge.medium_feed_url("https://medium.com/some-publication/a-post-123") == "https://medium.com/feed/some-publication"
+    assert knowledge.medium_feed_url("https://asha.medium.com/") == "https://asha.medium.com/feed"
+    assert knowledge.medium_feed_url("https://example.com/") is None
+
+    def handler(req):
+        if req.url.path == "/feed/@asha":
+            return httpx.Response(200, content=FEED, headers={"content-type": "text/xml"})
+        return httpx.Response(403, text="blocked", headers={"content-type": "text/html"})
+    monkeypatch.setattr(knowledge, "_check_public", lambda url: None)
+    real = httpx.AsyncClient
+    monkeypatch.setattr(knowledge.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+    pages = await knowledge.crawl("https://medium.com/@asha")
+    assert [p.url for p in pages] == ["https://medium.com/@asha", "https://medium.com/@asha/grids-1"]
+    assert demo_studio.business_name(pages, "https://medium.com/@asha") == "Asha Rao"
+    assert "same rhythm" in pages[1].text and "Why grids matter" in pages[0].text
+    assert demo_studio.brand(pages)["logo"] == "https://cdn-images-1.medium.com/asha.jpg"
