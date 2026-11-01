@@ -763,3 +763,54 @@ export async function saveLongform(id: string, sourceId: string, v: { title: str
 export async function startLinkedIn() {
   return run<{ url: string }>("/org/connections/linkedin/start", { method: "POST" });
 }
+
+// ---------- CA Firm pack (docs/PACKS.md) ----------
+
+const CA = ["/filings", "/ca-clients", "/compliance", "/needs-you"];
+const caPaths = (cid?: string) => (cid ? [...CA, `/ca-clients/${cid}`] : CA);
+
+export async function caSaveClient(body: Record<string, unknown>, cid?: string) {
+  return run<{ id: string }>(cid ? `/org/ca/clients/${cid}` : "/org/ca/clients", { method: cid ? "PATCH" : "POST", body }, caPaths(cid));
+}
+export async function caDeleteClient(cid: string) {
+  return run<{ deleted: boolean }>(`/org/ca/clients/${cid}`, { method: "DELETE" }, CA);
+}
+export async function caImportClients(form: FormData) {
+  return upload<{ added: number; updated: number; errors: string[] }>("/org/ca/clients/import", form, CA);
+}
+export async function caAddFiling(body: Record<string, unknown>) {
+  return run<{ id: string }>("/org/ca/filings", { method: "POST", body }, caPaths(String(body.client_id ?? "")));
+}
+export async function caEditFiling(fid: string, body: Record<string, unknown>, cid?: string) {
+  return run<{ status: string }>(`/org/ca/filings/${fid}`, { method: "PATCH", body }, caPaths(cid));
+}
+export async function caDeleteFiling(fid: string, cid?: string) {
+  return run<{ deleted: boolean }>(`/org/ca/filings/${fid}`, { method: "DELETE" }, caPaths(cid));
+}
+export async function caSeason(body: Record<string, unknown>) {
+  return run<{ created: number; already_there: number }>("/org/ca/filings/season", { method: "POST", body }, CA);
+}
+export async function caChecklist(fid: string, body: { key: string; status: string; label?: string }, cid?: string) {
+  return run<{ complete: boolean }>(`/org/ca/filings/${fid}/checklist`, { method: "POST", body }, caPaths(cid));
+}
+export async function caRebuildChecklist(fid: string, cid?: string) {
+  return run<unknown>(`/org/ca/filings/${fid}/checklist/rebuild`, { method: "POST" }, caPaths(cid));
+}
+export async function caPauseChase(fid: string, paused: boolean, cid?: string) {
+  return run<unknown>(`/org/ca/filings/${fid}/chase`, { method: "POST", body: { paused } }, caPaths(cid));
+}
+export async function caUploadFile(cid: string, form: FormData) {
+  return upload<{ file_id: string; label?: string; item?: string | null; still_missing?: string[] }>(`/org/ca/clients/${cid}/files`, form, caPaths(cid));
+}
+export async function caDeleteFile(fid: string, cid: string) {
+  return run<unknown>(`/org/ca/files/${fid}`, { method: "DELETE" }, caPaths(cid));
+}
+export async function caReadFile(fid: string, cid: string) {
+  return run<unknown>(`/org/ca/files/${fid}/read`, { method: "POST" }, caPaths(cid));
+}
+export async function caTrySamples(cid: string) {
+  return run<unknown>(`/org/ca/clients/${cid}/samples`, { method: "POST" }, caPaths(cid));
+}
+export async function caRefreshCalendar() {
+  return run<{ created: number }>("/org/ca/compliance/refresh", { method: "POST" }, CA);
+}

@@ -45,3 +45,15 @@ metrics:
     event_type: content.published
     aggregation: count
     unit: count
+  - key: returns_filed
+    name: Returns filed
+    automation_key: ca_filing_tracker
+    event_type: ca.filing_filed
+    aggregation: count
+    unit: count
+  - key: documents_collected
+    name: Client documents collected
+    automation_key: ca_document_chaser
+    event_type: ca.document_received
+    aggregation: count
+    unit: count

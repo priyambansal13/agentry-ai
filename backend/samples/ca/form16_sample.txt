@@ -1,0 +1,28 @@
+FORM NO. 16
+[See rule 31(1)(a)]
+Certificate under section 203 of the Income-tax Act, 1961 for tax deducted at source on salary
+
+PART A
+Name and address of the Employer: Infosys Limited, Electronics City, Hosur Road, Bengaluru 560100
+TAN of the Deductor: BLRI01234C
+PAN of the Employee: ABCPS1234K
+Name of the Employee: Priya Sharma
+Assessment Year: 2026-27
+Period with the Employer: 01-Apr-2025 to 31-Mar-2026
+Summary of amount paid/credited and tax deducted at source thereon in respect of the employee
+Total amount of salary paid: 18,40,000.00   Total tax deducted: 2,46,500.00
+
+PART B (Annexure)
+Details of Salary Paid and any other income and tax deducted
+1. Gross Salary (a) Salary as per provisions contained in section 17(1): 18,40,000.00
+2. Less: Allowances to the extent exempt under section 10
+   House rent allowance under section 10(13A): 1,20,000.00
+4. Deductions under section 16
+   (a) Standard deduction under section 16(ia): 50,000.00
+   (c) Tax on employment under section 16(iii): 2,400.00
+10. Deductions under Chapter VI-A
+   (a) Deduction in respect of life insurance premia, contributions to provident fund etc. under section 80C: 1,50,000.00
+   (d) Deduction in respect of health insurance premia under section 80D: 25,000.00
+12. Total taxable income: 14,92,600.00
+Tax deducted at source u/s 192: 2,46,500.00
+Whether opting out of taxation u/s 115BAC(1A): Yes

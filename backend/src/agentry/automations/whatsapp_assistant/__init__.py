@@ -111,10 +111,26 @@ async def hand_to_team(org_id: str, conversation_id: str, wa_id: str, reason: st
                            f"{reason}\n\nOpen: {settings.dashboard_url}/conversations/{conversation_id}")
 
 
+@DBOS.step()
+async def ca_take_document(org_id: str, conversation_id: str, payload: dict) -> bool:
+    from agentry.automations.ca.chaser import take_from_whatsapp
+    return await take_from_whatsapp(org_id, conversation_id, payload)
+
+
+@DBOS.step()
+async def ca_answer_status(org_id: str, conversation_id: str, wa_id: str, body: str) -> bool:
+    from agentry.automations.ca.tracker import answer_status
+    return await answer_status(org_id, conversation_id, wa_id, body)
+
+
 @on("whatsapp.received")
 @DBOS.workflow()
 async def answer_whatsapp(event: dict) -> None:
     org_id, p = event["org_id"], event["payload"]
+    if p.get("type") in ("image", "document") and await ca_take_document(org_id, p["conversation_id"], p):
+        return  # a document from one of a CA firm's clients, for their filing (the document chaser replied)
+    if p.get("type") == "text" and await ca_answer_status(org_id, p["conversation_id"], p["wa_id"], p.get("text") or ""):
+        return  # a CA firm's client asking about their filing (the filing tracker replied)
     if p.get("type") in ("image", "document") and await take_from_chat(org_id, "whatsapp", p["conversation_id"], p):
         return  # a receipt or bill for the bookkeeping assistant (it replied)
     if p.get("type") in ("text", "button", "interactive") and await concierge_reply(org_id, p["conversation_id"], p.get("text") or ""):

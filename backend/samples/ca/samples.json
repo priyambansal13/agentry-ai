@@ -1,0 +1,138 @@
+{
+ "form16_sample.txt": {
+  "doc_type": "form16",
+  "assessment_year": "2026-27",
+  "pan": "ABCPS1234K",
+  "name": "Priya Sharma",
+  "items": [
+   {
+    "category": "salary",
+    "description": "Gross salary u/s 17(1)",
+    "payer": "Infosys Limited",
+    "payer_id": "BLRI01234C",
+    "section": "192",
+    "amount": 1840000,
+    "tds": 0,
+    "quote": "Salary as per provisions contained in section 17(1): 18,40,000.00"
+   },
+   {
+    "category": "deduction",
+    "description": "HRA exempt u/s 10(13A)",
+    "payer": "Infosys Limited",
+    "payer_id": "BLRI01234C",
+    "section": "10(13A)",
+    "amount": 120000,
+    "tds": 0,
+    "quote": "House rent allowance under section 10(13A): 1,20,000.00"
+   },
+   {
+    "category": "deduction",
+    "description": "Standard deduction u/s 16(ia)",
+    "payer": "Infosys Limited",
+    "payer_id": "BLRI01234C",
+    "section": "16(ia)",
+    "amount": 50000,
+    "tds": 0,
+    "quote": "Standard deduction under section 16(ia): 50,000.00"
+   },
+   {
+    "category": "deduction",
+    "description": "Professional tax u/s 16(iii)",
+    "payer": "Infosys Limited",
+    "payer_id": "BLRI01234C",
+    "section": "16(iii)",
+    "amount": 2400,
+    "tds": 0,
+    "quote": "Tax on employment under section 16(iii): 2,400.00"
+   },
+   {
+    "category": "deduction",
+    "description": "80C",
+    "payer": null,
+    "payer_id": null,
+    "section": "80C",
+    "amount": 150000,
+    "tds": 0,
+    "quote": "under section 80C: 1,50,000.00"
+   },
+   {
+    "category": "deduction",
+    "description": "80D health insurance",
+    "payer": null,
+    "payer_id": null,
+    "section": "80D",
+    "amount": 25000,
+    "tds": 0,
+    "quote": "health insurance premia under section 80D: 25,000.00"
+   },
+   {
+    "category": "tds",
+    "description": "TDS on salary u/s 192",
+    "payer": "Infosys Limited",
+    "payer_id": "BLRI01234C",
+    "section": "192",
+    "amount": 1840000,
+    "tds": 246500,
+    "quote": "Tax deducted at source u/s 192: 2,46,500.00"
+   }
+  ]
+ },
+ "ais_sample.txt": {
+  "doc_type": "ais",
+  "assessment_year": "2026-27",
+  "pan": "ABCPS1234K",
+  "name": "PRIYA SHARMA",
+  "items": [
+   {
+    "category": "salary",
+    "description": "Salary received (Section 192)",
+    "payer": "INFOSYS LIMITED",
+    "payer_id": "BLRI01234C",
+    "section": "192",
+    "amount": 1840000,
+    "tds": 241500,
+    "quote": "INFOSYS LIMITED (BLRI01234C) | 12 | Amount paid: 18,40,000 TDS: 2,41,500"
+   },
+   {
+    "category": "interest_deposit",
+    "description": "Interest other than interest on securities (194A)",
+    "payer": "HDFC BANK LIMITED",
+    "payer_id": "MUMH03189E",
+    "section": "194A",
+    "amount": 52310,
+    "tds": 5231,
+    "quote": "HDFC BANK LIMITED (MUMH03189E) | 4 | Amount paid: 52,310 TDS: 5,231"
+   },
+   {
+    "category": "interest_savings",
+    "description": "Interest from savings bank",
+    "payer": "STATE BANK OF INDIA",
+    "payer_id": "AAACS8577K",
+    "section": null,
+    "amount": 6842,
+    "tds": 0,
+    "quote": "STATE BANK OF INDIA (AAACS8577K) | 1 | Amount: 6,842"
+   },
+   {
+    "category": "dividend",
+    "description": "Dividend",
+    "payer": "TATA CONSULTANCY SERVICES LIMITED",
+    "payer_id": "AAACT2727Q",
+    "section": null,
+    "amount": 8400,
+    "tds": 0,
+    "quote": "TATA CONSULTANCY SERVICES LIMITED (AAACT2727Q) | 2 | Amount: 8,400"
+   },
+   {
+    "category": "securities_sale",
+    "description": "Sale of securities and units of mutual fund",
+    "payer": "ZERODHA BROKING LIMITED",
+    "payer_id": "AAECZ1234B",
+    "section": null,
+    "amount": 485000,
+    "tds": 0,
+    "quote": "ZERODHA BROKING LIMITED (AAECZ1234B) | 9 | Sale consideration: 4,85,000"
+   }
+  ]
+ }
+}

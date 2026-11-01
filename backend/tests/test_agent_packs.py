@@ -5,9 +5,11 @@ import pytest
 from conftest import TABLES
 from sqlalchemy import create_engine, text
 
+from agentry import agent_packs
 from agentry.config import settings
 
-BUILT_CA = ["bookkeeping", "inbox_triage", "invoice_follow_up", "whatsapp_assistant"]  # the CA pack's defaults that exist today
+BUILT_CA = ["bookkeeping", "ca_compliance_calendar", "ca_document_chaser", "ca_filing_tracker", "ca_tax_docs_reader", "inbox_triage",
+            "invoice_follow_up", "whatsapp_assistant"]  # the CA pack's defaults
 
 
 @pytest.fixture
@@ -26,37 +28,39 @@ def bare_org():
     owner.dispose()
 
 
-async def test_ca_pack_client_gets_the_built_agents_and_the_pack_price(client, login, bare_org):
+async def test_ca_pack_client_gets_the_built_agents_and_the_pack_price(client, login, bare_org, monkeypatch):
+    real = agent_packs.available
+    monkeypatch.setattr(agent_packs, "available", lambda k: k != "ca_compliance_calendar" and real(k))  # pretend it's still being built
     staff = login("admin@agentry.dev")
     packs = (await client.get("/hq/agent-packs", headers=staff)).json()
     ca = next(p for p in packs["items"] if p["key"] == "ca-firm")
     assert {"ca_filing_tracker", "ca_document_chaser", "ca_gst_reconciliation", "bookkeeping"} <= {a["key"] for a in ca["agents"]}
-    soon = {c["key"]: c for c in packs["catalog"]}["ca_filing_tracker"]
-    assert soon["available"] is False and soon["name"] == "Filing tracker"
+    tracker = {c["key"]: c for c in packs["catalog"]}["ca_filing_tracker"]
+    assert tracker["available"] is True and tracker["name"] == "Filing tracker"
 
     r = await client.post("/hq/clients", headers=staff, json={"org_id": bare_org, "pack": "ca-firm"})
     assert r.status_code == 201, r.text
-    assert r.json()["automations"] == BUILT_CA
+    assert r.json()["automations"] == [k for k in BUILT_CA if k != "ca_compliance_calendar"]
     org = (await client.get(f"/hq/orgs/{bare_org}", headers=staff)).json()
     assert org["plan"]["retainer"] in (14999, "14999.00")  # no plan given: the pack's INR price
     pack = org["pack"]
     assert pack["name"] == "CA Firm" and pack["add_ons"] == []
     agents = {a["key"]: a for a in pack["agents"]}
     assert agents["bookkeeping"]["on"] and not agents["bookkeeping"]["coming_soon"]
-    assert agents["ca_filing_tracker"]["coming_soon"] and not agents["ca_filing_tracker"]["on"]  # bought, switched on once built
+    assert agents["ca_compliance_calendar"]["coming_soon"] and not agents["ca_compliance_calendar"]["on"]  # bought, switched on once built
     assert "ca_itr_prep" not in agents  # optional, not ticked
     assert {a["source"] for a in org["automations"]} == {"pack"}
     # the client sees their pack too
     assert (await client.get("/org", headers=staff | {"X-Org-Id": bare_org})).json()["pack"]["key"] == "ca-firm"
 
 
-async def test_tailor_the_pack_add_ons_and_remove(client, login, bare_org):
+async def test_tailor_the_pack_add_ons_and_remove(client, login, bare_org, monkeypatch):
     staff = login("admin@agentry.dev")
     body = {"org_id": bare_org, "pack": "ca-firm", "pack_agents": ["inbox_triage", "bookkeeping", "ca_document_chaser"],
             "automations": ["content_repurposing"], "plan": {"currency": "INR", "retainer": 9999}}
     r = await client.post("/hq/clients", headers=staff, json=body)
     assert r.status_code == 201, r.text
-    assert r.json()["automations"] == ["bookkeeping", "content_repurposing", "inbox_triage"]
+    assert r.json()["automations"] == ["bookkeeping", "ca_document_chaser", "content_repurposing", "inbox_triage"]
     org = (await client.get(f"/hq/orgs/{bare_org}", headers=staff)).json()
     assert org["plan"]["retainer"] in (9999, "9999.00")  # an explicit plan wins over the pack price
     assert org["pack"]["add_ons"] == [{"key": "content_repurposing", "name": "Content repurposing"}]
@@ -69,8 +73,11 @@ async def test_tailor_the_pack_add_ons_and_remove(client, login, bare_org):
     # agents outside the pack, or only coming-soon ones, are refused
     bad = await client.put(f"/hq/orgs/{bare_org}/pack", headers=staff, json={"pack": "ca-firm", "agents": ["cold_email"]})
     assert bad.status_code == 409 and "not in the CA Firm pack" in bad.json()["detail"]
+    real = agent_packs.available
+    monkeypatch.setattr(agent_packs, "available", lambda k: False)  # as if nothing chosen were built yet
     soon = await client.put(f"/hq/orgs/{bare_org}/pack", headers=staff, json={"pack": "ca-firm", "agents": ["ca_filing_tracker"]})
     assert soon.status_code == 409 and "built" in soon.json()["detail"]
+    monkeypatch.setattr(agent_packs, "available", real)
 
     # removing the pack keeps its agents as add-ons by default
     r = await client.delete(f"/hq/orgs/{bare_org}/pack", headers=staff)
