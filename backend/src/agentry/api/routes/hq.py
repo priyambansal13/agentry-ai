@@ -147,6 +147,14 @@ async def send_demo(demo_id: str, body: DemoSend, staff: Annotated[Principal, De
     return row
 
 
+@router.get("/health")
+async def client_health(_: Annotated[Principal, Depends(require_staff)]) -> dict:
+    """Which clients need attention (ROADMAP-V3 A7)."""
+    from agentry.client_health import assess
+    items = await assess()
+    return {"items": items, "counts": {k: sum(1 for i in items if i["level"] == k) for k in ("healthy", "watch", "at_risk")}}
+
+
 @router.get("/packs")
 async def packs(_: Annotated[Principal, Depends(require_staff)]) -> dict:
     return {"items": list_packs()}

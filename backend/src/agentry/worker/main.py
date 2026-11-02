@@ -22,6 +22,7 @@ from agentry.automations.renewals import renewal_schedule
 from agentry.automations.reviews import reviews_monthly
 from agentry.automations.support_desk import support_schedule
 from agentry.automations.video_studio import video_schedule
+from agentry.client_health import client_health_weekly
 from agentry.config import settings
 from agentry.connectors import telegram
 from agentry.db import system_session
@@ -149,6 +150,8 @@ async def run() -> None:
         {"schedule_name": "reviews-monthly", "workflow_fn": reviews_monthly, "schedule": "0 30 9 1 * *",
          "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
         {"schedule_name": "bookkeeping-monthly", "workflow_fn": bookkeeping_monthly, "schedule": "0 0 9 1 * *",
+         "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
+        {"schedule_name": "client-health", "workflow_fn": client_health_weekly, "schedule": "0 15 9 * * 1",
          "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
         {"schedule_name": "renewals-daily", "workflow_fn": renewal_schedule, "schedule": "0 0 10 * * *",
          "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
