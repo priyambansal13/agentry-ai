@@ -118,4 +118,8 @@ def fraud_signals(email: dict, known_domains: list[str] | None = None) -> list[s
     lookalike = next((k for k in (known_domains or []) if k not in free and dom not in free and _close(dom, k)), None)
     if lookalike:
         reasons.append(f"the domain {dom} looks like {lookalike}, a contact you know")
+    from agentry.guard import (
+        scan,  # instructions aimed at the AI: never auto-sent, the card warns (ROADMAP-V3 A1)
+    )
+    reasons += [f"{r} (possible prompt injection)" for r in scan(t)["reasons"]]
     return reasons

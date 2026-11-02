@@ -20,6 +20,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph import END, START, StateGraph
 from sqlalchemy import text
 
+from agentry import audit, guard
 from agentry.agents.spec import AgentSpec, load_spec
 from agentry.agents.tools import TOOL_DEFS, run_tool
 from agentry.config import settings
@@ -108,6 +109,9 @@ async def _run_turn(org_id: str, conversation_id: str, user_text: str, *, llm: L
 
     persist_inbound=False when the channel already stored the inbound message (WhatsApp webhook);
     persist_reply=False when the reply must wait for approval instead of being recorded as sent."""
+    g = guard.scan(user_text)
+    if g["suspicious"]:  # someone trying to steer the AI: no model, no tools; a person takes over (agentry/guard.py)
+        return await _guarded(org_id, conversation_id, user_text, g["reasons"], channel, persist_inbound, persist_reply)
     spec = await load_spec(org_id)
     async with AsyncPostgresSaver.from_conn_string(checkpoint_url()) as saver:
         graph = build_graph(spec, conversation_id=conversation_id, source=source, llm=llm, channel=channel,
@@ -139,6 +143,30 @@ async def _run_turn(org_id: str, conversation_id: str, user_text: str, *, llm: L
 
 # "available" alone is not booking intent ("Is parking available?"), so it is deliberately not in this list.
 _BOOK = re.compile(r"\b(book|booking|appointment|slot|schedule|availability|free time|come in)\b", re.IGNORECASE)
+
+
+async def _guarded(org_id: str, conversation_id: str, user_text: str, reasons: list[str], channel: str, persist_inbound: bool,
+                   persist_reply: bool) -> dict:
+    reply_id = None
+    async with tenant_session(org_id) as conn:
+        if persist_inbound:
+            await conn.execute(text("""insert into app.messages (org_id, conversation_id, direction, author, body, metadata)
+                values (:o, :c, 'in', 'contact', :b, cast(:m as jsonb))"""),
+                {"o": org_id, "c": conversation_id, "b": user_text, "m": json.dumps({"guard": reasons})})
+        if persist_reply:
+            reply_id = str((await conn.execute(text("""insert into app.messages (org_id, conversation_id, direction, author, body, metadata, created_at)
+                values (:o, :c, 'out', 'agent', :b, '{"guarded": true}', clock_timestamp()) returning id"""),
+                {"o": org_id, "c": conversation_id, "b": guard.HOLDING_REPLY})).scalar_one())
+        await conn.execute(text("""update app.conversations set status = 'handed_off', last_message_at = now(),
+            metadata = metadata || jsonb_build_object('handoff_reason', 'possible attempt to manipulate the AI') where id = :c"""), {"c": conversation_id})
+        await conn.execute(text("""insert into app.approvals (org_id, kind, automation_key, conversation_id, title, body, payload)
+            values (:o, 'escalation', :a, :c, 'Someone may be trying to manipulate the AI', :b, cast(:p as jsonb))"""),
+            {"o": org_id, "a": AGENT_BY_CHANNEL.get(channel, channel), "c": conversation_id,
+             "b": "The assistant stopped and handed this conversation to you. Why: " + "; ".join(reasons) + f".\n\nTheir message: {user_text[:500]}",
+             "p": json.dumps({"guard": reasons})})
+        await audit.record(conn, org_id=org_id, actor_type="agent", action="guard.flagged", target_type="conversation", target_id=conversation_id,
+                           metadata={"reasons": reasons, "channel": channel})
+    return {"reply": guard.HOLDING_REPLY, "booking": None, "tools": [], "message_id": reply_id, "guarded": reasons}
 
 
 async def mock_reply(spec: AgentSpec, messages: list[dict]) -> str:
