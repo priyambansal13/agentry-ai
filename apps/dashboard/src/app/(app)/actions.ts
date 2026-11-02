@@ -941,3 +941,16 @@ export async function writeSeoArticle(topic: string) {
 export async function editSeoArticle(id: string, body: Record<string, unknown>) {
   return run<unknown>(`/org/seo/articles/${id}`, { method: "PATCH", body }, ["/seo", `/seo/${id}`]);
 }
+
+// ---------- stock shelf scanner (ROADMAP-V3 B2) ----------
+
+export async function scanShelf(form: FormData) {
+  return upload<{ id: string; items: { name: string; read_as: string; count: number; unit: string; confidence: number; item_id: string | null; previous: number | null }[] }>(
+    "/org/stock/scan", form, ["/stock"]);
+}
+export async function applyScan(id: string, counts: unknown[], addNew: boolean) {
+  return run<{ updated: number; added: number }>(`/org/stock/scans/${id}/apply`, { method: "POST", body: { counts, add_new: addNew } }, ["/stock"]);
+}
+export async function importStock(form: FormData) {
+  return upload<{ imported: number }>("/org/stock/items/import", form, ["/stock"]);
+}

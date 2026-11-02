@@ -50,6 +50,7 @@ def load_all() -> None:
         renewals,
         reviews,
         speed_to_lead,
+        stock,
         support_desk,
         telegram_assistant,
         video_studio,
