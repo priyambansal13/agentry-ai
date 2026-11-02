@@ -561,3 +561,95 @@ our fee              = a slice of what we win back
 Clinic example: 150 enquiries × 30% missed × 1 in 4 would buy × ₹8,000 = **₹90,000 a month walking away**.
 A ₹15,000 retainer that wins back even a third of that pays for itself twice over, and the monthly report proves it
 with their own numbers.
+
+---
+
+## New in November 2026
+
+### 16. CA Firm pack: "Your ITR season, on autopilot"
+
+**The pain:** July. 400 clients, half of them haven't sent Form 16, the phone rings all day with "is my return filed?",
+and a junior is typing AIS numbers into Excel at midnight.
+
+**With Agentry:**
+- **One click opens the season:** "ITR AY 2026-27 for every individual" puts a card on the board for each client, each with its own checklist (salaried → Form 16; sold shares → capital gains statement; pays rent → rent receipts).
+- **Documents chase themselves:** clients get a polite WhatsApp every 3 days. When they send a photo or PDF, it's matched to the right item, filed, and they're told what's still missing. After 5 reminders the firm is asked to call.
+- **The tax documents reader** reads Form 16 and AIS and flags what a junior would miss: "TDS from Infosys: Form 16 says ₹2,46,500, AIS says ₹2,41,500" and "₹52,310 FD interest in AIS isn't in Form 16". Every number links to the line it came from.
+- **ITR computation** compares the old and new regime, shows which saves money, and says which form fits. The firm checks and files.
+- **"Is my ITR filed?"** on WhatsApp is answered from the board, with the acknowledgement number.
+- **All year:**
+  - GST 2B reconciliation, with a message drafted for every supplier who hasn't filed;
+  - TDS checks with the interest due;
+  - 3CD clause tests;
+  - notices read, a reply drafted and a card due before the deadline;
+  - a compliance calendar that reminds clients 7 and 2 days before.
+
+**Price:** ₹14,999/month + ₹15,000 setup (suggested). **Before you promise:**
+- The CA files; nothing is uploaded to the portal.
+- Bank statements must be Excel or CSV for now.
+- Tax rules are FY 2025-26.
+
+### 17. AI video studio: "Three Shorts a week, without filming"
+
+**The pain:** "We should be on YouTube Shorts." Nobody has time to film, edit or think of ideas.
+
+**With Agentry:**
+- **On your schedule:** on the days you choose, the studio picks a topic from your services and topic list (never one used in the last 60 days) and writes the plan: hook, scenes, captions, title, hashtags.
+- **Checked before it costs anything:** no invented prices, no guarantees, nothing off-brand.
+- **Made and branded:** Google Veo makes each scene. Your hook banner, captions and branded end card are added.
+- **Approve or auto-post:** you approve it from your phone, or let it post to YouTube by itself.
+- **Prefer to film yourself?** You get a timed script (what to say, what to show, the text on screen) to shoot in 2 minutes.
+
+**Price:** retainer, plus AI videos included and a price per extra video. **Before you promise:**
+- Veo needs a paid Gemini API plan (about ₹200 for a 16-second video).
+- YouTube keeps API uploads private until Google audits the app.
+
+### 18. Support desk: "No complaint falls through the cracks"
+
+**The pain:** complaints arrive on WhatsApp, Instagram and email. Nobody knows who's handling what, and an angry customer waits three days.
+
+**With Agentry:**
+- **Every issue becomes a ticket:** category, priority, owner and a reply-by time.
+- **"Where's my order?"** is answered at once from your order sheet. Customers only ever see their own order.
+- **Late tickets alert the owner.**
+- **When it's solved,** the customer rates the help 1–5.
+- **Your dashboard shows** median first-reply time, open tickets and the average rating.
+
+**Price:** retainer, or per resolved ticket.
+
+### 19. Catalogue & quotes: "Quote in a minute, follow-up for free"
+
+**The pain:** "Price of 2 ACs with installation?" A salesperson takes a day to send a quote, and nobody follows it up.
+
+**With Agentry:**
+- **Prices from your catalogue:** the assistant answers from your catalogue (price, stock, sizes), never from guesses.
+- **Quote PDF in a minute:** it sends a GST quote as a PDF on WhatsApp within a minute.
+- **Follow-ups:** it follows up on day 2 and day 5.
+- **Win rate:** you mark it won or lost and see your win rate.
+
+**Price:** retainer, or a share of won quotes.
+
+### 20. Renewals: "Money you're already owed, collected on time"
+
+**The pain:** AMCs, memberships and policies quietly lapse because nobody remembered to call.
+
+**With Agentry:**
+- **Reminders:** customers get a friendly reminder 30, 7 and 1 days before, with a payment link.
+- **Paid means renewed:** paying renews it and moves the date to the next cycle.
+- **Lapsed customers** get one win-back message, with your offer.
+- **Birthdays** get a wish.
+
+**Price:** retainer, or a percentage of renewals collected.
+
+### 21. Hiring assistant: "200 CVs, shortlisted by lunch"
+
+**The pain:** a technician job gets 200 CVs on WhatsApp and email. The owner reads 20 and hires a cousin's friend.
+
+**With Agentry:**
+- **Post and apply link:** a job post written for Naukri / LinkedIn, plus an apply link to share.
+- **Scored with proof:** every CV is scored against your must-haves, with the line from the CV that proves each point.
+- **Fair by design:** gender, age, religion, caste and marital status are removed before the AI reads it.
+- **Shortlist:** strong candidates show up in Needs you.
+- **Messages:** interview invites and polite regrets go out by themselves.
+
+**Price:** per role, or per month.

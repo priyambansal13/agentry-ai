@@ -208,7 +208,7 @@ def pdf(q: dict, business: str, cfg: dict, kit: dict) -> bytes:
             break
     d.line([60, y, W - 60, y], fill=(220, 220, 214), width=2)
     y += 20
-    cur = "₹" if q["currency"] == "INR" else q["currency"] + " "
+    cur = "Rs. " if q["currency"] == "INR" else q["currency"] + " "  # the bundled font has no ₹ glyph
     for label, val, big in (("Subtotal", q["subtotal"], False), ("GST", q["gst"], False), ("Total", q["total"], True)):
         d.text((900, y), label, font=images._font(30 if big else 24), fill=ink)
         d.text((W - 80, y), f"{cur}{float(val):,.2f}", font=images._font(30 if big else 24), fill=ink, anchor="ra")
