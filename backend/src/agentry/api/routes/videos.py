@@ -4,7 +4,7 @@ Same people as content: front desk and up see them; owners and managers make, ed
 """
 import json
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
@@ -44,6 +44,52 @@ async def _video(conn, vid: str) -> dict:
     if not v:
         raise HTTPException(404, "video not found")
     return dict(v)
+
+
+# ---------- topic -> script (ROADMAP-V3 A6) ----------
+
+@router.get("/scripts")
+async def scripts(ctx: Viewer) -> dict:
+    async with tenant_session(ctx.org_id) as conn:
+        rows = (await conn.execute(text("""select id::text, topic, language, script, status, created_at from app.video_scripts
+            order by created_at desc limit 50"""))).mappings().all()
+    return {"items": [dict(r) for r in rows]}
+
+
+class ScriptIn(BaseModel):
+    topic: Annotated[str | None, Field(max_length=200)] = None
+
+
+@router.post("/scripts", status_code=201)
+async def new_script(body: ScriptIn, ctx: Editor) -> dict:
+    from agentry.automations.video_studio import scripts as sc
+    try:
+        return await sc.write(ctx.org_id, body.topic, ctx.principal.user_id)
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+
+
+class ScriptStatus(BaseModel):
+    status: Literal["new", "filmed", "used", "dropped"]
+
+
+@router.patch("/scripts/{sid}")
+async def script_status(sid: str, body: ScriptStatus, ctx: Editor) -> dict:
+    async with tenant_session(ctx.org_id) as conn:
+        await conn.execute(text("update app.video_scripts set status = :s where id = cast(:i as uuid)"), {"s": body.status, "i": sid})
+    return {"id": sid, "status": body.status}
+
+
+@router.post("/scripts/{sid}/make", status_code=202)
+async def script_to_video(sid: str, ctx: Editor) -> dict:
+    """Hand the script's topic to the AI video studio."""
+    async with tenant_session(ctx.org_id) as conn:
+        topic = (await conn.execute(text("select topic from app.video_scripts where id = cast(:i as uuid)"), {"i": sid})).scalar_one_or_none()
+        if not topic:
+            raise HTTPException(404, "script not found")
+        vid = await vs.request(conn, ctx.org_id, topic=topic, user_id=ctx.principal.user_id)
+        await conn.execute(text("update app.video_scripts set status = 'used' where id = cast(:i as uuid)"), {"i": sid})
+    return {"id": vid}
 
 
 @router.get("/{vid}")

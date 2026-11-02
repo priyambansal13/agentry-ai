@@ -230,3 +230,19 @@ async def test_the_planner_prefers_openai(monkeypatch):
 
 async def _chain(tier, org_id=None):
     return ["gemini/gemini-3.5-flash", "openai/gpt-5.4-mini"]
+
+
+async def test_topic_to_script_and_on_to_a_video(client, team_org):
+    oid, h = await team_org(["video_studio"])
+    r = await client.post("/org/videos/scripts", headers=h["owner"], json={"topic": "How to keep your AC cool in May"})
+    assert r.status_code == 201, r.text
+    s = r.json()["script"]
+    assert s["hook"] and 3 <= len(s["beats"]) <= 8 and s["hashtags"][0] == "#Shorts"
+    bad = await client.post("/org/videos/scripts", headers=h["owner"], json={"topic": "Guaranteed results overnight"})
+    assert bad.status_code == 422 and "risky" in bad.json()["detail"]
+    items = (await client.get("/org/videos/scripts", headers=h["staff"])).json()["items"]
+    assert len(items) == 1
+    v = await client.post(f"/org/videos/scripts/{items[0]['id']}/make", headers=h["owner"])
+    assert v.status_code == 202
+    async with tenant_session(oid) as conn:
+        assert (await conn.execute(text("select topic from app.ai_videos"))).scalar_one() == "How to keep your AC cool in May"

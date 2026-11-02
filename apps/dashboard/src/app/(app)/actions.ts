@@ -920,3 +920,12 @@ export async function uploadCvs(jobId: string, form: FormData) {
 export async function candidateStage(id: string, body: { status: string; interview_at?: string | null }, jobId: string) {
   return run<{ message: string | null }>(`/org/hiring/candidates/${id}/stage`, { method: "POST", body }, [`/hiring/${jobId}`]);
 }
+export async function writeScript(topic: string | null) {
+  return run<{ id: string }>("/org/videos/scripts", { method: "POST", body: { topic: topic || null } }, ["/videos"]);
+}
+export async function scriptToVideo(id: string) {
+  return run<{ id: string }>(`/org/videos/scripts/${id}/make`, { method: "POST" }, ["/videos"]);
+}
+export async function scriptStatus(id: string, status: string) {
+  return run<unknown>(`/org/videos/scripts/${id}`, { method: "PATCH", body: { status } }, ["/videos"]);
+}

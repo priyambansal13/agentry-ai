@@ -3,7 +3,7 @@
 import { Button, Input, Label } from "@agentry/ui";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { editVideo, generateVideo, makeVideo, publishVideo, rejectVideo, replanVideo } from "@/app/(app)/actions";
+import { editVideo, generateVideo, makeVideo, publishVideo, rejectVideo, replanVideo, scriptStatus, scriptToVideo, writeScript } from "@/app/(app)/actions";
 
 /** AI video studio (docs/flows/agents/ai-video-studio.md). */
 export type Scene = { prompt: string; caption: string };
@@ -101,5 +101,41 @@ export function PlanEditor({ v, canEdit }: { v: Video; canEdit: boolean }) {
         </div>)}
       <Err e={err} />
     </div>
+  );
+}
+
+export type Script = { id: string; topic: string; status: string; created_at: string;
+  script: { hook: string; beats: { at: string; say: string; show: string; on_screen: string }[]; cta: string; caption: string; hashtags: string[]; seconds: number } };
+
+export function WriteScript() {
+  const { err, pending, go } = useGo();
+  const [topic, setTopic] = useState("");
+  return (
+    <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); go(() => writeScript(topic), () => setTopic("")); }}>
+      <div className="min-w-64 flex-1 space-y-1"><Label htmlFor="st">Topic (optional)</Label>
+        <Input id="st" maxLength={200} value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Leave empty: picked from your topics and services" /></div>
+      <Button type="submit" disabled={pending}>{pending ? "Writing…" : "Write a script to film"}</Button><Err e={err} />
+    </form>
+  );
+}
+
+export function ScriptCard({ s, canEdit }: { s: Script; canEdit: boolean }) {
+  const { err, pending, go, router } = useGo();
+  return (
+    <details className="rounded-xl border-2 border-line p-3">
+      <summary className="cursor-pointer"><span className="font-semibold">{s.topic}</span> <span className="text-sm text-muted">· {s.script.seconds}s · {s.status}</span></summary>
+      <div className="mt-3 space-y-2 text-sm">
+        <p><span className="font-semibold">Hook:</span> {s.script.hook}</p>
+        <table className="w-full"><thead className="text-left text-muted"><tr><th className="p-1">When</th><th className="p-1">Say</th><th className="p-1">Show</th><th className="p-1">Text on screen</th></tr></thead>
+          <tbody>{s.script.beats.map((b, i) => <tr key={i} className="align-top"><td className="p-1 whitespace-nowrap">{b.at}</td><td className="p-1">{b.say}</td><td className="p-1 text-muted">{b.show}</td><td className="p-1">{b.on_screen}</td></tr>)}</tbody></table>
+        <p><span className="font-semibold">Close:</span> {s.script.cta}</p>
+        <p className="text-muted">{s.script.caption} {s.script.hashtags.join(" ")}</p>
+        {canEdit && <div className="flex flex-wrap gap-2">
+          <Button size="sm" disabled={pending} onClick={() => go(() => scriptToVideo(s.id), (d) => router.push(`/videos/${(d as { id: string }).id}`))}>Make it with AI video instead</Button>
+          {s.status === "new" && <Button size="sm" variant="secondary" disabled={pending} onClick={() => go(() => scriptStatus(s.id, "filmed"))}>Mark filmed</Button>}
+          <Button size="sm" variant="ghost" disabled={pending} onClick={() => go(() => scriptStatus(s.id, "dropped"))}>Drop</Button></div>}
+        <Err e={err} />
+      </div>
+    </details>
   );
 }
