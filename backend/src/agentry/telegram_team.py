@@ -104,6 +104,38 @@ class Person:
         return self.is_staff or can(self.role, resource, action)
 
 
+async def _typing(chat_id: int) -> None:
+    """'typing…' while the copilot thinks; best-effort (a failure here never blocks the answer)."""
+    try:
+        await tg.call(settings.telegram_bot_token, "sendChatAction", chat_id=chat_id, action="typing")
+    except tg.TelegramError:
+        return  # only the "typing…" hint
+
+
+async def _hear(chat_id: int, voice: dict) -> str | None:
+    """A voice note in words (the content transcriber; Hindi and Hinglish work too). None if it couldn't be heard."""
+    import tempfile
+    from pathlib import Path
+
+    from agentry.automations.content.sources import transcribe_file
+    if (voice.get("file_size") or 0) > 20 * 1024 * 1024 or (voice.get("duration") or 0) > 300:
+        await _say(chat_id, "That voice note is too long: keep it under 5 minutes.")
+        return None
+    try:
+        data = await tg.download(settings.telegram_bot_token, voice["file_id"])
+        with tempfile.TemporaryDirectory() as t:
+            f = Path(t) / "note.ogg"
+            f.write_bytes(data)
+            tr, _cost = await transcribe_file(f)
+    except Exception:  # noqa: BLE001 - any download / transcription failure gets the same plain answer
+        await _say(chat_id, "Sorry, I couldn't hear that voice note. Try again, or type it.")
+        return None
+    words = " ".join(s.get("text", "") for s in tr.get("segments", [])).strip() or tr.get("text", "")
+    if words:
+        await _say(chat_id, f"🎙️ \"{words[:500]}\"")
+    return words or None
+
+
 async def _set_pending(p: Person, pending: dict | None) -> None:
     async with tenant_session(p.org_id) as conn:
         await conn.execute(text("update app.telegram_links set pending = cast(:p as jsonb) where user_id = :u"),
@@ -157,7 +189,11 @@ async def _on_message(m: dict) -> None:
         await _set_pending(p, None)
         await _decide(chat_id, p, p.pending["edit"], "approve", body)
         return
-    if any(k in m for k in ("video", "audio", "voice", "document")):
+    if "voice" in m:  # a voice note: what they said goes to the copilot like a typed message
+        body = await _hear(chat_id, m["voice"])
+        if not body:
+            return
+    elif any(k in m for k in ("video", "audio", "document")):
         await _content_upload(chat_id, p, m)
         return
     if LINK_ONLY.fullmatch(body or ""):  # just a link: a recording for content (no 20 MB limit)
@@ -173,17 +209,23 @@ async def _on_message(m: dict) -> None:
     elif cmd == "/cancel":
         await _set_pending(p, None)
         await _say(chat_id, "Cancelled.")
-    elif body and not body.startswith("/") and len(body) >= 3:  # a question about the business: Ask your business
+    elif body and not body.startswith("/") and len(body) >= 3:  # a question or a request: the business copilot
         from agentry import copilot
-        await tg.call(settings.telegram_bot_token, "sendChatAction", chat_id=chat_id, action="typing")
-        out = await copilot.answer(copilot.Who(p.org_id, p.role, p.is_staff), body)
-        await _say(chat_id, out["answer"][:3500], [[{"text": "🧰 Tools", "callback_data": "tools"}]])
+        await _typing(chat_id)
+        out = await copilot.answer(copilot.Who(p.org_id, p.role, p.is_staff, p.user_id), body, via="telegram")
+        if out.get("plan"):
+            steps = "\n".join(f"{i}. {s}" for i, s in enumerate(out["plan"]["steps"], start=1))
+            await _say(chat_id, f"{out['answer'][:1500]}\n\n{steps}", [[{"text": "✅ Do it", "callback_data": f"cp:run:{out['plan']['id']}"},
+                                                                    {"text": "✖️ Cancel", "callback_data": f"cp:x:{out['plan']['id']}"}]])
+        else:
+            await _say(chat_id, out["answer"][:3500], [[{"text": "🧰 Tools", "callback_data": "tools"}]])
     else:
         await _tools(chat_id, p)
 
 
 HELP = ("What I can do:\n"
         "• Ask anything about your business in plain words: \"what's overdue?\", \"how many leads this week?\"\n"
+        "• Ask me to do things, typed or as a voice note: \"remind Rohan about E-1 and move his appointment to Monday 11\": I'll show the plan, you tap Do it\n"
         "• Tools: everything your agents do, at a glance (/tools)\n"
         "• Needs you: approve, edit or discard drafts, mark things handled (/needs)\n"
         "• Alerts: urgent emails, escalations and more, if you chose Telegram in Account & notifications\n"
@@ -205,6 +247,21 @@ async def _on_button(cb: dict) -> None:
         await _say(chat_id, f"Now working in {p.business}.", [[{"text": "🧰 Tools", "callback_data": "tools"}]])
         return
     p = Person(next((link for link in links if link["active"]), links[0]))
+    if data.startswith("cp:"):  # a copilot plan: run or cancel
+        from agentry import copilot, copilot_actions
+        _, what, pid = data.split(":", 2)
+        who = copilot.Who(p.org_id, p.role, p.is_staff, p.user_id)
+        if what == "x":
+            await copilot_actions.cancel_plan(who, pid)
+            await _say(chat_id, "Cancelled: nothing was done.")
+            return
+        try:
+            r = await copilot_actions.run_plan(who, pid, p.user_id, via="telegram")
+        except copilot_actions.StepError as e:
+            await _say(chat_id, str(e))
+            return
+        await _say(chat_id, "\n".join(f"{'✅' if x['ok'] else '⚠️'} {x['summary']}: {x['result']}" for x in r["results"])[:3500])
+        return
     if data == "tools":
         await _tools(chat_id, p)
     elif data.startswith("t:"):

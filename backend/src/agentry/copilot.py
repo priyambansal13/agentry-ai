@@ -29,6 +29,7 @@ class Who:
     org_id: str
     role: str | None
     staff: bool = False
+    user_id: str | None = None
 
     def may(self, resource: str, action: str = "read") -> bool:
         return self.staff or can(self.role, resource, action)
@@ -230,8 +231,13 @@ SYSTEM = """You answer questions from the owner or team of {business} about thei
 - Call the tools you need, then answer in a few short sentences or a short list. Today is {today} ({tz}).
 - Every number you give must come from a tool result. If the tools don't cover the question, say so and suggest what they can ask.
 - Amounts are in {currency}; write Indian amounts like ₹1,25,000.
-- You can only read: if they ask you to send, change or delete something, say where in Agentry to do it.
+- {act}
 - {limits}"""
+READ_ONLY = "You can only read: if they ask you to send, change or delete something, say where in Agentry to do it."
+CAN_ACT = ("When they ask you to do something, propose it with the propose_* tools: look up what you need first, then propose each step with "
+           "exact details (write customer messages in full, warm and short). Nothing happens until the person taps Do it, so never say it's done: "
+           "say in one line what the plan will do. If a proposal comes back with an error, fix it or ask them (for example which customer). "
+           "Things the tools can't do: say where in Agentry to do them.")
 
 ROUTES = [(r"overdue|owe|late|unpaid|outstanding|money|paid|payment|revenue|collect", "money_summary"),
           (r"lead|enquir|prospect", "leads_summary"), (r"appointment|booking|calendar|no.?show|tomorrow|schedule", "appointments"),
@@ -248,9 +254,13 @@ def _plain(name: str, result: dict) -> str:
     return f"Here's what I found ({name.replace('_', ' ')}): " + json.dumps(result, default=str)[:900]
 
 
-async def answer(who: Who, question: str, history: list[dict] | None = None) -> dict:
-    """{"answer", "tools": [names used], "model"}."""
+async def answer(who: Who, question: str, history: list[dict] | None = None, *, act: bool = True, via: str = "portal") -> dict:
+    """{"answer", "tools": [names used], "model", "plan"?}. With act, the model may also propose actions (copilot_actions):
+    they're staged, never run, and come back as a plan the person confirms."""
+    from agentry import copilot_actions as ca
     tools = tools_for(who)
+    actions = await ca.actions_for(who) if act else []
+    staged: list[dict] = []
     async with tenant_session(who.org_id) as conn:
         ctx = await _context(conn)
         business = (await conn.execute(text("select name from auth.organization where id = :o"), {"o": who.org_id})).scalar_one_or_none() or "the business"
@@ -260,14 +270,15 @@ async def answer(who: Who, question: str, history: list[dict] | None = None) -> 
     limits = (f"This person's role doesn't include {' or '.join(hidden)}: if they ask, say it's outside their access in Agentry "
               "and don't try to work it out from other tools.") if hidden else "They can see everything the tools cover."
     msgs = [{"role": "system", "content": SYSTEM.format(business=business, today=datetime.now(ZoneInfo(ctx["tz"])).date().isoformat(), tz=ctx["tz"],
-                                                         currency=ctx["currency"], limits=limits)},
+                                                         currency=ctx["currency"], limits=limits, act=CAN_ACT if actions else READ_ONLY)},
             *[{"role": m["role"], "content": str(m["content"])[:2000]} for m in (history or [])[-6:] if m.get("role") in ("user", "assistant")],
             {"role": "user", "content": question[:2000]}]
     async with runs.run(who.org_id, "copilot", "question") as r:
         for _round in range(MAX_ROUNDS):
             try:
-                res = await complete("writer", msgs, org_id=who.org_id, prompt_key="copilot", prompt_version="v1",
-                                     tools=tool_defs(tools) if tools else None, mock_response="")
+                defs = (tool_defs(tools) if tools else []) + ca.action_defs(actions)
+                res = await complete("writer", msgs, org_id=who.org_id, prompt_key="copilot", prompt_version="v2" if actions else "v1",
+                                     tools=defs or None, mock_response="")
             except AllModelsFailed:
                 return {"answer": "The AI is unavailable right now. Please try again in a minute.", "tools": used, "model": None}
             if res.mock:  # no model: route by keywords to one tool and show its result
@@ -278,12 +289,23 @@ async def answer(who: Who, question: str, history: list[dict] | None = None) -> 
                 result = await call_tool(who, name, {})
                 return {"answer": _plain(name, result), "tools": [name], "model": res.model}
             if not res.tool_calls:
-                r.step("answered", tools=used)
-                return {"answer": (res.text or "").strip() or "I couldn't find an answer to that.", "tools": used, "model": res.model}
+                r.step("answered", tools=used, staged=len(staged))
+                out = {"answer": (res.text or "").strip() or ("Here's the plan." if staged else "I couldn't find an answer to that."), "tools": used, "model": res.model}
+                if staged:
+                    out["plan"] = {"id": await ca.save_plan(who, question, staged, who.user_id), "steps": [s["summary"] for s in staged]}
+                return out
             msgs.append({"role": "assistant", "content": res.text or None, "tool_calls": [
                 {"id": c["id"], "type": "function", "function": {"name": c["name"], "arguments": json.dumps(c["arguments"])}} for c in res.tool_calls]})
             for c in res.tool_calls:
                 used.append(c["name"])
+                if c["name"] in ca.ACTIONS:  # a proposal: checked and staged, never run here
+                    out = await ca.stage(who, c["name"], c["arguments"] or {})
+                    if "error" not in out:
+                        staged.append(out)
+                        out = {"staged": True, "summary": out["summary"], "note": "will run only after the person taps Do it"}
+                    r.step("proposed", tool=c["name"], ok="error" not in out)
+                    msgs.append({"role": "tool", "tool_call_id": c["id"], "content": json.dumps(out, default=str)[:4000]})
+                    continue
                 out = await call_tool(who, c["name"], c["arguments"] or {})
                 r.step("tool", tool=c["name"])
                 msgs.append({"role": "tool", "tool_call_id": c["id"], "content": json.dumps(out, default=str)[:12000]})

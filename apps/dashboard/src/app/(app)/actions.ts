@@ -737,7 +737,14 @@ export async function startGoogleSheets() {
 // ---------- Ask your business + MCP tokens ----------
 
 export async function askBusiness(question: string, history: { role: "user" | "assistant"; content: string }[]) {
-  return run<{ answer: string; tools: string[] }>("/org/ask", { method: "POST", body: { question, history } });
+  return run<{ answer: string; tools: string[]; plan?: { id: string; steps: string[] } }>("/org/ask", { method: "POST", body: { question, history } });
+}
+
+export async function runCopilotPlan(id: string) {
+  return run<{ results: { summary: string; ok: boolean; result: string }[] }>(`/org/copilot/plans/${id}/run`, { method: "POST" }, ["/needs-you", "/calendar", "/invoices"]);
+}
+export async function cancelCopilotPlan(id: string) {
+  return run<unknown>(`/org/copilot/plans/${id}/cancel`, { method: "POST" });
 }
 
 export async function createApiToken(name: string) {

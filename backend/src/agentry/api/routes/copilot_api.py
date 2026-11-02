@@ -22,7 +22,7 @@ PROTOCOL = "2025-06-18"
 
 
 def _who(ctx: OrgContext) -> copilot.Who:
-    return copilot.Who(ctx.org_id, ctx.role, ctx.principal.is_staff)
+    return copilot.Who(ctx.org_id, ctx.role, ctx.principal.is_staff, ctx.principal.user_id)
 
 
 class Question(BaseModel):
@@ -36,6 +36,24 @@ async def ask(b: Question, ctx: Annotated[OrgContext, Depends(current_org)]) -> 
         raise HTTPException(403, "no access")
     out = await copilot.answer(_who(ctx), b.question, b.history)
     return {**out, "can_ask_about": [t.name for t in copilot.tools_for(_who(ctx))]}
+
+
+# ---------- copilot plans (ROADMAP-V3 C1): proposed actions a person confirms ----------
+
+@router.post("/org/copilot/plans/{pid}/run")
+async def run_plan(pid: str, ctx: Annotated[OrgContext, Depends(current_org)]) -> dict:
+    from agentry import copilot_actions as ca
+    try:
+        return await ca.run_plan(_who(ctx), pid, ctx.principal.user_id)
+    except ca.StepError as e:
+        raise HTTPException(409, str(e)) from e
+
+
+@router.post("/org/copilot/plans/{pid}/cancel")
+async def cancel_plan(pid: str, ctx: Annotated[OrgContext, Depends(current_org)]) -> dict:
+    from agentry import copilot_actions as ca
+    await ca.cancel_plan(_who(ctx), pid)
+    return {"id": pid, "status": "cancelled"}
 
 
 # ---------- personal access tokens ----------
