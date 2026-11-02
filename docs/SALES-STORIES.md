@@ -653,3 +653,29 @@ and a junior is typing AIS numbers into Excel at midnight.
 - **Messages:** interview invites and polite regrets go out by themselves.
 
 **Price:** per role, or per month.
+
+### 22. Local SEO: "Be the one they find when they search nearby"
+
+- **Audit:** we check your website the way Google does and give you the fixes in order: missing titles, no map link, no business details for Google, broken links, a phone number that doesn't match.
+- **Articles:** two local articles a month answer exactly what people in your city search for, written from your own facts, with FAQs Google can show.
+
+### 23. Stock shelf scanner: "Snap the shelf. Know what to reorder."
+
+- **Count by photo:** take one photo of the shelf or fridge. Items are counted, you fix any doubtful count, and what's running low is grouped by supplier.
+- **Order in a tap:** the WhatsApp order message is ready to send.
+
+### 24. Festival campaigns: "Never miss Diwali again"
+
+- **Planned ahead:** three weeks before every festival you choose, you get the posts, a WhatsApp message for your customers, a greeting for the day and a when-to-send plan.
+- **Your offers only:** never an offer you didn't make.
+
+### 25. SOP & proposal drafter: "Write it down once, run it forever"
+
+- **SOPs:** describe how something should be done and get a step-by-step SOP with a flowchart your team can follow.
+- **Proposals:** describe a client and get a proposal with your own prices.
+- **Checklists:** describe an onboarding and get a checklist with who does what.
+
+### 26. Content that learns: "More of what works"
+
+- **Measured:** every post and Short is measured after a day and a week.
+- **Learned:** Agentry learns which topics, hooks, platforms and hours work for your business, and the next posts and videos lean that way.

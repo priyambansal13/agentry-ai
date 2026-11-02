@@ -33,3 +33,9 @@ async def test_daily_plans_ahead_once(client, team_org):
     assert "Free AC check-up" in diwali["plan"]["whatsapp"] and diwali["status"] == "draft" and len(diwali["plan"]["posts"]) == 3
     assert (await client.patch(f"/org/festivals/plans/{diwali['id']}", headers=h["owner"], json={"status": "approved"})).json()["status"] == "approved"
     assert (await client.patch(f"/org/festivals/plans/{diwali['id']}", headers=h["staff"], json={"status": "done"})).status_code == 403
+
+
+def test_feel_free_is_not_an_offer():
+    p = {"theme": "x", "whatsapp": "Happy Diwali! Please feel free to reach out.", "posts": [{"text": "a"}, {"text": "b"}]}
+    assert fv.plan_problems(p, None) == []
+    assert fv.plan_problems({**p, "whatsapp": "Free check-up this Diwali!"}, None)

@@ -48,7 +48,9 @@ FESTIVALS: dict[str, tuple[str, dict[int, str], tuple[str, ...]]] = {
     "year_end_sale": ("Year-end", {2026: "12-28", 2027: "12-28"}, ("seasonal",)),
 }
 DEFAULT = ["new_year", "republic_day", "holi", "independence_day", "raksha_bandhan", "ganesh_chaturthi", "dussehra", "diwali", "christmas"]
-NUMBERISH = re.compile(r"(₹|rs\.?)\s?[\d,]+|\b\d+\s?%|\bflat\s+\d+|\bbuy\s+\d+\s+get\s+\d+|\bfree\b", re.IGNORECASE)
+# an offer-like claim ("free" only as an offer: "feel free to call" is fine)
+NUMBERISH = re.compile(r"(₹|rs\.?)\s?[\d,]+|\b\d+\s?%|\bflat\s+\d+|\bbuy\s+\d+\s+get\s+\d+|"
+                       r"\bfree\s+(gift|delivery|shipping|service|check[- ]?up|consult\w*|session|installation|sample|trial|visit|demo)\b", re.IGNORECASE)
 RISKY = re.compile(r"\b(guarantee[sd]?|best in|#1|cheapest|lowest price|cure[sd]?)\b", re.IGNORECASE)
 
 

@@ -49,9 +49,12 @@ async def test_booking_takes_the_slot_away(orgs, clean_bookings):
 
 
 async def test_unavailable_time_offers_alternatives(orgs):
+    d = max(datetime.now(IST).date() + timedelta(days=1), date(2026, 11, 10))  # after the seeded 8-9 Nov holidays
+    while d.weekday() != 6:  # the next Sunday (closed), always in the future so there are alternatives to offer
+        d += timedelta(days=1)
     with pytest.raises(BookingError) as e:
-        await book(orgs["smilecraft"], service_key="consult", start=datetime(2026, 11, 1, 11, 0, tzinfo=IST),
-                   name="X", source="test")  # Sunday
+        await book(orgs["smilecraft"], service_key="consult", start=datetime(d.year, d.month, d.day, 11, 0, tzinfo=IST),
+                   name="X", source="test")
     assert e.value.alternatives
 
 

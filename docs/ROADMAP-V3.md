@@ -39,7 +39,7 @@
 | A6 ✅ | **Topic → script** (8.4) | No recording? Give a topic and get a timed 30–60 s script (hook, beats, on-screen text, call to action) to film on a phone, in the business's voice. 4 a week on a schedule. It can also go straight to the AI video studio. | content brand and voice, video studio | S |
 | A7 ✅ | **Client health monitor** (HQ, for Agentry) | For every client: usage trend, unapproved cards, failed connections, last login, billing state. Gives a health score with reasons and a weekly "at risk" list for the agency. | metrics, audit, billing | S |
 
-## Wave B: next
+## Wave B: next (✅ all built 2026-11-02: [flows/agents/v3-agents.md](flows/agents/v3-agents.md))
 
 | Agent | Why it waits |
 |---|---|

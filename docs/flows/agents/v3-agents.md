@@ -72,3 +72,62 @@ Migrations 0038–0043. Tests:
 - `test_hiring.py`
 - `test_video_studio.py`
 - `test_client_health.py`
+
+---
+
+# v3 wave B (built 2026-11-02)
+
+## Local SEO (`local_seo`, page Local SEO)
+
+- **Audit:** reads up to 12 pages (with the crawler's protection against internal addresses) and checks:
+  - titles, descriptions and H1s;
+  - alt text, thin pages, duplicate titles;
+  - viewport and canonical tags;
+  - LocalBusiness structured data;
+  - the phone vs the one in the profile;
+  - Maps and WhatsApp links;
+  - HTTPS, robots.txt and sitemap;
+  - slow pages and broken links.
+
+  It gives a score and fixes in order of impact.
+- **Articles:** 600–900 words with FAQs, written from the knowledge base and services only. Numbers, prices and risky claims not in those facts are rewritten once, otherwise flagged. The HTML export includes FAQPage structured data.
+- **Monthly:** on the 1st, an audit plus N article drafts, with a card.
+- **Not yet:** ranking checks, which need a search API key.
+
+## Stock shelf scanner (`stock_scanner`, page Stock)
+
+- **Scan:** a photo is read into items with a count and a confidence for each, then matched to tracked items ("1 kg" = "1kg").
+- **Confirm:** doubtful counts are highlighted. A person corrects them and applies the scan, once.
+- **Reorder:** items at or below their reorder level are grouped by supplier, each with a message to copy or open in WhatsApp.
+
+## Festival campaigns (`festival_campaigns`, page Festivals)
+
+- **Calendar:** Indian festivals for 2026–27. Lunar dates are best-known and can be corrected per business.
+- **Plan:** N days ahead of each chosen festival: a theme, 3 posts, a WhatsApp message, a greeting and a timeline.
+- **Offers:** only the business's own offer is used. Any other price, percentage, "flat N" or "free X" is flagged ("feel free to call" is fine).
+- **Sending:** nothing is broadcast by itself.
+
+## SOP & proposal drafter (`doc_drafter`, page Documents)
+
+- **SOP:** written with a Mermaid flowchart.
+- **Proposal:** prices only from the brief or the services, otherwise "[price to confirm]".
+- **Checklist:** grouped tick boxes with who and when.
+- **After drafting:** edit, mark final, download Markdown.
+
+## Engagement loop (content + AI video studio)
+
+- **What's measured:** Instagram (likes, comments, reach, saves, shares) and YouTube (views, likes, comments), at 24 hours and 7 days.
+- **Not measured yet:** LinkedIn member posts, because that needs LinkedIn's restricted API.
+- **Score:** one score per post.
+- **Learning:** the best and weakest topics, best platform, best hour and top hooks are saved on the business profile. Then:
+  - moment ranking boosts good topics (+2) and lowers weak ones (−1);
+  - the video studio tries the best topics first;
+  - posts in the top 10% emit `content.top_post`.
+- **Where to see it:** "What's working" on the Content page.
+
+Migrations 0044–0048. Tests:
+- `test_local_seo.py`
+- `test_stock.py`
+- `test_festivals.py`
+- `test_doc_drafter.py`
+- `test_engagement.py`
