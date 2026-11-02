@@ -41,6 +41,7 @@ def load_all() -> None:
         cold_email,
         competitor_watch,
         content,
+        dispatcher,
         doc_drafter,
         festivals,
         hiring,

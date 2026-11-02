@@ -73,6 +73,10 @@ Today is {now:%A %d %B %Y}, {now:%H:%M} ({self.timezone}). Interpret "tomorrow",
             out += ("\nProducts: for questions about products, prices, sizes or stock use search_catalog and answer only with what it returns. "
                     "When they want a price for several items or quantities, use make_quote with the exact product codes and quantities, "
                     "after confirming their name and phone or email; it sends them a quote. Never invent a price, discount or stock.")
+        if "dispatch" in self.extras:
+            out += ("\nVisits: when someone needs a technician at their place (a repair, a service, an installation), use book_job after "
+                    "you have their name, phone, address or area, the service, the problem and a day (and morning / afternoon / evening if they "
+                    "care). Tell them the job number and that the team will confirm the technician. Never promise an exact arrival time or a price.")
         return out
 
 
@@ -82,7 +86,7 @@ async def load_spec(org_id: str) -> AgentSpec:
             from app.org_settings s join auth.organization o on o.id = s.org_id"""))).mappings().one()
         services = (await conn.execute(text("select key, name, minutes, price from app.services where active order by name"))).mappings().all()
         on = set((await conn.execute(text("""select template_key from app.automation_instances
-            where template_key in ('support_desk', 'catalog_quotes') and status in ('live', 'approval_mode')"""))).scalars())
+            where template_key in ('support_desk', 'catalog_quotes', 'ops_dispatcher') and status in ('live', 'approval_mode')"""))).scalars())
     p, profile = s["persona"] or {}, s["profile"] or {}
     return AgentSpec(
         org_id=org_id, business=s["name"], name=p.get("name", "Assistant"), tone=p.get("tone", "friendly and helpful"),
@@ -91,5 +95,5 @@ async def load_spec(org_id: str) -> AgentSpec:
         qualified_when=profile.get("qualified_when") or "they need a service the business offers",
         safety=profile.get("safety"), city=profile.get("city"),
         services=[{**dict(x), "price": float(x["price"]) if x["price"] is not None else None} for x in services],
-        extras=tuple(x for k, x in (("support_desk", "support"), ("catalog_quotes", "catalog")) if k in on),
+        extras=tuple(x for k, x in (("support_desk", "support"), ("catalog_quotes", "catalog"), ("ops_dispatcher", "dispatch")) if k in on),
     )

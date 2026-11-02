@@ -679,3 +679,21 @@ and a junior is typing AIS numbers into Excel at midnight.
 
 - **Measured:** every post and Short is measured after a day and a week.
 - **Learned:** Agentry learns which topics, hooks, platforms and hours work for your business, and the next posts and videos lean that way.
+
+### 27. Business copilot: "Tell it what to do, tap Do it"
+
+**The pain:** The owner knows what needs doing ("chase Rohan, move Asha to Friday, note the AC complaint") but it takes four apps and twenty minutes.
+
+**With Agentry:** Say it on Telegram (typing or a voice note) or on the Ask page. You get back a short plan: "Remind Rohan about E-1 with a payment link · Move Asha's 4 pm to Friday 11 am · Note on Asha: AC complaint". Tap **Do it** and it's done, each step logged. If two customers share a name, it asks which one. Nothing goes out at night.
+
+**Price:** premium tier add-on (suggested ₹2,999/month). **Before you promise:** it only acts through agents the business has switched on, and only within that person's role.
+
+### 28. Ops dispatcher: "Every service call, on one board"
+
+**The pain:** A home-services owner takes bookings on WhatsApp, assigns technicians by phone, forgets who went where, and invoices a week late.
+
+**With Agentry:** The WhatsApp assistant books the visit (service, day, address). It goes to the technician with the right skill in that area who isn't already full. The technician gets the details on WhatsApp in one tap. The customer hears "on the way" and "done", and a finished job becomes an invoice that chases itself.
+
+**Price:** ₹4,999/month (suggested). **Before you promise:**
+- No technician app or live GPS: technicians get WhatsApp messages and the office updates the status.
+- Photos are uploaded from the Jobs page.

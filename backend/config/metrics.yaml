@@ -87,3 +87,9 @@ metrics:
     event_type: candidate.screened
     aggregation: count
     unit: count
+  - key: jobs_done
+    name: Jobs done
+    automation_key: ops_dispatcher
+    event_type: job.done
+    aggregation: count
+    unit: count

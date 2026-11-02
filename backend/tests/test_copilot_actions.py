@@ -6,7 +6,8 @@ import pytest
 from helpers import import_invoices, inv
 from sqlalchemy import text
 
-from agentry import copilot, copilot_actions as ca, governance
+from agentry import copilot, governance
+from agentry import copilot_actions as ca
 from agentry.db import tenant_session
 from agentry.leads import resolve_contact
 from agentry.llm.gateway import LLMResult

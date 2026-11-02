@@ -979,3 +979,18 @@ export async function draftDoc(kind: string, brief: string) {
 export async function editDoc(id: string, body: Record<string, unknown>) {
   return run<unknown>(`/org/docs/${id}`, { method: "PATCH", body }, ["/docs", `/docs/${id}`]);
 }
+
+// ---------- ops dispatcher (ROADMAP-V3 C2) ----------
+
+export async function newJob(body: Record<string, unknown>) {
+  return run<{ id: string; number: number; technician: string | null }>("/org/dispatch/jobs", { method: "POST", body }, ["/jobs"]);
+}
+export async function editJob(id: string, body: Record<string, unknown>) {
+  return run<{ status: string; told: string | null }>(`/org/dispatch/jobs/${id}`, { method: "PATCH", body }, ["/jobs"]);
+}
+export async function jobPhoto(id: string, form: FormData) {
+  return upload<{ path: string }>(`/org/dispatch/jobs/${id}/photos`, form, ["/jobs"]);
+}
+export async function addTechnician(body: Record<string, unknown>) {
+  return run<{ id: string }>("/org/dispatch/technicians", { method: "POST", body }, ["/jobs"]);
+}

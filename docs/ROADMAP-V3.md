@@ -49,14 +49,14 @@
 | Festival & seasonal campaigns | The Indian calendar plus offers, posts and WhatsApp broadcasts (needs approved broadcast templates) |
 | SOP & proposal drafter (11.5) | Builds on the proposal builder |
 
-## Wave C: needs outside access or a decision
+## Wave C: needs outside access or a decision (✅ copilot + dispatcher built 2026-11-02: [flows/agents/v3-agents.md](flows/agents/v3-agents.md#wave-c-2026-11-02))
 
 | Agent | Needs |
 |---|---|
 | Google Business Profile manager | Google Business Profile API approval |
 | Returns & refunds (11.2) | A Shopify / WooCommerce connection |
-| Ops dispatcher (11.4) | Large; for home-services clients |
-| Business copilot (10.4) | Large; the premium tier |
+| Ops dispatcher (11.4) ✅ | Large; for home-services clients |
+| Business copilot (10.4) ✅ | Large; the premium tier |
 | Hindi / regional languages (8.5) | A Sarvam key |
 | Ad-spend watchdog | Meta / Google Ads API access |
 | Law-firm pack | eCourts data access |

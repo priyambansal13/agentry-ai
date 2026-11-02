@@ -131,3 +131,25 @@ Migrations 0044–0048. Tests:
 - `test_festivals.py`
 - `test_doc_drafter.py`
 - `test_engagement.py`
+
+# Wave C (2026-11-02)
+
+## Business copilot (premium tier: Ask your business can now act)
+
+- **Ask, then plan.** On `/ask` or the Telegram team bot (now with voice notes), "remind Rohan about E-1 and note he promised Friday" becomes a **plan** of checked steps. The steps are: message a customer, send an invoice reminder with a payment link, move or cancel an appointment, add a note, open a ticket, mark a renewal done.
+- **Checked before it is shown.** Each step is checked while it is planned: does the customer exist, and is there only one match? Is the invoice open? Does the person's role allow it? Is the agent switched on? If anything fails, the model hears the reason and fixes the step or asks.
+- **Nothing runs until a person taps Do it.** A plan runs once. Every step is written to the audit log, and messages still respect quiet hours (9 pm–8 am).
+- Viewers only read; staff without money permission can't plan reminders.
+- Code: `copilot_actions.py`, `copilot.py`, `api/routes/copilot_api.py` (`/org/copilot/plans/{id}/run|cancel`). Migration 0049.
+
+## Ops dispatcher (`ops_dispatcher`, page Jobs)
+
+For home-services businesses (AC repair, plumbing, pest control, cleaning).
+
+1. **Jobs come in.** The chat or WhatsApp assistant books one with the `book_job` tool, once it knows the service, the day, and an address or area. The team can also add jobs on the Jobs page.
+2. **Assignment.** The job goes to a technician who has the skill and covers the area, choosing the least loaded one under their daily limit. If nobody fits, the job stays **new** and a card asks a person to assign it.
+3. **Technician.** "Send to <name> on WhatsApp" opens a wa.me message with the address, the problem and the customer's phone.
+4. **Customer updates.** The customer hears "on the way" and "done" (when *tell customers* is on, never at night). Photos can be attached from a phone.
+5. **Invoice.** A job marked done with an amount becomes invoice `JOB-<n>` (due in *invoice days*), and the invoice follow-up agent chases it.
+
+The board shows a day, plus older jobs that are still open. Metric: `jobs_done`. Code: `automations/dispatcher`, `api/routes/dispatch_api.py`. Migration 0050.

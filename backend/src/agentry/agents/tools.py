@@ -62,8 +62,17 @@ CATALOG_TOOLS = [
 ]
 
 
+DISPATCH_TOOLS = [
+    _fn("book_job", "Book a technician's visit (repair, service, installation) after getting the name, phone, address or area, service, problem and day.",
+        {"name": {"type": "string"}, "phone": {"type": "string"}, "address": {"type": "string"}, "area": {"type": "string"},
+         "service": {"type": "string"}, "problem": {"type": "string"}, "day": {"type": "string", "description": "YYYY-MM-DD"},
+         "slot": {"type": "string", "enum": ["morning", "afternoon", "evening", "any"]}}, ["name", "service", "day"]),
+]
+
+
 def tool_defs(extras: tuple[str, ...] = ()) -> list[dict]:
-    return TOOL_DEFS + (SUPPORT_TOOLS if "support" in extras else []) + (CATALOG_TOOLS if "catalog" in extras else [])
+    return (TOOL_DEFS + (SUPPORT_TOOLS if "support" in extras else []) + (CATALOG_TOOLS if "catalog" in extras else [])
+            + (DISPATCH_TOOLS if "dispatch" in extras else []))
 
 
 PARTS = {"morning": (0, 12), "afternoon": (12, 16), "evening": (16, 24), "any": (0, 24)}
@@ -101,6 +110,9 @@ async def run_tool(name: str, args: dict[str, Any], *, org_id: str, conversation
                                       category=str(args.get("category") or "other"), priority=str(args.get("priority") or "normal"),
                                       conversation_id=conversation_id, order_ref=args.get("order_ref"))
             return {"ticket": t["number"], "tell_customer": f"Your ticket number is #{t['number']}. The team will reply here."}
+        if name == "book_job":
+            from agentry.automations.dispatcher import job_from_chat
+            return await job_from_chat(org_id, conversation_id, args)
         if name == "search_catalog":
             from agentry.automations.catalog_quotes import search_catalog
             return await search_catalog(org_id, str(args.get("query", "")))

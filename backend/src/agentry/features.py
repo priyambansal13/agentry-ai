@@ -73,6 +73,8 @@ FEATURES: dict[str, Feature] = {
     "festival_campaigns": Feature(pages=("needs-you", "festivals"), connections=(), steps=("settings",), go_live=()),
     # SOPs with a flowchart, proposals and checklists from one brief (ROADMAP-V3 B4)
     "doc_drafter": Feature(pages=("docs",), connections=(), steps=(), go_live=()),
+    # service requests -> jobs -> technicians, customer updates, invoices (ROADMAP-V3 C2); booked through the chat agents
+    "ops_dispatcher": Feature(pages=("needs-you", "jobs", "conversations", "invoices"), connections=("whatsapp",), steps=("settings",), go_live=()),
     "video_studio": Feature(pages=("needs-you", "videos"), connections=("youtube",), steps=("connect", "settings"), go_live=()),
 }
 # CA Firm pack (docs/PACKS.md): the firm's clients (ca-clients), the filing board (filings), the due-date calendar (compliance)
