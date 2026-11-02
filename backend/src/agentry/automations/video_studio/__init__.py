@@ -164,9 +164,10 @@ async def context(conn: AsyncConnection, org_id: str, cfg: dict) -> dict:
     recent = list((await conn.execute(text("""select topic from app.ai_videos where topic is not null and created_at > now() - interval '60 days'
         and status not in ('skipped','rejected') order by created_at desc limit 30"""))).scalars())
     kit = await brand.get_kit(conn, org_id)
+    learning = (prof.get("profile") or {}).get("content_learning")
     about = ((prof.get("profile") or {}).get("about") or (prof.get("profile") or {}).get("description") or prof.get("industry_pack") or "")
     return {"business": business, "about": str(about)[:600] or f"a {prof.get('industry_pack') or 'local'} business", "services": ", ".join(services) or "(not listed)",
-            "recent": recent, "kit": kit}
+            "recent": recent, "kit": kit, "learning": learning}
 
 
 async def plan_video(org_id: str, vid: str) -> dict:
@@ -184,6 +185,8 @@ async def plan_video(org_id: str, vid: str) -> dict:
                         f"${spent:.2f} of ${cfg['monthly_budget_usd']:.0f} used. Raise the budget in the AI video studio settings to keep going.")
             return {"status": "skipped"}
     ideas = [t for t in cfg["topics"] if t.lower() not in {r.lower() for r in ctx["recent"]}] or cfg["topics"]
+    best = [t.lower() for t in (ctx.get("learning") or {}).get("top_topics") or []]
+    ideas.sort(key=lambda t: 0 if any(b in t.lower() or t.lower() in b for b in best) else 1)  # what did well before goes first
     topic = v["topic"] or (ideas[0] if ideas else None)
     prompt, check = load("video_plan"), load("video_check")
     feedback, problems, plan = "", [], {}

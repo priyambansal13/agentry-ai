@@ -117,8 +117,8 @@ async def publish_instagram(org_id: str, post_id: str, conn_row: dict) -> str:
             error = str(e)
         else:
             async with tenant_session(org_id) as conn:
-                await conn.execute(text("""update app.content_posts set published_at = now(), publish_ref = :r, publish_error = null,
-                    updated_at = now() where id = cast(:i as uuid)"""), {"r": out["permalink"] or f"instagram:{out['id']}", "i": post_id})
+                await conn.execute(text("""update app.content_posts set published_at = now(), publish_ref = :r, publish_id = :pid, publish_error = null,
+                    updated_at = now() where id = cast(:i as uuid)"""), {"r": out["permalink"] or f"instagram:{out['id']}", "pid": str(out["id"]), "i": post_id})
                 await emit(conn, org_id, "content.published", {"post_id": post_id, "platform": "instagram", "url": out["permalink"]})
             return "ok"
     async with tenant_session(org_id) as conn:
@@ -146,8 +146,8 @@ async def publish_linkedin(org_id: str, post_id: str, conn_row: dict) -> str:
             await conn.execute(text("update app.content_posts set publish_error = :e where id = cast(:i as uuid)"), {"e": str(e)[:300], "i": post_id})
         return "failed"
     async with tenant_session(org_id) as conn:
-        await conn.execute(text("""update app.content_posts set published_at = now(), publish_ref = :r, publish_error = null, updated_at = now()
-            where id = cast(:i as uuid)"""), {"r": out["permalink"] or f"linkedin:{out['id']}", "i": post_id})
+        await conn.execute(text("""update app.content_posts set published_at = now(), publish_ref = :r, publish_id = :pid, publish_error = null, updated_at = now()
+            where id = cast(:i as uuid)"""), {"r": out["permalink"] or f"linkedin:{out['id']}", "pid": str(out["id"]), "i": post_id})
         await emit(conn, org_id, "content.published", {"post_id": post_id, "platform": "linkedin", "url": out["permalink"]})
     return "ok"
 

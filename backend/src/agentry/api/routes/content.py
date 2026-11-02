@@ -479,3 +479,17 @@ async def export_longform(lid: str, ctx: Viewer, format: Literal["md", "html"] =
                         headers={"Content-Disposition": f'attachment; filename="{name}.html"'})
     head = f"# {row['title']}\n\n" + (f"> {row['summary']}\n\n" if row["summary"] else "")
     return Response(head + row["body"] + "\n", media_type="text/markdown", headers={"Content-Disposition": f'attachment; filename="{name}.md"'})
+
+
+# ---------- engagement loop (ROADMAP-V3 B5) ----------
+
+@router.get("/engagement")
+async def engagement(ctx: Viewer) -> dict:
+    from agentry.automations.content.engagement import learning_of
+    async with tenant_session(ctx.org_id) as conn:
+        learned = await learning_of(conn)
+        rows = (await conn.execute(text("""select m.kind, m.ref_id::text, m.platform, m.at_hours, m.views, m.likes, m.comments, m.shares, m.saves, m.reach, m.score,
+              coalesce(left(p.body, 120), v.plan->>'title') as label, coalesce(p.publish_ref, v.publish->>'url') as url
+            from app.post_metrics m left join app.content_posts p on m.kind = 'post' and p.id = m.ref_id
+            left join app.ai_videos v on m.kind = 'video' and v.id = m.ref_id order by m.score desc limit 30"""))).mappings().all()
+    return {"learning": learned, "top": [dict(r) | {"score": float(r["score"])} for r in rows]}

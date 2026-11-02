@@ -17,6 +17,9 @@ export default async function ContentPage() {
     api<{ recordings: number; generated: number; approved_as_written_pct: number | null; published: number; turnaround_minutes: number | null }>(
       "/org/content/results?days=30", { orgId: active.id }),
   ]);
+  const eng = await api<{ learning: { posts_measured: number; top_topics: string[]; weak_topics: string[]; best_platform: string; best_hour: number | null; top_hooks: string[] } | null;
+    top: { label: string; platform: string; score: number; views: number | null; likes: number | null; comments: number | null; url: string | null }[] }>(
+    "/org/content/engagement", { orgId: active.id }).catch(() => null);
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -62,6 +65,16 @@ export default async function ContentPage() {
             ))}</tbody>
           </table>
         </Card>
+      )}
+      {eng?.learning && (
+        <Card><CardHeader><CardTitle>What's working</CardTitle><span className="text-sm text-muted">from {eng.learning.posts_measured} measured posts and videos</span></CardHeader>
+          <CardBody className="space-y-2 text-sm">
+            {eng.learning.top_topics.length > 0 && <p><span className="font-semibold">Topics that do best:</span> {eng.learning.top_topics.join(" · ")} <span className="text-muted">(new moments on these are ranked higher)</span></p>}
+            {eng.learning.weak_topics.length > 0 && <p><span className="font-semibold">Topics that fall flat:</span> {eng.learning.weak_topics.join(" · ")}</p>}
+            <p><span className="font-semibold">Best place:</span> {eng.learning.best_platform}{eng.learning.best_hour != null ? ` · best hour around ${eng.learning.best_hour}:00` : ""}</p>
+            {eng.top.slice(0, 5).map((t, i) => <p key={i} className="text-muted">{t.url ? <a href={t.url} target="_blank" rel="noreferrer" className="underline">{t.label}</a> : t.label}
+              {" "}· {t.platform}{t.views != null ? ` · ${t.views} views` : ""} · {t.likes ?? 0} likes · {t.comments ?? 0} comments</p>)}
+          </CardBody></Card>
       )}
     </div>
   );

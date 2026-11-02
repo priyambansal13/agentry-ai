@@ -8,7 +8,7 @@ from dbos import DBOS, SetWorkflowID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from agentry.automations.content import brand, clips, drafts, links, moments, sources
+from agentry.automations.content import brand, clips, drafts, engagement, links, moments, sources
 from agentry.db import tenant_session
 from agentry.events import emit
 from agentry.runs import current, run
@@ -70,7 +70,9 @@ async def content_find_moments(org_id: str, sid: str) -> list[str]:
         await _status(conn, sid, "finding_moments")
         s = (await conn.execute(text("select title, transcript from app.content_sources where id = cast(:i as uuid)"), {"i": sid})).mappings().one()
         kit = await brand.get_kit(conn, org_id)
-    top = moments.rank(await moments.mine(org_id, s["title"], s["transcript"]), kit["moments_per_source"])
+        learned = await engagement.learning_of(conn)
+    # what worked for this business before (engagement loop) nudges the ranking
+    top = moments.rank(engagement.boost(await moments.mine(org_id, s["title"], s["transcript"]), learned), kit["moments_per_source"])
     async with tenant_session(org_id) as conn:
         await conn.execute(text("delete from app.content_moments where source_id = cast(:i as uuid)"), {"i": sid})
         ids = []

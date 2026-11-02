@@ -17,6 +17,7 @@ from agentry.automations.ca.tracker import ca_daily
 from agentry.automations.catalog_quotes import quote_schedule
 from agentry.automations.cold_email.sending import send_cold_emails
 from agentry.automations.content.calendar import publish_scheduled
+from agentry.automations.content.engagement import engagement_schedule
 from agentry.automations.festivals import festival_schedule
 from agentry.automations.inbox_triage.digest import schedule_digests
 from agentry.automations.local_seo import seo_monthly
@@ -153,6 +154,8 @@ async def run() -> None:
          "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
         {"schedule_name": "bookkeeping-monthly", "workflow_fn": bookkeeping_monthly, "schedule": "0 0 9 1 * *",
          "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
+        {"schedule_name": "engagement", "workflow_fn": engagement_schedule, "schedule": "0 20 * * * *",
+         "context": None, "automatic_backfill": False, "cron_timezone": None, "queue_name": None},
         {"schedule_name": "festival-plans", "workflow_fn": festival_schedule, "schedule": "0 45 9 * * *",
          "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
         {"schedule_name": "seo-monthly", "workflow_fn": seo_monthly, "schedule": "0 30 8 1 * *",
