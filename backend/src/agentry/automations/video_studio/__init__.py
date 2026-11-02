@@ -5,12 +5,12 @@ and published to YouTube, on a schedule or on demand.
               last 60 days): title, description, hashtags, hook, 1-4 scenes of 8 s (Veo prompt + caption)
     check     rules (no guarantees, prices, "best", ...) + a second model's opinion; one rewrite, else a person decides
     budget    the cost is estimated before anything is generated; a video that would pass the month's budget is skipped
-    generate  one Sora 2 (OpenAI, default) or Veo 3.1 (Google) render per scene, polled every 15 s by a durable workflow (up to 12 minutes), then downloaded
+    generate  one Veo 3.1 render per scene (OpenAI retired Sora in Sep 2026), polled every 15 s by a durable workflow (up to 12 minutes), then downloaded
     compose   scenes joined at 1080x1920, the hook as a banner for 3 s, a caption per scene, the brand end card
     publish   approval mode: a review card (watch it, Approve publishes); live: published straight away; YouTube as a
               Short (#Shorts), privacy as set, marked as synthetic media
 The plan is written by OpenAI first (Gemini as the fallback; settings: planner). Test mode (no key for the chosen video
-model: OPENAI_API_KEY for Sora, AGENTRY_VIDEO_API_KEY for Veo): scenes are branded test cards, free; usage events are marked mock (not billed).
+model: AGENTRY_VIDEO_API_KEY or GEMINI_API_KEY with Veo access): scenes are branded test cards, free; usage events are marked mock (not billed).
 """
 import json
 import re
@@ -56,9 +56,9 @@ class VideoConfig(BaseModel):
     days: list[str] = Field(default_factory=lambda: ["mon", "wed", "fri"], title="Days to make a video", json_schema_extra={"editable_by": "client"})
     time: str = Field("11:00", pattern=r"^\d{2}:\d{2}$", title="Time (your timezone)", json_schema_extra={"editable_by": "client"})
     scenes: int = Field(2, ge=1, le=4, title="Scenes per video (8 seconds each)", json_schema_extra={"editable_by": "client"})
-    provider: Literal["openai", "google"] = Field("openai", title="Video model", description="openai: Sora 2. google: Veo 3.1.",
-                                                  json_schema_extra={"editable_by": "agentry"})
-    quality: Literal["fast", "standard"] = Field("fast", title="Quality", description="fast: Sora 2 / Veo fast. standard: Sora 2 Pro / Veo.",
+    provider: Literal["google"] = Field("google", title="Video model", description="Google Veo 3.1 (OpenAI retired Sora in Sep 2026).",
+                                        json_schema_extra={"editable_by": "agentry"})
+    quality: Literal["fast", "standard"] = Field("fast", title="Quality", description="fast: Veo 3.1 fast. standard: Veo 3.1.",
                                                  json_schema_extra={"editable_by": "agentry"})
     planner: Literal["openai", "gemini"] = Field("openai", title="AI that plans the videos (the other is the fallback)",
                                                  json_schema_extra={"editable_by": "agentry"})
@@ -66,8 +66,6 @@ class VideoConfig(BaseModel):
     monthly_budget_usd: float = Field(30, ge=0, le=5000, title="Monthly video budget (USD)", json_schema_extra={"editable_by": "agentry"})
     cost_per_second_fast: float = Field(0.15, ge=0, title="Veo fast: USD per second", json_schema_extra={"editable_by": "agentry"})
     cost_per_second_standard: float = Field(0.40, ge=0, title="Veo standard: USD per second", json_schema_extra={"editable_by": "agentry"})
-    cost_per_second_sora: float = Field(0.10, ge=0, title="Sora 2: USD per second", json_schema_extra={"editable_by": "agentry"})
-    cost_per_second_sora_pro: float = Field(0.30, ge=0, title="Sora 2 Pro: USD per second", json_schema_extra={"editable_by": "agentry"})
 
 
 register(AutomationTemplate(
@@ -192,7 +190,9 @@ async def plan_video(org_id: str, vid: str) -> dict:
     for attempt in range(2):
         vars_ = {"business": ctx["business"], "about": ctx["about"], "services": ctx["services"], "handle": ctx["kit"].get("handle") or "",
                  "cta": cfg["call_to_action"] or "(none)", "language": cfg["language"], "style": cfg["style"], "scenes": cfg["scenes"],
-                 "topic": topic or "(choose one)", "ideas": "; ".join(ideas[:10]) or "(none: use the services)", "recent": "; ".join(ctx["recent"][:15]) or "(none)",
+                 "topic": f"{topic} (use exactly this topic)" if v["topic"] else (topic or "(choose one)"),
+                 "ideas": "(not needed: the topic is given)" if v["topic"] else ("; ".join(ideas[:10]) or "(none: use the services)"),
+                 "recent": "; ".join(ctx["recent"][:15]) or "(none)",
                  "feedback": feedback}
         mock = _mock_plan(topic or (ctx["services"].split(",")[0] if ctx["services"] != "(not listed)" else "A day at work"), cfg["scenes"], ctx["business"],
                           cfg["call_to_action"])
@@ -411,14 +411,27 @@ async def video_fail_step(org_id: str, vid: str, error: str) -> None:
     await _set(org_id, vid, status="failed", error=error[:500], cost_usd=0)
 
 
+def _reason(e: Exception) -> str:
+    """The real error behind a step that ran out of retries (DBOS wraps it)."""
+    for x in (e, *(getattr(e, "errors", None) or [])):
+        if isinstance(x, (veo.VeoError, clips.ClipError)):
+            return str(x)
+    inner = getattr(e, "errors", None)
+    return str(inner[-1]) if inner else str(e)
+
+
 async def generate_and_finish(org_id: str, vid: str) -> str:
     try:
         await video_start_step(org_id, vid)
-    except veo.VeoError as e:
-        await video_fail_step(org_id, vid, str(e))
+    except Exception as e:  # noqa: BLE001 - after its retries a step's last error is wrapped; the video must not stay "generating"
+        await video_fail_step(org_id, vid, _reason(e))
         return "failed"
     for _ in range(POLL_MAX):
-        r = await video_poll_step(org_id, vid)
+        try:
+            r = await video_poll_step(org_id, vid)
+        except Exception as e:  # noqa: BLE001
+            await video_fail_step(org_id, vid, _reason(e))
+            return "failed"
         if r["done"]:
             break
         await DBOS.sleep_async(POLL_S)
@@ -430,8 +443,8 @@ async def generate_and_finish(org_id: str, vid: str) -> str:
         return "failed"
     try:
         await video_compose_step(org_id, vid)
-    except (veo.VeoError, clips.ClipError) as e:
-        await video_fail_step(org_id, vid, str(e))
+    except Exception as e:  # noqa: BLE001
+        await video_fail_step(org_id, vid, _reason(e))
         return "failed"
     if await video_ready_step(org_id, vid) == "publish":
         await video_publish_step(org_id, vid)

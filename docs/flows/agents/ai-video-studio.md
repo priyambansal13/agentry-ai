@@ -2,7 +2,7 @@
 
 The n8n "YT Agent using Veo 3.1" flow (a timer, a Gemini agent writes an idea, Veo makes the video, poll until done,
 upload to YouTube), rebuilt as an Agentry agent. **Models:** the plan is written by **OpenAI** (Gemini as fallback); the
-video is made by **OpenAI Sora 2** by default (same OPENAI_API_KEY), or Google Veo 3.1 (settings: video model). On top of the n8n flow, Agentry adds:
+video is made by **Google Veo 3.1**. OpenAI removed its Videos API (Sora 2 / Sora 2 Pro) on 24 Sep 2026 with no replacement. On top of the n8n flow, Agentry adds:
 
 | n8n flow | Agentry |
 |---|---|
@@ -37,7 +37,7 @@ flowchart TD
 ## Setup
 
 1. **Switch it on** in HQ.
-2. **Sora 2 (the default)** uses the server's `OPENAI_API_KEY` (OpenAI may ask to verify the organisation before video works). For **Veo** instead, set **`AGENTRY_VIDEO_API_KEY`** (a Gemini API key with Veo access, paid plan) and choose Google as the video model in settings. Without a key for the chosen model the studio runs in **test mode**: each scene is a plain branded test clip, so the whole flow can be tried without cost.
+2. **Veo** uses `AGENTRY_VIDEO_API_KEY`, else the server's `GEMINI_API_KEY`; Veo needs a **paid Gemini API plan** (the free tier has no Veo: the video fails with that message). Without any key the studio runs in **test mode**: each scene is a plain branded test clip, so the whole flow can be tried without cost.
 3. **Connect YouTube** in Settings → Connections. Sign in with the Google account that owns the channel. This needs the **YouTube Data API v3** enabled in the Google Cloud project and the redirect URI already used for Gmail. YouTube makes videos uploaded by unverified API projects **private** until the project passes Google's audit, so plan for that before relying on public uploads.
 4. **Settings** (Automations → AI video studio):
    - topics
@@ -51,7 +51,7 @@ flowchart TD
 
 ## Cost
 
-Video models bill per second. The studio estimates the cost before generating, using the rates in settings (Sora 2 $0.10 a second, Sora 2 Pro $0.30; Veo below), so a 2-scene, 16-second Sora 2 video is about $1.60:
+Video models bill per second. The studio estimates the cost before generating, using the rates in settings so a 2-scene, 16-second Veo fast video is about $2.40:
 - **fast:** $0.15 a second
 - **standard:** $0.40 a second
 

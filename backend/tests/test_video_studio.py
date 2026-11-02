@@ -16,10 +16,8 @@ pytestmark = pytest.mark.skipif(not vs.available(), reason="ffmpeg not installed
 @pytest.fixture(autouse=True)
 def no_video_keys(monkeypatch):
     """Test mode for both video models, whatever keys this machine has (no real renders, no cost)."""
-    from agentry.automations.video_studio import sora
-    from agentry.config import settings
-    monkeypatch.setattr(sora, "key", lambda: None)
-    monkeypatch.setattr(settings, "video_api_key", None)
+    from agentry.automations.video_studio import gen
+    monkeypatch.setattr(gen, "key", lambda: None)
 
 
 async def _yt(oid: str) -> None:
@@ -121,7 +119,7 @@ async def test_a_risky_plan_waits_for_a_person(client, team_org):
 
 async def test_the_budget_stops_it(client, team_org):
     oid, h = await team_org(["video_studio"])
-    await _config(oid, monthly_budget_usd=1)  # 2 scenes x 8 s x $0.10 (Sora 2) = $1.60
+    await _config(oid, monthly_budget_usd=1)  # 2 scenes x 8 s x $0.15 (Veo fast) = $2.40
     vid = (await client.post("/org/videos", headers=h["owner"], json={})).json()["id"]
     await vs.make_video({"org_id": oid, "payload": {"video_id": vid}})
     v = (await client.get(f"/org/videos/{vid}", headers=h["owner"])).json()
@@ -146,16 +144,14 @@ def test_rules_and_slots():
     plan = {"title": "Cheapest AC service in town", "description": "Only ₹499", "hook": "x", "scenes": [{"prompt": "short", "caption": "c"}]}
     probs = vs.rule_problems(plan, 2)
     assert any("exactly 2" in p for p in probs) and any("risky" in p for p in probs) and any("fuller prompt" in p for p in probs)
-    assert vs.estimate(vs.VideoConfig(scenes=3, quality="standard", provider="google").model_dump()) == 9.6   # Veo
-    assert vs.estimate(vs.VideoConfig(scenes=3, quality="standard").model_dump()) == 7.2                      # Sora 2 Pro
-    assert vs.estimate(vs.VideoConfig(scenes=2).model_dump()) == 1.6                                          # Sora 2
+    assert vs.estimate(vs.VideoConfig(scenes=3, quality="standard").model_dump()) == 9.6   # Veo 3.1
+    assert vs.estimate(vs.VideoConfig(scenes=2).model_dump()) == 2.4                      # Veo 3.1 fast
 
 
 async def test_veo_requests_and_replies(monkeypatch):
     """The real Veo path against canned Gemini API answers (no network)."""
-    from agentry.automations.video_studio import veo
-    from agentry.config import settings
-    monkeypatch.setattr(settings, "video_api_key", "k")
+    from agentry.automations.video_studio import gen, veo
+    monkeypatch.setattr(gen, "key", lambda: "k")
     calls, answers = [], []
 
     class Resp:
@@ -209,46 +205,13 @@ async def test_plan_again_after_the_models_were_busy(client, team_org, monkeypat
     assert (await client.post(f"/org/videos/{vid}/replan", headers=h["owner"])).status_code == 409  # only when it needs a look
 
 
-async def test_sora_requests_and_replies(monkeypatch):
-    """The real Sora 2 path against canned OpenAI answers (no network)."""
-    from agentry.automations.video_studio import gen, sora
-    monkeypatch.setattr(sora, "key", lambda: "sk-test")
-    assert not gen.test_mode("openai") and gen.model_name("openai", "standard") == "sora-2-pro"
-    calls, answers = [], []
+def test_a_failed_step_explains_itself():
+    """After its retries DBOS wraps a step's error; the video records the real reason (and doesn't stay 'generating')."""
+    from dbos._error import DBOSMaxStepRetriesExceeded
 
-    class Resp:
-        def __init__(self, status, body, content=b"x"):
-            self.status_code, self._b, self.content, self.text = status, body, content, json.dumps(body)
-
-        def json(self):
-            return self._b
-
-    class Fake:
-        def __init__(self, *a, **k): ...
-        async def __aenter__(self):
-            return self
-        async def __aexit__(self, *a): ...
-        async def post(self, url, files=None, headers=None):
-            calls.append((url, {k: v[1] for k, v in files.items()}, headers))
-            return Resp(200, {"id": "video_123", "status": "queued"})
-        async def get(self, url, headers=None, **k):
-            calls.append((url, None, headers))
-            return answers.pop(0)
-    monkeypatch.setattr(sora, "client", Fake)
-    name = await gen.start("openai", "a chai stall at dawn", quality="fast")
-    url, form, headers = calls[0]
-    assert name == "sora:video_123" and url == "https://api.openai.com/v1/videos" and headers["Authorization"] == "Bearer sk-test"
-    assert form == {"model": "sora-2", "prompt": "a chai stall at dawn", "size": "720x1280", "seconds": "8"}
-    answers += [Resp(200, {"id": "video_123", "status": "in_progress", "progress": 40}), Resp(200, {"id": "video_123", "status": "completed"}),
-                Resp(200, {}, content=b"MP4DATA"), Resp(200, {"id": "video_123", "status": "failed", "error": {"message": "moderation"}})]
-    assert (await gen.poll(name))["done"] is False
-    assert (await gen.poll(name)) == {"done": True, "uri": "sora:video_123", "error": None}
-    import tempfile
-    from pathlib import Path
-    with tempfile.TemporaryDirectory() as t:
-        out = await gen.download(name, Path(t) / "s.mp4")
-        assert out.read_bytes() == b"MP4DATA" and calls[-1][0].endswith("/videos/video_123/content")
-    assert (await gen.poll(name))["error"] == "moderation"
+    from agentry.automations.video_studio.veo import VeoError
+    e = DBOSMaxStepRetriesExceeded("video_start_step", 3, [VeoError("Veo isn't available on this Gemini API key")])
+    assert vs._reason(e) == "Veo isn't available on this Gemini API key"
 
 
 async def test_the_planner_prefers_openai(monkeypatch):

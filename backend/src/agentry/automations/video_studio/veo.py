@@ -4,7 +4,7 @@
               negativePrompt}} -> an operation name
     poll      GET {operation} until "done"; the video is response.generateVideoResponse.generatedSamples[0].video.uri
     download  GET that uri with the API key (it redirects to the file)
-Without settings.video_api_key everything runs in test mode: the "operation" is done at once and the clip is a plain
+Without a key (gen.key) everything runs in test mode: the "operation" is done at once and the clip is a plain
 branded test card made with ffmpeg, so the whole studio can be tried (and tested) without cost.
 """
 import asyncio
@@ -16,7 +16,6 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 from agentry.automations.content import images
-from agentry.config import settings
 from agentry.connectors.http import client
 
 BASE = "https://generativelanguage.googleapis.com/v1beta"
@@ -30,12 +29,17 @@ class VeoError(RuntimeError):
         self.retry = retry
 
 
+def _key() -> str:
+    from agentry.automations.video_studio.gen import key
+    return key() or ""
+
+
 def test_mode() -> bool:
-    return not settings.video_api_key
+    return not _key()
 
 
 def _headers() -> dict:
-    return {"x-goog-api-key": settings.video_api_key or "", "Content-Type": "application/json"}
+    return {"x-goog-api-key": _key(), "Content-Type": "application/json"}
 
 
 async def start(prompt: str, *, quality: str = "fast", aspect: str = "9:16", seconds: int = 8) -> str:
@@ -46,8 +50,10 @@ async def start(prompt: str, *, quality: str = "fast", aspect: str = "9:16", sec
         r = await c.post(f"{BASE}/models/{MODELS[quality]}:predictLongRunning", json=body, headers=_headers())
     if r.status_code == 429 or r.status_code >= 500:
         raise VeoError(f"Veo is busy ({r.status_code})", retry=True)
+    if r.status_code == 404:
+        raise VeoError("Veo isn't available on this Gemini API key: it needs a paid Gemini API plan with Veo access")
     if r.status_code >= 400:
-        raise VeoError(f"Veo refused the request: {r.text[:300]}")
+        raise VeoError(f"Veo refused the request ({r.status_code}): {r.text[:300]}")
     return r.json()["name"]
 
 
@@ -79,7 +85,7 @@ async def download(uri: str, out: Path, caption: str = "", kit: dict | None = No
     if uri.startswith("test:"):
         return await test_clip(out, caption, kit or {}, seconds, aspect)
     async with client(timeout=180) as c:
-        r = await c.get(uri, headers={"x-goog-api-key": settings.video_api_key or ""}, follow_redirects=True)
+        r = await c.get(uri, headers={"x-goog-api-key": _key()}, follow_redirects=True)
     if r.status_code >= 400 or not r.content:
         raise VeoError(f"couldn't download the video ({r.status_code})", retry=r.status_code >= 500)
     out.write_bytes(r.content)
