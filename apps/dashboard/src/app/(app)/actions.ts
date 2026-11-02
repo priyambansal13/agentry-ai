@@ -929,3 +929,15 @@ export async function scriptToVideo(id: string) {
 export async function scriptStatus(id: string, status: string) {
   return run<unknown>(`/org/videos/scripts/${id}`, { method: "PATCH", body: { status } }, ["/videos"]);
 }
+
+// ---------- local SEO (ROADMAP-V3 B1) ----------
+
+export async function runSeoAudit(url: string | null) {
+  return run<{ score: number }>("/org/seo/audit", { method: "POST", body: { url: url || null } }, ["/seo"]);
+}
+export async function writeSeoArticle(topic: string) {
+  return run<{ id: string }>("/org/seo/articles", { method: "POST", body: { topic } }, ["/seo"]);
+}
+export async function editSeoArticle(id: string, body: Record<string, unknown>) {
+  return run<unknown>(`/org/seo/articles/${id}`, { method: "PATCH", body }, ["/seo", `/seo/${id}`]);
+}

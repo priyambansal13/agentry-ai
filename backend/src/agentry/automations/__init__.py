@@ -46,6 +46,7 @@ def load_all() -> None:
         invoice_follow_up,
         lead_reactivation,
         lead_research,
+        local_seo,
         renewals,
         reviews,
         speed_to_lead,

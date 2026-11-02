@@ -65,6 +65,8 @@ FEATURES: dict[str, Feature] = {
     "renewals": Feature(pages=("renewals",), connections=("whatsapp", "gmail", "gateways"), steps=("connect", "import", "settings", "compliance"), go_live=()),
     # CVs scored with reasons quoted from the CV, shortlist, interviews, regrets (ROADMAP-V3 A5)
     "hiring": Feature(pages=("needs-you", "hiring"), connections=("whatsapp", "gmail"), steps=("settings",), go_live=()),
+    # website audit for local search + articles from the business's own facts (ROADMAP-V3 B1)
+    "local_seo": Feature(pages=("needs-you", "seo", "knowledge"), connections=(), steps=("knowledge", "settings"), go_live=()),
     "video_studio": Feature(pages=("needs-you", "videos"), connections=("youtube",), steps=("connect", "settings"), go_live=()),
 }
 # CA Firm pack (docs/PACKS.md): the firm's clients (ca-clients), the filing board (filings), the due-date calendar (compliance)
