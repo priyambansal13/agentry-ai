@@ -14,7 +14,7 @@ from sqlalchemy import text
 from agentry import audit
 from agentry.auth import OrgContext, require
 from agentry.automations import video_studio as vs
-from agentry.automations.video_studio import veo
+from agentry.automations.video_studio import gen
 from agentry.connectors.store import get_connection
 from agentry.db import tenant_session
 from agentry.events import emit
@@ -33,7 +33,8 @@ async def videos(ctx: Viewer) -> dict:
         rows = (await conn.execute(text(f"select {COLS} from app.ai_videos order by created_at desc limit 100"))).mappings().all()
         spent = await vs.spent_this_month(conn, datetime.now(UTC))
     yt = await get_connection(ctx.org_id, "youtube")
-    return {"items": [dict(r) for r in rows], "status": status, "test_mode": veo.test_mode(), "youtube": (yt or {}).get("display_name"),
+    return {"items": [dict(r) for r in rows], "status": status, "test_mode": gen.test_mode(cfg["provider"]), "youtube": (yt or {}).get("display_name"),
+            "provider": cfg["provider"], "model": gen.model_name(cfg["provider"], cfg["quality"]),
             "spent": round(spent, 2), "budget": cfg["monthly_budget_usd"], "estimate": vs.estimate(cfg),
             "schedule": {"days": cfg["days"], "time": cfg["time"]}, "can_edit": ctx.can("automation", "configure")}
 
@@ -106,10 +107,9 @@ async def generate(vid: str, ctx: Editor) -> dict:
             raise HTTPException(409, "only a plan that needs attention can be generated this way")
         if len(v["plan"].get("scenes") or []) < 1:
             raise HTTPException(422, "the plan has no scenes")
-        cost = 0 if veo.test_mode() else round(len(v["plan"]["scenes"]) * vs.SCENE_S * (cfg["cost_per_second_standard"] if cfg["quality"] == "standard"
-                                                                                   else cfg["cost_per_second_fast"]), 2)
+        cost = 0 if gen.test_mode(cfg["provider"]) else round(len(v["plan"]["scenes"]) * vs.SCENE_S * gen.rate(cfg), 2)
         await conn.execute(text("""update app.ai_videos set status = 'generating', error = null, cost_usd = :c, seconds = :s, model = :m
-            where id = cast(:i as uuid)"""), {"c": cost, "s": len(v["plan"]["scenes"]) * vs.SCENE_S, "m": "test" if veo.test_mode() else veo.MODELS[cfg["quality"]], "i": vid})
+            where id = cast(:i as uuid)"""), {"c": cost, "s": len(v["plan"]["scenes"]) * vs.SCENE_S, "m": gen.model_name(cfg["provider"], cfg["quality"]), "i": vid})
         await conn.execute(text("""update app.approvals set status = 'resolved', decided_by = :u, decided_at = now()
             where kind = 'video_review' and status = 'pending' and payload->>'video_id' = :v"""), {"u": ctx.principal.user_id, "v": vid})
         await emit(conn, ctx.org_id, "video.plan_approved", {"video_id": vid})

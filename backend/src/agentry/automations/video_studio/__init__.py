@@ -5,11 +5,12 @@ and published to YouTube, on a schedule or on demand.
               last 60 days): title, description, hashtags, hook, 1-4 scenes of 8 s (Veo prompt + caption)
     check     rules (no guarantees, prices, "best", ...) + a second model's opinion; one rewrite, else a person decides
     budget    the cost is estimated before anything is generated; a video that would pass the month's budget is skipped
-    generate  one Veo operation per scene, polled every 15 s by a durable workflow (up to 12 minutes), then downloaded
+    generate  one Sora 2 (OpenAI, default) or Veo 3.1 (Google) render per scene, polled every 15 s by a durable workflow (up to 12 minutes), then downloaded
     compose   scenes joined at 1080x1920, the hook as a banner for 3 s, a caption per scene, the brand end card
     publish   approval mode: a review card (watch it, Approve publishes); live: published straight away; YouTube as a
               Short (#Shorts), privacy as set, marked as synthetic media
-Test mode (no AGENTRY_VIDEO_API_KEY): scenes are branded test cards, free; usage events are marked mock (not billed).
+The plan is written by OpenAI first (Gemini as the fallback; settings: planner). Test mode (no key for the chosen video
+model: OPENAI_API_KEY for Sora, AGENTRY_VIDEO_API_KEY for Veo): scenes are branded test cards, free; usage events are marked mock (not billed).
 """
 import json
 import re
@@ -27,7 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from agentry.automations import AutomationTemplate, register
 from agentry.automations.content import brand, clips
-from agentry.automations.video_studio import veo
+from agentry.automations.video_studio import gen, veo
 from agentry.config import settings
 from agentry.db import system_session, tenant_session
 from agentry.events import emit
@@ -55,11 +56,18 @@ class VideoConfig(BaseModel):
     days: list[str] = Field(default_factory=lambda: ["mon", "wed", "fri"], title="Days to make a video", json_schema_extra={"editable_by": "client"})
     time: str = Field("11:00", pattern=r"^\d{2}:\d{2}$", title="Time (your timezone)", json_schema_extra={"editable_by": "client"})
     scenes: int = Field(2, ge=1, le=4, title="Scenes per video (8 seconds each)", json_schema_extra={"editable_by": "client"})
-    quality: Literal["fast", "standard"] = Field("fast", title="Veo model", json_schema_extra={"editable_by": "agentry"})
+    provider: Literal["openai", "google"] = Field("openai", title="Video model", description="openai: Sora 2. google: Veo 3.1.",
+                                                  json_schema_extra={"editable_by": "agentry"})
+    quality: Literal["fast", "standard"] = Field("fast", title="Quality", description="fast: Sora 2 / Veo fast. standard: Sora 2 Pro / Veo.",
+                                                 json_schema_extra={"editable_by": "agentry"})
+    planner: Literal["openai", "gemini"] = Field("openai", title="AI that plans the videos (the other is the fallback)",
+                                                 json_schema_extra={"editable_by": "agentry"})
     privacy: Literal["public", "unlisted", "private"] = Field("public", title="YouTube visibility", json_schema_extra={"editable_by": "client"})
     monthly_budget_usd: float = Field(30, ge=0, le=5000, title="Monthly video budget (USD)", json_schema_extra={"editable_by": "agentry"})
     cost_per_second_fast: float = Field(0.15, ge=0, title="Veo fast: USD per second", json_schema_extra={"editable_by": "agentry"})
     cost_per_second_standard: float = Field(0.40, ge=0, title="Veo standard: USD per second", json_schema_extra={"editable_by": "agentry"})
+    cost_per_second_sora: float = Field(0.10, ge=0, title="Sora 2: USD per second", json_schema_extra={"editable_by": "agentry"})
+    cost_per_second_sora_pro: float = Field(0.30, ge=0, title="Sora 2 Pro: USD per second", json_schema_extra={"editable_by": "agentry"})
 
 
 register(AutomationTemplate(
@@ -79,8 +87,7 @@ async def settings_of(conn: AsyncConnection) -> tuple[str | None, dict]:
 
 
 def estimate(cfg: dict) -> float:
-    rate = cfg["cost_per_second_standard"] if cfg["quality"] == "standard" else cfg["cost_per_second_fast"]
-    return round(cfg["scenes"] * SCENE_S * rate, 2)
+    return round(cfg["scenes"] * SCENE_S * gen.rate(cfg), 2)
 
 
 async def spent_this_month(conn: AsyncConnection, now: datetime) -> float:
@@ -191,13 +198,13 @@ async def plan_video(org_id: str, vid: str) -> dict:
                           cfg["call_to_action"])
         try:
             res = await complete(prompt.tier, prompt.render(**vars_), org_id=org_id, prompt_key=prompt.key, prompt_version=prompt.version,
-                                 json_output=True, mock_response=json.dumps(mock), temperature=0.7)
+                                 json_output=True, mock_response=json.dumps(mock), temperature=0.7, prefer=cfg["planner"])
             plan = res.data if isinstance(res.data, dict) else {}
             problems = rule_problems(plan, cfg["scenes"])
             if not problems:
                 c = await complete(check.tier, check.render(business=ctx["business"], about=ctx["about"], services=ctx["services"], plan=json.dumps(plan, ensure_ascii=False)),
                                    org_id=org_id, prompt_key=check.key, prompt_version=check.version, json_output=True,
-                                   mock_response=json.dumps({"ok": True, "problems": []}), temperature=0)
+                                   mock_response=json.dumps({"ok": True, "problems": []}), temperature=0, prefer=cfg["planner"])
                 verdict = c.data if isinstance(c.data, dict) else {"ok": True, "problems": []}
                 problems = [] if verdict.get("ok") else [str(p) for p in verdict.get("problems") or ["the reviewer flagged it"]]
         except AllModelsFailed:
@@ -217,7 +224,7 @@ async def plan_video(org_id: str, vid: str) -> dict:
                         "Problems: " + "; ".join(problems) + ". Edit the plan and generate it, or reject it.")
         return {"status": "needs_attention", "problems": problems}
     await _set(org_id, vid, status="generating", plan=plan, checks=checks, topic=(plan.get("topic") or topic or "")[:200] or None,
-               model=("test" if veo.test_mode() else veo.MODELS[cfg["quality"]]), cost_usd=0 if veo.test_mode() else cost, seconds=cfg["scenes"] * SCENE_S)
+               model=gen.model_name(cfg["provider"], cfg["quality"]), cost_usd=0 if gen.test_mode(cfg["provider"]) else cost, seconds=cfg["scenes"] * SCENE_S)
     return {"status": "generating"}
 
 
@@ -232,7 +239,7 @@ async def start_scenes(org_id: str, vid: str) -> list[dict]:
     for i, s in enumerate(v["plan"]["scenes"]):
         if i < len(ops) and ops[i].get("name"):
             continue  # started before a restart
-        name = await veo.start(f"{s['prompt']} Style: {style}. Vertical 9:16 framing.", quality=cfg["quality"], aspect="9:16", seconds=SCENE_S)
+        name = await gen.start(cfg["provider"], f"{s['prompt']} Style: {style}. Vertical 9:16 framing.", quality=cfg["quality"], aspect="9:16", seconds=SCENE_S)
         ops = [*ops[:i], {"name": name, "status": "running"}, *ops[i + 1:]]
         await _set(org_id, vid, ops=ops)
     return ops
@@ -243,7 +250,7 @@ async def poll_scenes(org_id: str, vid: str) -> dict:
         ops = list((await conn.execute(text("select ops from app.ai_videos where id = cast(:i as uuid)"), {"i": vid})).scalar_one() or [])
     for o in ops:
         if o["status"] == "running":
-            r = await veo.poll(o["name"])
+            r = await gen.poll(o["name"])
             if r["done"]:
                 o.update(status="failed" if r["error"] else "done", uri=r["uri"], error=r["error"])
     await _set(org_id, vid, ops=ops)
@@ -260,7 +267,7 @@ async def compose(org_id: str, vid: str) -> dict:
     for i, (o, s) in enumerate(zip(v["ops"], v["plan"]["scenes"], strict=False)):
         p = out_dir / f"scene-{i + 1}.mp4"
         if not p.exists():
-            await veo.download(o["uri"], p, caption=s.get("caption") or "", kit=kit, seconds=SCENE_S)
+            await gen.download(o["uri"], p, caption=s.get("caption") or "", kit=kit, seconds=SCENE_S)
         scenes.append(p)
     out = out_dir / "video.mp4"
     length = await render(scenes, out, v["plan"], kit, business, brand.logo_path(kit))
@@ -416,7 +423,7 @@ async def generate_and_finish(org_id: str, vid: str) -> str:
             break
         await DBOS.sleep_async(POLL_S)
     else:
-        await video_fail_step(org_id, vid, "Veo took longer than 12 minutes")
+        await video_fail_step(org_id, vid, "the video model took longer than 12 minutes")
         return "failed"
     if r["failed"]:
         await video_fail_step(org_id, vid, "; ".join(e or "a scene failed" for e in r["failed"]))

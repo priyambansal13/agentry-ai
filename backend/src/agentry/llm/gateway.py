@@ -127,8 +127,11 @@ async def complete(
     mock_response: str | None = None,
     temperature: float = 0.2,
     record: bool = True,
+    prefer: str | None = None,
 ) -> LLMResult:
     chain = await models_for(tier, org_id)
+    if prefer:  # this caller would rather use one provider (e.g. "openai"); the others stay as fallbacks
+        chain = [m for m in chain if provider_of(m) == prefer] + [m for m in chain if provider_of(m) != prefer]
     if not chain:
         return await _mock(tier, json_output, mock_response, org_id, prompt_key, prompt_version, record)
 
