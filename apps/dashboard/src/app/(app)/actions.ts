@@ -963,3 +963,12 @@ export async function planFestival(festival: string, on_date: string) {
 export async function festivalStatus(id: string, status: string) {
   return run<unknown>(`/org/festivals/plans/${id}`, { method: "PATCH", body: { status } }, ["/festivals"]);
 }
+
+// ---------- SOP & proposal drafter (ROADMAP-V3 B4) ----------
+
+export async function draftDoc(kind: string, brief: string) {
+  return run<{ id: string }>("/org/docs", { method: "POST", body: { kind, brief } }, ["/docs"]);
+}
+export async function editDoc(id: string, body: Record<string, unknown>) {
+  return run<unknown>(`/org/docs/${id}`, { method: "PATCH", body }, ["/docs", `/docs/${id}`]);
+}

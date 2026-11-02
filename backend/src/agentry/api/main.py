@@ -13,6 +13,7 @@ from agentry.api.routes import (
     connections,
     content,
     copilot_api,
+    docs_api,
     festivals_api,
     governance_api,
     hiring_api,
@@ -60,7 +61,7 @@ app.add_middleware(
 load_all()
 for r in (public.router, me.router, org.router, work.router, setup.router, connections.router, business.router,
           billing_api.router, hq.router, voice.router, webhooks.router, cold_email.router, content.router, notification_center.router, runs_api.router, governance_api.router,
-          calendar_api.router, bookkeeping_api.router, ca_api.router, videos.router, tickets.router, quotes.router, renewals_api.router, hiring_api.router, seo_api.router, stock_api.router, festivals_api.router, bookkeeping_api.clients_router, reviews_api.router, watch_api.router, copilot_api.router):
+          calendar_api.router, bookkeeping_api.router, ca_api.router, videos.router, tickets.router, quotes.router, renewals_api.router, hiring_api.router, seo_api.router, stock_api.router, festivals_api.router, docs_api.router, bookkeeping_api.clients_router, reviews_api.router, watch_api.router, copilot_api.router):
     app.include_router(r)
 
 
