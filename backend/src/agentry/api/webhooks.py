@@ -65,6 +65,13 @@ async def razorpay_events(connection_id: str, request: Request) -> dict:
         return {"ok": True, "ignored": ev.get("event")}
     pay = ev["payload"]["payment"]["entity"]
     notes = {**(ev["payload"].get("payment_link", {}).get("entity", {}).get("notes") or {}), **(pay.get("notes") or {})}
+    if notes.get("renewal_id"):  # a renewal's payment link (agentry/automations/renewals): renewed, not an invoice payment
+        from agentry.automations.renewals import renewal_paid
+        try:
+            await renewal_paid(gw["org_id"], notes["renewal_id"])
+        except ValueError:
+            return {"ok": True, "ignored": "renewal not found"}
+        return {"ok": True, "renewal": notes["renewal_id"]}
     async with tenant_session(gw["org_id"]) as conn:
         amount = Decimal(pay["amount"]) / 100
         inv, strength = await match_invoice(conn, invoice_hint=notes.get("invoice_id"), amount=amount,

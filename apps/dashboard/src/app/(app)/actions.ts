@@ -893,3 +893,15 @@ export async function sendQuote(id: string) {
 export async function quoteOutcome(id: string, outcome: "won" | "lost") {
   return run<unknown>(`/org/quotes/${id}/outcome`, { method: "POST", body: { outcome } }, ["/quotes"]);
 }
+
+// ---------- renewals (ROADMAP-V3 A4) ----------
+
+export async function importRenewals(form: FormData) {
+  return upload<{ added: number; skipped_rows: number[] }>("/org/renewals/import", form, ["/renewals"]);
+}
+export async function addRenewal(body: Record<string, unknown>) {
+  return run<{ id: string }>("/org/renewals", { method: "POST", body }, ["/renewals"]);
+}
+export async function markRenewal(id: string, action: "renewed" | "cancelled") {
+  return run<unknown>(`/org/renewals/${id}/mark`, { method: "POST", body: { action } }, ["/renewals"]);
+}

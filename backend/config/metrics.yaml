@@ -75,3 +75,9 @@ metrics:
     event_type: quote.won
     aggregation: count
     unit: count
+  - key: renewals_won
+    name: Renewals
+    automation_key: renewals
+    event_type: renewal.won
+    aggregation: count
+    unit: count

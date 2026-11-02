@@ -18,6 +18,7 @@ from agentry.automations.catalog_quotes import quote_schedule
 from agentry.automations.cold_email.sending import send_cold_emails
 from agentry.automations.content.calendar import publish_scheduled
 from agentry.automations.inbox_triage.digest import schedule_digests
+from agentry.automations.renewals import renewal_schedule
 from agentry.automations.reviews import reviews_monthly
 from agentry.automations.support_desk import support_schedule
 from agentry.automations.video_studio import video_schedule
@@ -148,6 +149,8 @@ async def run() -> None:
         {"schedule_name": "reviews-monthly", "workflow_fn": reviews_monthly, "schedule": "0 30 9 1 * *",
          "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
         {"schedule_name": "bookkeeping-monthly", "workflow_fn": bookkeeping_monthly, "schedule": "0 0 9 1 * *",
+         "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
+        {"schedule_name": "renewals-daily", "workflow_fn": renewal_schedule, "schedule": "0 0 10 * * *",
          "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
         {"schedule_name": "quote-follow-ups", "workflow_fn": quote_schedule, "schedule": "0 15 10 * * *",
          "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
