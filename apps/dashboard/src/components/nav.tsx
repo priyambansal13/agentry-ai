@@ -2,7 +2,7 @@
 
 import { cn } from "@agentry/ui";
 import {
-  Bell, BookOpen, Briefcase, FileText, RefreshCcw, Film, LifeBuoy, CalendarClock, ClipboardList, FileSpreadsheet, Package, Repeat, Bot, Clapperboard, FileSignature, TrendingUp, Building2, CalendarDays, CreditCard, FileBarChart, Home, Inbox, Megaphone, MessagesSquare, Eye, MessageSquareText, Receipt, ReceiptText, Rocket, Star,
+  Bell, BookOpen, Briefcase, FileText, RefreshCcw, UserPlus, Film, LifeBuoy, CalendarClock, ClipboardList, FileSpreadsheet, Package, Repeat, Bot, Clapperboard, FileSignature, TrendingUp, Building2, CalendarDays, CreditCard, FileBarChart, Home, Inbox, Megaphone, MessagesSquare, Eye, MessageSquareText, Receipt, ReceiptText, Rocket, Star,
   ScrollText, Send, Settings, Sparkles, UserRoundSearch, Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -19,6 +19,7 @@ const clientItems: Item[] = [
   { href: "/tickets", label: "Tickets", icon: LifeBuoy },
   { href: "/quotes", label: "Quotes", icon: FileText },
   { href: "/renewals", label: "Renewals", icon: RefreshCcw },
+  { href: "/hiring", label: "Hiring", icon: UserPlus },
   { href: "/leads", label: "Leads", icon: UserRoundSearch },
   { href: "/invoices", label: "Invoices", icon: ReceiptText },
   { href: "/filings", label: "Filings", icon: ClipboardList },

@@ -905,3 +905,18 @@ export async function addRenewal(body: Record<string, unknown>) {
 export async function markRenewal(id: string, action: "renewed" | "cancelled") {
   return run<unknown>(`/org/renewals/${id}/mark`, { method: "POST", body: { action } }, ["/renewals"]);
 }
+
+// ---------- hiring (ROADMAP-V3 A5) ----------
+
+export async function createJob(body: Record<string, unknown>) {
+  return run<{ id: string }>("/org/hiring/jobs", { method: "POST", body }, ["/hiring"]);
+}
+export async function jobStatus(id: string, status: string) {
+  return run<unknown>(`/org/hiring/jobs/${id}`, { method: "PATCH", body: { status } }, ["/hiring", `/hiring/${id}`]);
+}
+export async function uploadCvs(jobId: string, form: FormData) {
+  return upload<{ added: { id: string; name: string | null; score: number; verdict: string }[]; errors: string[] }>(`/org/hiring/jobs/${jobId}/candidates`, form, [`/hiring/${jobId}`]);
+}
+export async function candidateStage(id: string, body: { status: string; interview_at?: string | null }, jobId: string) {
+  return run<{ message: string | null }>(`/org/hiring/candidates/${id}/stage`, { method: "POST", body }, [`/hiring/${jobId}`]);
+}

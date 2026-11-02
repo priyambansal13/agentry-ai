@@ -81,3 +81,9 @@ metrics:
     event_type: renewal.won
     aggregation: count
     unit: count
+  - key: candidates_screened
+    name: Candidates screened
+    automation_key: hiring
+    event_type: candidate.screened
+    aggregation: count
+    unit: count

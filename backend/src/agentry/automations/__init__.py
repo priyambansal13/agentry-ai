@@ -41,6 +41,7 @@ def load_all() -> None:
         cold_email,
         competitor_watch,
         content,
+        hiring,
         inbox_triage,
         invoice_follow_up,
         lead_reactivation,

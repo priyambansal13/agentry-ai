@@ -182,3 +182,58 @@ async def quote_pdf(token: str) -> Response:
         business = (await conn.execute(text("select name from auth.organization where id = :o"), {"o": org})).scalar_one_or_none() or ""
     return Response(pdf(dict(q), business, cfg, kit), media_type="application/pdf",
                     headers={"Content-Disposition": f'inline; filename="{q["number"]}.pdf"', "Cache-Control": "private, max-age=300"})
+
+
+# ---------- hiring: the public apply link (ROADMAP-V3 A5) ----------
+
+async def _job(token: str) -> tuple[str, dict]:
+    if len(token) < 16:
+        raise HTTPException(404, "not found")
+    async with system_session() as conn:
+        org = (await conn.execute(text("select org_id from app.jobs where token = :t and status = 'open'"), {"t": token})).scalar_one_or_none()
+    if not org:
+        raise HTTPException(404, "This job isn't open any more.")
+    async with tenant_session(org) as conn:
+        job = dict((await conn.execute(text("""select j.*, o.name as business from app.jobs j join auth.organization o on o.id = j.org_id
+            where j.token = :t"""), {"t": token})).mappings().one())
+    return org, job
+
+
+@router.get("/jobs/{token}", include_in_schema=False)
+async def job_page(token: str) -> Response:
+    from html import escape
+    _org, j = await _job(token)
+    must = "".join(f"<li>{escape(m)}</li>" for m in j["must_have"])
+    page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{escape(j['title'])} at {escape(j['business'])}</title><style>body{{font-family:system-ui,sans-serif;max-width:640px;margin:32px auto;padding:0 16px;color:#1f2a1a;background:#fbfbf7}}
+label{{display:block;margin:12px 0 4px;font-weight:600}}input{{width:100%;padding:10px;border:2px solid #d8d8cf;border-radius:10px;box-sizing:border-box}}
+button{{margin-top:16px;padding:12px 20px;border:0;border-radius:10px;background:#1f2a1a;color:#fff;font-weight:700}}p.m{{color:#6b6b60}}</style></head><body>
+<p class="m">{escape(j['business'])}</p><h1>{escape(j['title'])}</h1><p class="m">{escape(j.get('location') or '')}</p>
+<p style="white-space:pre-wrap">{escape(j['description'])}</p>{f'<h3>What you need</h3><ul>{must}</ul>' if must else ''}
+<h2>Apply</h2><form method="post" action="/public/jobs/{escape(token)}/apply" enctype="multipart/form-data">
+<label for="n">Your name</label><input id="n" name="name" required maxlength="120"><label for="e">Email</label><input id="e" name="email" type="email" required>
+<label for="p">Mobile / WhatsApp</label><input id="p" name="phone" maxlength="20"><label for="c">CV (PDF or Word, up to 5 MB)</label>
+<input id="c" name="cv" type="file" accept=".pdf,.docx,.txt" required><button type="submit">Send my application</button></form>
+<p class="m" style="margin-top:24px;font-size:13px">Your CV is read by {escape(j['business'])}'s hiring assistant (AI) and their team. It isn't shared with anyone else.</p></body></html>"""
+    return Response(page, media_type="text/html")
+
+
+@router.post("/jobs/{token}/apply", include_in_schema=False)
+async def job_apply(token: str, request: Request) -> Response:
+    from agentry.automations.hiring import add_candidate
+    _rate_limit(f"apply:{client_ip(request)}", limit=5, window=3600)
+    org, j = await _job(token)
+    form = await request.form()
+    cv = form.get("cv")
+    if not cv or not hasattr(cv, "read"):
+        raise HTTPException(422, "attach your CV")
+    data = await cv.read()
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(422, "the CV can be up to 5 MB")
+    try:
+        await add_candidate(org, str(j["id"]), data, cv.filename or "cv.pdf", source="apply_link", name=str(form.get("name") or "")[:120] or None,
+                            email=str(form.get("email") or "")[:200] or None, phone=str(form.get("phone") or "")[:20] or None)
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+    return Response("<!doctype html><meta charset=utf-8><body style='font-family:system-ui;max-width:640px;margin:48px auto;padding:0 16px'>"
+                    "<h1>Thank you!</h1><p>Your application has been sent. The team will be in touch.</p>", media_type="text/html")
