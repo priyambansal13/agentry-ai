@@ -878,3 +878,18 @@ export async function newTicket(body: Record<string, unknown>) {
 export async function importOrders(form: FormData) {
   return upload<{ imported: number }>("/org/tickets/orders/import", form, ["/tickets"]);
 }
+
+// ---------- catalogue & quotes (ROADMAP-V3 A3) ----------
+
+export async function importProducts(form: FormData) {
+  return upload<{ imported: number; skipped_rows: number[] }>("/org/quotes/products/import", form, ["/quotes"]);
+}
+export async function createQuote(body: Record<string, unknown>) {
+  return run<{ id: string; number: string; total: number }>("/org/quotes", { method: "POST", body }, ["/quotes"]);
+}
+export async function sendQuote(id: string) {
+  return run<{ status: string }>(`/org/quotes/${id}/send`, { method: "POST" }, ["/quotes"]);
+}
+export async function quoteOutcome(id: string, outcome: "won" | "lost") {
+  return run<unknown>(`/org/quotes/${id}/outcome`, { method: "POST", body: { outcome } }, ["/quotes"]);
+}

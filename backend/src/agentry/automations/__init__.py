@@ -37,6 +37,7 @@ def load_all() -> None:
         appointment_concierge,
         bookkeeping,
         ca,
+        catalog_quotes,
         cold_email,
         competitor_watch,
         content,

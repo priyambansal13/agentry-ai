@@ -69,3 +69,9 @@ metrics:
     event_type: ticket.resolved
     aggregation: count
     unit: count
+  - key: quotes_won
+    name: Quotes won
+    automation_key: catalog_quotes
+    event_type: quote.won
+    aggregation: count
+    unit: count

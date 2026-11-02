@@ -65,6 +65,15 @@ async def send_text(org_id: str, to: str, body: str) -> str:
     return (await _post(conn, {"to": to, "type": "text", "text": {"preview_url": False, "body": body[:4096]}}))["messages"][0]["id"]
 
 
+async def send_document(org_id: str, to: str, link: str, filename: str, caption: str = "") -> str:
+    """A PDF by link (WhatsApp fetches it), inside the 24-hour window."""
+    conn = await get_connection(org_id, "whatsapp")
+    if not conn:
+        raise WhatsAppError("WhatsApp is not connected")
+    doc = {"link": link, "filename": filename[:240], **({"caption": caption[:1024]} if caption else {})}
+    return (await _post(conn, {"to": to, "type": "document", "document": doc}))["messages"][0]["id"]
+
+
 async def send_template(org_id: str, to: str, name: str, language: str = "en_US", params: list[str] | None = None) -> str:
     conn = await get_connection(org_id, "whatsapp")
     if not conn:

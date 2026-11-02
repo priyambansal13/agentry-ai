@@ -59,6 +59,8 @@ FEATURES: dict[str, Feature] = {
     # Veo-made Shorts on a schedule, checked, reviewed, published to YouTube (docs/flows/agents/ai-video-studio.md)
     # tickets with SLA, order status from the order sheet, ratings (ROADMAP-V3 A2); works through the chat agents
     "support_desk": Feature(pages=("needs-you", "tickets", "conversations"), connections=(), steps=("settings",), go_live=()),
+    # product questions from the catalogue, GST quotes as PDFs, follow-ups (ROADMAP-V3 A3); works through the chat agents
+    "catalog_quotes": Feature(pages=("needs-you", "quotes", "conversations"), connections=(), steps=("settings",), go_live=()),
     "video_studio": Feature(pages=("needs-you", "videos"), connections=("youtube",), steps=("connect", "settings"), go_live=()),
 }
 # CA Firm pack (docs/PACKS.md): the firm's clients (ca-clients), the filing board (filings), the due-date calendar (compliance)

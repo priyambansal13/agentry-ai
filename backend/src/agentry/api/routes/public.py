@@ -4,13 +4,14 @@ from collections import defaultdict, deque
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Request, status
+from fastapi.responses import Response
 from pydantic import BaseModel, EmailStr, Field, HttpUrl
 from sqlalchemy import text
 
 from agentry import sales
 from agentry.auth import client_ip
 from agentry.config import settings
-from agentry.db import system_session
+from agentry.db import system_session, tenant_session
 from agentry.events import emit
 
 router = APIRouter(prefix="/public", tags=["public"])
@@ -161,3 +162,23 @@ async def content_image(token: str):
     buf = io.BytesIO()
     Image.open(path).convert("RGB").save(buf, "JPEG", quality=92)
     return Response(buf.getvalue(), media_type="image/jpeg", headers={"Cache-Control": "public, max-age=600"})
+
+
+@router.get("/quotes/{token}.pdf", include_in_schema=False)
+async def quote_pdf(token: str) -> Response:
+    """A quote sent to a customer (the link is the secret: 32 random characters)."""
+    from agentry.automations.catalog_quotes import pdf, settings_of
+    from agentry.automations.content import brand
+    if len(token) < 20:
+        raise HTTPException(404, "not found")
+    async with system_session() as conn:
+        org = (await conn.execute(text("select org_id from app.quotes where token = :t"), {"t": token})).scalar_one_or_none()
+    if not org:
+        raise HTTPException(404, "not found")
+    async with tenant_session(org) as conn:
+        q = (await conn.execute(text("select * from app.quotes where token = :t"), {"t": token})).mappings().one()
+        _s, cfg = await settings_of(conn)
+        kit = await brand.get_kit(conn, org)
+        business = (await conn.execute(text("select name from auth.organization where id = :o"), {"o": org})).scalar_one_or_none() or ""
+    return Response(pdf(dict(q), business, cfg, kit), media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="{q["number"]}.pdf"', "Cache-Control": "private, max-age=300"})
