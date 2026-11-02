@@ -1,14 +1,14 @@
 "use client";
 
 import { Badge, Button, Card, Input, Label } from "@agentry/ui";
-import { Briefcase, Camera, Mail, MessageCircle, Send, Sheet } from "lucide-react";
+import { Briefcase, Camera, Film, Mail, MessageCircle, Send, Sheet } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { connectTelegram, connectWhatsApp, disconnect, startGoogleSheets, startInstagram, startLinkedIn, setAlertTemplate, setInboxRouting, startGmail, startOutlook, syncGmail, syncOutlook, testWhatsApp } from "@/app/(app)/actions";
+import { connectTelegram, connectWhatsApp, disconnect, startGoogleSheets, startInstagram, startLinkedIn, startYouTube, setAlertTemplate, setInboxRouting, startGmail, startOutlook, syncGmail, syncOutlook, testWhatsApp } from "@/app/(app)/actions";
 import { timeAgo } from "@/lib/format";
 
 export type Connection = {
-  id: string; provider: "gmail" | "whatsapp" | "outlook" | "razorpay" | "stripe" | "phone" | "telegram" | "instagram" | "google_sheets" | "linkedin"; account_ref: string; display_name: string | null;
+  id: string; provider: "gmail" | "whatsapp" | "outlook" | "razorpay" | "stripe" | "phone" | "telegram" | "instagram" | "google_sheets" | "linkedin" | "youtube"; account_ref: string; display_name: string | null;
   status: "connected" | "error"; last_sync_at: string | null; last_error: string | null; created_at: string;
   assign_to?: string | null; baseline_minutes?: number | null; url?: string | null;
 };
@@ -354,6 +354,41 @@ export function GoogleSheetsCard({ conn, available, canManage }: { conn?: Connec
 
 
 /** LinkedIn for content publishing: approved posts go out on the connected person's LinkedIn profile at their slot. */
+export function YouTubeCard({ conn, available, canManage }: { conn?: Connection; available: boolean; canManage: boolean }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const connect = () => start(async () => { const r = await startYouTube(); if (r.ok) window.location.href = r.data.url; else setMsg({ ok: false, text: r.error }); });
+  return (
+    <Card className="p-6">
+      <div className="flex items-start gap-4">
+        <Film className="mt-1 h-6 w-6 shrink-0" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2"><h2 className="font-display text-xl font-bold">YouTube</h2>{conn && <Status c={conn} />}</div>
+          <p className="mt-1 text-sm text-muted">Approved AI videos are uploaded to your channel as Shorts, marked as AI-made. Sign in with the Google account that owns the channel.
+            Agentry can only upload videos; it can&apos;t delete or change anything else on your channel.</p>
+          {conn && (
+            <div className="mt-4 space-y-1 text-sm">
+              <p><strong>{conn.display_name ?? "YouTube channel"}</strong> · connected {timeAgo(conn.created_at)}</p>
+              {conn.last_error && <p className="text-danger">{conn.last_error}. Videos wait until you reconnect.</p>}
+            </div>
+          )}
+          {!available && <p className="mt-4 text-sm text-warning">Google sign-in isn&apos;t set up on this Agentry server yet. Ask your account manager.</p>}
+          {canManage && available && (
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Button variant={conn && conn.status === "connected" ? "secondary" : "primary"} disabled={pending} onClick={connect}>{conn ? "Reconnect YouTube" : "Connect YouTube"}</Button>
+              {conn && <Button variant="ghost" disabled={pending} onClick={() => confirm("Disconnect YouTube? Videos will wait for you to approve them.") && start(async () => {
+                const r = await disconnect(conn.id); setMsg(r.ok ? { ok: true, text: "Disconnected" } : { ok: false, text: r.error }); router.refresh();
+              })}>Disconnect</Button>}
+            </div>
+          )}
+          <div className="mt-3"><Msg m={msg} /></div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export function LinkedInCard({ conn, available, canManage }: { conn?: Connection; available: boolean; canManage: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();

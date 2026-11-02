@@ -841,3 +841,28 @@ export async function caDeleteRecurring(rid: string) {
 export async function caBookRecurring() {
   return run<{ booked: number }>("/org/ca/recurring/run", { method: "POST" }, ["/recurring", "/bookkeeping"]);
 }
+
+// ---------- AI video studio ----------
+
+const VID = (id?: string) => ["/videos", "/needs-you", ...(id ? [`/videos/${id}`] : [])];
+export async function makeVideo(topic: string | null) {
+  return run<{ id: string }>("/org/videos", { method: "POST", body: { topic: topic || null } }, VID());
+}
+export async function editVideo(id: string, body: Record<string, unknown>) {
+  return run<unknown>(`/org/videos/${id}`, { method: "PATCH", body }, VID(id));
+}
+export async function generateVideo(id: string) {
+  return run<unknown>(`/org/videos/${id}/generate`, { method: "POST" }, VID(id));
+}
+export async function replanVideo(id: string) {
+  return run<unknown>(`/org/videos/${id}/replan`, { method: "POST" }, VID(id));
+}
+export async function publishVideo(id: string) {
+  return run<{ url: string }>(`/org/videos/${id}/publish`, { method: "POST" }, VID(id));
+}
+export async function rejectVideo(id: string) {
+  return run<unknown>(`/org/videos/${id}/reject`, { method: "POST" }, VID(id));
+}
+export async function startYouTube() {
+  return run<{ url: string }>("/org/connections/youtube/start", { method: "POST" });
+}

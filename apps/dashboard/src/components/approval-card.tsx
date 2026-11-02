@@ -13,7 +13,7 @@ export type Approval = {
   assigned_to?: string | null; assigned_name?: string | null; channel_problem?: string | null;
   payload: { category?: string; urgent?: boolean; kb_sources?: string[]; ai_failed?: boolean; phone?: string | null;
              suspicious?: boolean; risk?: string[]; language?: string | null; nudge?: boolean;
-             invoice_id?: string; payment_id?: string; utr?: string | null; withdrawn?: string; held_because?: string; document_id?: string };
+             invoice_id?: string; payment_id?: string; utr?: string | null; withdrawn?: string; held_because?: string; document_id?: string; video_id?: string; client_id?: string; filing_id?: string };
 };
 
 export type SavedReply = { id: string; title: string; body: string };
@@ -83,6 +83,12 @@ export function ApprovalCard({ a, canAct, templates = [], assignees = [], openIn
         </blockquote>
       )}
       {a.payload?.held_because && <p className="mt-2 text-xs text-muted">Waiting for you because: {a.payload.held_because}</p>}
+      {a.kind === "video_review" && typeof a.payload?.video_id === "string" && (
+        <a href={`/videos/${a.payload.video_id}`} className="inline-flex text-sm font-semibold underline">Watch the video and its plan →</a>
+      )}
+      {a.kind === "ca_task" && (typeof a.payload?.client_id === "string" || typeof a.payload?.filing_id === "string") && (
+        <a href={typeof a.payload?.client_id === "string" ? `/ca-clients/${a.payload.client_id}` : "/filings"} className="inline-flex text-sm font-semibold underline">Open →</a>
+      )}
       {a.kind === "document_review" && a.payload?.document_id && (
         <Link href={`/bookkeeping/${a.payload.document_id}`} className="mt-2 inline-block text-sm font-semibold underline">Open the receipt to check or fix it</Link>
       )}

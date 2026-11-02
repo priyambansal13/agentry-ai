@@ -22,7 +22,7 @@ DISPUTE_DAYS = 7
 CLOCK_SKEW = timedelta(seconds=30)
 SOURCE_AUTOMATION = {"web_chat": "website_chat", "whatsapp": "whatsapp_assistant", "lead_reactivation": "lead_reactivation",
                      "speed_to_lead": "speed_to_lead", "voice": "ai_receptionist"}
-USAGE_EVENTS = {"messages": "message.sent", "emails_triaged": "email.triaged"}
+USAGE_EVENTS = {"messages": "message.sent", "emails_triaged": "email.triaged", "ai_videos": "video.generated"}  # test-mode videos are mock
 # call minutes: each real (non-test) call rounded up to the next whole minute, like telephony providers bill
 VOICE_MINUTES_SQL = """select coalesce(sum(ceil((metadata->>'duration_seconds')::numeric / 60)), 0)::int from app.conversations
     where channel = 'voice' and metadata ? 'duration_seconds' and coalesce(metadata->>'test', 'false') <> 'true'
@@ -52,8 +52,8 @@ class PricingPlan(BaseModel):
     currency: Literal["INR", "USD", "EUR", "GBP", "AED"] = "INR"
     setup_fee: Decimal = Field(Decimal(0), ge=0)
     retainer: Decimal = Field(Decimal(0), ge=0)
-    included: dict[Literal["messages", "emails_triaged", "voice_minutes", "content_videos"], int] = Field(default_factory=dict)
-    overage: dict[Literal["messages", "emails_triaged", "voice_minutes", "content_videos"], Decimal] = Field(default_factory=dict)
+    included: dict[Literal["messages", "emails_triaged", "voice_minutes", "content_videos", "ai_videos"], int] = Field(default_factory=dict)
+    overage: dict[Literal["messages", "emails_triaged", "voice_minutes", "content_videos", "ai_videos"], Decimal] = Field(default_factory=dict)
     outcome_prices: list[OutcomePrice] = Field(default_factory=list)
     revenue_share: RevenueShare = Field(default_factory=RevenueShare)
     tax_rate: float = Field(0, ge=0, le=0.3)

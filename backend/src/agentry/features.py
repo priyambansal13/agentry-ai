@@ -56,6 +56,8 @@ FEATURES: dict[str, Feature] = {
     "cold_email": Feature(pages=("cold-email",), connections=(), steps=("settings", "compliance"), go_live=()),
     # 6.1-6.4: uploads, moments, posts with quote cards, review and calendar; publishing is test mode until 6.5
     "content_repurposing": Feature(pages=("content",), connections=("linkedin", "instagram"), steps=("settings",), go_live=()),
+    # Veo-made Shorts on a schedule, checked, reviewed, published to YouTube (docs/flows/agents/ai-video-studio.md)
+    "video_studio": Feature(pages=("needs-you", "videos"), connections=("youtube",), steps=("connect", "settings"), go_live=()),
 }
 # CA Firm pack (docs/PACKS.md): the firm's clients (ca-clients), the filing board (filings), the due-date calendar (compliance)
 FEATURES |= {

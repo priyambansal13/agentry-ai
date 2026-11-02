@@ -53,6 +53,8 @@ export const approvalKinds: Record<string, string> = {
   dispute: "Dispute",
   low_confidence: "Not sure",
   document_review: "Receipt to check",
+  ca_task: "CA desk",
+  video_review: "AI video",
 };
 
 export const categoryTone: Record<string, "danger" | "lime" | "success" | "warning" | "neutral"> = {

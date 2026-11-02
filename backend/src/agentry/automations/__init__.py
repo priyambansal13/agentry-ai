@@ -47,6 +47,7 @@ def load_all() -> None:
         reviews,
         speed_to_lead,
         telegram_assistant,
+        video_studio,
         website_chat,
         whatsapp_assistant,
     )

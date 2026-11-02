@@ -1,6 +1,6 @@
 import { Badge, Card } from "@agentry/ui";
 import { redirect } from "next/navigation";
-import { AlertTemplateForm, type Connection, GmailInboxes, GoogleSheetsCard, InstagramCard, LinkedInCard, OutlookInboxes, TelegramCard, WhatsAppCard } from "@/components/connections";
+import { AlertTemplateForm, type Connection, GmailInboxes, GoogleSheetsCard, InstagramCard, LinkedInCard, YouTubeCard, OutlookInboxes, TelegramCard, WhatsAppCard } from "@/components/connections";
 import { GatewayCards } from "@/components/gateway-cards";
 import { can } from "@/lib/permissions";
 import { api, getActiveOrg, getFeatures, getMe, requirePage } from "@/lib/session";
@@ -8,7 +8,7 @@ import { api, getActiveOrg, getFeatures, getMe, requirePage } from "@/lib/sessio
 export const metadata = { title: "Connections" };
 
 type Data = {
-  items: Connection[]; available: { gmail: boolean; outlook: boolean; whatsapp: boolean; instagram: boolean; google_sheets: boolean; linkedin: boolean };
+  items: Connection[]; available: { gmail: boolean; outlook: boolean; whatsapp: boolean; instagram: boolean; google_sheets: boolean; linkedin: boolean; youtube: boolean };
   whatsapp_webhook: { url: string; verify_token_set: boolean };
 };
 
@@ -30,7 +30,7 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
         <h1 className="font-display text-3xl font-bold tracking-tight">Connections</h1>
         <p className="mt-1 text-muted">The accounts your agents work through. You can disconnect any of them at any time.</p>
       </header>
-      {sp.connected && <p role="status" className="rounded-2xl border-2 border-ink bg-lime px-4 py-3 text-lime-ink">✓ {({ gmail: "Gmail", outlook: "Outlook", instagram: "Instagram", google_sheets: "Google Sheets", linkedin: "LinkedIn" } as Record<string, string>)[sp.connected] ?? sp.connected} connected{sp.account ? `: ${sp.account}` : ""}.{["gmail", "outlook"].includes(sp.connected) ? " New mail is checked every minute." : ["instagram", "linkedin"].includes(sp.connected) ? " Approved posts now go out at their scheduled time." : sp.connected === "google_sheets" ? " Filed receipts are added to the new spreadsheet." : ""}</p>}
+      {sp.connected && <p role="status" className="rounded-2xl border-2 border-ink bg-lime px-4 py-3 text-lime-ink">✓ {({ gmail: "Gmail", outlook: "Outlook", instagram: "Instagram", google_sheets: "Google Sheets", linkedin: "LinkedIn", youtube: "YouTube" } as Record<string, string>)[sp.connected] ?? sp.connected} connected{sp.account ? `: ${sp.account}` : ""}.{["gmail", "outlook"].includes(sp.connected) ? " New mail is checked every minute." : ["instagram", "linkedin"].includes(sp.connected) ? " Approved posts now go out at their scheduled time." : sp.connected === "google_sheets" ? " Filed receipts are added to the new spreadsheet." : ""}</p>}
       {sp.error && <p role="alert" className="rounded-2xl border-2 border-danger px-4 py-3 text-danger">{sp.error}</p>}
       {show("gmail") && <GmailInboxes conns={d.items.filter((c) => c.provider === "gmail")} available={d.available.gmail} canManage={canManage} people={people} />}
       {show("outlook") && <OutlookInboxes conns={d.items.filter((c) => c.provider === "outlook")} available={d.available.outlook} canManage={canManage} />}
@@ -38,6 +38,7 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
       {show("telegram") && <TelegramCard conn={find("telegram")} canManage={canManage} />}
       {show("google_sheets") && <GoogleSheetsCard conn={find("google_sheets")} available={d.available.google_sheets} canManage={canManage} />}
       {show("linkedin") && <LinkedInCard conn={find("linkedin")} available={d.available.linkedin} canManage={canManage} />}
+      {show("youtube") && <YouTubeCard conn={find("youtube")} available={d.available.youtube} canManage={canManage} />}
       {show("instagram") && <InstagramCard conn={find("instagram")} available={d.available.instagram} canManage={canManage} />}
       {find("whatsapp") && canManage && (
         <Card className="p-5"><p className="text-sm font-semibold">WhatsApp alerts</p>

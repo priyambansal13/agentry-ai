@@ -87,6 +87,8 @@ class Settings(BaseSettings):
     # route downloads through a residential proxy, and/or give a cookies.txt from a signed-in YouTube account
     content_download_proxy: str | None = None  # e.g. http://user:pass@proxy.example:8080
     content_download_cookies: str | None = None  # path to a Netscape cookies.txt inside the container
+    # AI video studio: a Gemini API key with Veo access (paid plan). Unset: test mode (branded test clips, no cost)
+    video_api_key: str | None = None
     reviews_source: str = "sample"  # Google Business Profile once its API access is approved (9.2)
     google_client_id: str | None = None
     google_client_secret: str | None = None

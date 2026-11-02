@@ -29,7 +29,8 @@ async def list_connections(ctx: Annotated[OrgContext, Depends(require("dashboard
     return {"items": [dict(r) for r in rows],
             "available": {"gmail": gmail.configured(), "outlook": outlook.configured(),
                           "whatsapp": bool(settings.whatsapp_app_secret and settings.whatsapp_verify_token),
-                          "instagram": instagram.configured(), "google_sheets": gmail.configured(), "linkedin": linkedin.configured()},
+                          "instagram": instagram.configured(), "google_sheets": gmail.configured(), "linkedin": linkedin.configured(),
+                          "youtube": gmail.configured()},
             "whatsapp_webhook": {"url": settings.api_public_url.rstrip("/") + "/webhooks/whatsapp",
                                  "verify_token_set": bool(settings.whatsapp_verify_token)}}
 
@@ -50,6 +51,28 @@ async def sheets_start(ctx: Annotated[OrgContext, Depends(require("connection", 
         raise HTTPException(503, "Google isn't set up on this Agentry server yet (Google OAuth client missing)")
     from agentry.connectors import sheets
     return {"url": sheets.auth_url(sign_state({"org": ctx.org_id, "uid": ctx.principal.user_id, "p": "sheets"}), login_hint=ctx.principal.email)}
+
+
+@router.post("/org/connections/youtube/start", dependencies=[Depends(require_connection("youtube"))])
+async def youtube_start(ctx: Annotated[OrgContext, Depends(require("connection", "manage"))]) -> dict:
+    if not gmail.configured():
+        raise HTTPException(503, "Google sign-in isn't set up on this server")
+    from agentry.connectors import youtube
+    return {"url": youtube.auth_url(sign_state({"org": ctx.org_id, "uid": ctx.principal.user_id, "p": "youtube"}), login_hint=ctx.principal.email)}
+
+
+async def _youtube_callback(s: dict, code: str, back) -> RedirectResponse:
+    from agentry.connectors import youtube
+    try:
+        secret = await youtube.exchange_code(code)
+    except youtube.YouTubeError as e:
+        return back(error=str(e))
+    await save_connection(s["org"], provider="youtube", account_ref=secret["channel_id"], display_name=secret["channel"], secret=secret,
+                          state={"channel": secret["channel"]})
+    async with tenant_session(s["org"]) as conn:
+        await audit.record(conn, org_id=s["org"], actor_type="user", actor_user_id=s["uid"], action="connection.youtube.connected",
+                           target_type="connection", target_id=secret["channel_id"])
+    return back(connected="youtube", account=secret["channel"])
 
 
 async def _sheets_callback(request: Request, s: dict, code: str, back) -> RedirectResponse:
@@ -82,6 +105,10 @@ async def google_callback(request: Request, state: str = "", code: str | None = 
         s = verify_state(state)
     except (SecretError, ValueError):
         return back(error="This sign-in link expired or was tampered with. Please try again.")
+    if s.get("p") == "youtube" and code and not error:
+        if await membership_role(s["uid"], s["org"]) is None and not await _is_staff(s["uid"]):
+            return back(error="You no longer have access to this organisation.")
+        return await _youtube_callback(s, code, back)
     if s.get("p") == "sheets" and code and not error:
         if await membership_role(s["uid"], s["org"]) is None and not await _is_staff(s["uid"]):
             return back(error="You no longer have access to this organisation.")

@@ -57,3 +57,9 @@ metrics:
     event_type: ca.document_received
     aggregation: count
     unit: count
+  - key: videos_published
+    name: AI videos published
+    automation_key: video_studio
+    event_type: video.published
+    aggregation: count
+    unit: count

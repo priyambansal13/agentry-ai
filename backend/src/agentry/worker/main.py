@@ -18,6 +18,7 @@ from agentry.automations.cold_email.sending import send_cold_emails
 from agentry.automations.content.calendar import publish_scheduled
 from agentry.automations.inbox_triage.digest import schedule_digests
 from agentry.automations.reviews import reviews_monthly
+from agentry.automations.video_studio import video_schedule
 from agentry.config import settings
 from agentry.connectors import telegram
 from agentry.db import system_session
@@ -146,6 +147,8 @@ async def run() -> None:
          "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
         {"schedule_name": "bookkeeping-monthly", "workflow_fn": bookkeeping_monthly, "schedule": "0 0 9 1 * *",
          "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
+        {"schedule_name": "video-schedule", "workflow_fn": video_schedule, "schedule": "0 */15 * * * *",
+         "context": None, "automatic_backfill": False, "cron_timezone": None, "queue_name": None},
         {"schedule_name": "ca-daily", "workflow_fn": ca_daily, "schedule": "0 30 9 * * *",
          "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
         {"schedule_name": "appointment-recalls", "workflow_fn": send_recalls, "schedule": "0 0 11 * * *",
