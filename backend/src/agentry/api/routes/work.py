@@ -159,7 +159,9 @@ async def reply(conversation_id: str, r: Reply, request: Request, ctx: Annotated
                     'name', cast(:n as text), 'staff', cast(:st as boolean)))) returning id"""),
             {"o": ctx.org_id, "c": conversation_id, "b": r.body, "u": ctx.principal.user_id, "n": ctx.principal.name,
              "st": ctx.principal.is_staff})).scalar_one())
-        # a person answered: drafts and hand-off requests for this conversation are done
+        # a person answered: drafts and hand-off requests for this conversation are done; a support ticket has its first response
+        from agentry.automations.support_desk import first_response
+        await first_response(conn, conversation_id)
         await conn.execute(text("""update app.approvals set status = 'resolved', decided_by = :u, decided_at = now()
             where conversation_id = cast(:c as uuid) and status = 'pending' and kind in ('reply_draft', 'handoff')"""),
             {"u": ctx.principal.user_id, "c": conversation_id})

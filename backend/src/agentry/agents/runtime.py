@@ -22,7 +22,7 @@ from sqlalchemy import text
 
 from agentry import audit, guard
 from agentry.agents.spec import AgentSpec, load_spec
-from agentry.agents.tools import TOOL_DEFS, run_tool
+from agentry.agents.tools import run_tool, tool_defs
 from agentry.config import settings
 from agentry.db import tenant_session
 from agentry.knowledge import search
@@ -55,7 +55,7 @@ def build_graph(spec: AgentSpec, *, conversation_id: str, source: str, llm: LLM,
         msgs = [{"role": "system", "content": system}, *state["messages"]]
         force_answer = state.get("tool_rounds", 0) >= MAX_TOOL_ROUNDS
         res = await llm("voice" if channel == "voice" else "conversation", msgs, org_id=spec.org_id, prompt_key="chat_agent", prompt_version="v1",
-                        tools=None if force_answer else TOOL_DEFS, mock_response="")
+                        tools=None if force_answer else tool_defs(spec.extras), mock_response="")
         if res.mock:
             return {"messages": [{"role": "assistant", "content": await mock_reply(spec, state["messages"])}]}
         if res.tool_calls and not force_answer:

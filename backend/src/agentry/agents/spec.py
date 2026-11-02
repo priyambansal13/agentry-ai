@@ -25,6 +25,7 @@ class AgentSpec:
     safety: str | None
     services: list[dict]
     city: str | None = None
+    extras: tuple[str, ...] = ()  # optional tool sets: "support" (support desk), "catalog" (catalogue & quotes)
 
     def system_prompt(self, channel: str = "web_chat") -> str:
         now = datetime.now(ZoneInfo(self.timezone))
@@ -51,7 +52,7 @@ Your goals, in order:
    times, and before book_appointment confirm the service, time, their name and phone number.
 4. Not a fit? Give a helpful answer with no hard sell.
 
-Hand off with handoff_to_human when they ask for a person, are upset or complaining, or you cannot help.
+Hand off with handoff_to_human when they ask for a person, are upset or complaining, or you cannot help.{self._extras_prompt()}
 {f"Safety: {self.safety}" if self.safety else ""}
 If asked, say clearly that you are an AI assistant.
 
@@ -61,11 +62,27 @@ Services (use these keys with the tools):
 Today is {now:%A %d %B %Y}, {now:%H:%M} ({self.timezone}). Interpret "tomorrow", "Saturday" etc. relative to this."""
 
 
+    def _extras_prompt(self) -> str:
+        out = ""
+        if "support" in self.extras:
+            out += ("\nSupport: for \"where is my order?\" use order_status (with the order number if they gave one) and answer only with "
+                    "what it returns. For a problem you can't fix in the chat (a complaint, a refund, a damaged or wrong item, something not "
+                    "working) use open_ticket with a short subject, the category and the priority, then tell them their ticket number and that the "
+                    "team will reply. Never promise refunds, replacements or dates yourself.")
+        if "catalog" in self.extras:
+            out += ("\nProducts: for questions about products, prices, sizes or stock use search_catalog and answer only with what it returns. "
+                    "When they want a price for several items or quantities, use make_quote with the exact product codes and quantities, "
+                    "after confirming their name and phone or email; it sends them a quote. Never invent a price, discount or stock.")
+        return out
+
+
 async def load_spec(org_id: str) -> AgentSpec:
     async with tenant_session(org_id) as conn:
         s = (await conn.execute(text("""select s.timezone, s.persona, s.qualification, s.profile, o.name
             from app.org_settings s join auth.organization o on o.id = s.org_id"""))).mappings().one()
         services = (await conn.execute(text("select key, name, minutes, price from app.services where active order by name"))).mappings().all()
+        on = set((await conn.execute(text("""select template_key from app.automation_instances
+            where template_key in ('support_desk', 'catalog_quotes') and status in ('live', 'approval_mode')"""))).scalars())
     p, profile = s["persona"] or {}, s["profile"] or {}
     return AgentSpec(
         org_id=org_id, business=s["name"], name=p.get("name", "Assistant"), tone=p.get("tone", "friendly and helpful"),
@@ -74,4 +91,5 @@ async def load_spec(org_id: str) -> AgentSpec:
         qualified_when=profile.get("qualified_when") or "they need a service the business offers",
         safety=profile.get("safety"), city=profile.get("city"),
         services=[{**dict(x), "price": float(x["price"]) if x["price"] is not None else None} for x in services],
+        extras=tuple(x for k, x in (("support_desk", "support"), ("catalog_quotes", "catalog")) if k in on),
     )

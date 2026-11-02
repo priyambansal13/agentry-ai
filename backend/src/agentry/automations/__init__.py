@@ -46,6 +46,7 @@ def load_all() -> None:
         lead_research,
         reviews,
         speed_to_lead,
+        support_desk,
         telegram_assistant,
         video_studio,
         website_chat,

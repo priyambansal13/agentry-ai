@@ -63,3 +63,9 @@ metrics:
     event_type: video.published
     aggregation: count
     unit: count
+  - key: tickets_resolved
+    name: Tickets resolved
+    automation_key: support_desk
+    event_type: ticket.resolved
+    aggregation: count
+    unit: count

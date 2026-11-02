@@ -112,6 +112,24 @@ async def hand_to_team(org_id: str, conversation_id: str, wa_id: str, reason: st
 
 
 @DBOS.step()
+async def support_rating(org_id: str, conversation_id: str, body: str) -> bool:
+    from agentry.automations.support_desk import take_rating
+    if await take_rating(org_id, conversation_id, body):
+        from agentry.connectors.whatsapp import send_text
+        wa = (await _wa_of(org_id, conversation_id))
+        if wa:
+            await send_text(org_id, wa, "Thank you for the rating!")
+        return True
+    return False
+
+
+async def _wa_of(org_id: str, conversation_id: str) -> str | None:
+    async with tenant_session(org_id) as conn:
+        ref = (await conn.execute(text("select external_ref from app.conversations where id = cast(:c as uuid)"), {"c": conversation_id})).scalar_one_or_none()
+    return ref.removeprefix("wa:") if ref and ref.startswith("wa:") else None
+
+
+@DBOS.step()
 async def ca_take_document(org_id: str, conversation_id: str, payload: dict) -> bool:
     from agentry.automations.ca.chaser import take_from_whatsapp
     return await take_from_whatsapp(org_id, conversation_id, payload)
@@ -133,6 +151,8 @@ async def answer_whatsapp(event: dict) -> None:
         return  # a CA firm's client asking about their filing (the filing tracker replied)
     if p.get("type") in ("image", "document") and await take_from_chat(org_id, "whatsapp", p["conversation_id"], p):
         return  # a receipt or bill for the bookkeeping assistant (it replied)
+    if p.get("type") == "text" and await support_rating(org_id, p["conversation_id"], p.get("text") or ""):
+        return  # "5" after "how did we do?": the support desk stored the rating
     if p.get("type") in ("text", "button", "interactive") and await concierge_reply(org_id, p["conversation_id"], p.get("text") or ""):
         return  # "1" to a reminder, "B" for a new time...: the appointment concierge answered
     ctx = await load_context(org_id, p["conversation_id"])

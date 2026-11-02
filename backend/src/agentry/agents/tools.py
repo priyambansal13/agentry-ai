@@ -1,5 +1,6 @@
 """Tools the conversational agent can call. Each runs under the organisation's row-level security."""
 import json
+import re
 from datetime import date, datetime
 from typing import Any
 
@@ -42,6 +43,29 @@ TOOL_DEFS = [
         {"reason": {"type": "string"}}, ["reason"]),
 ]
 
+SUPPORT_TOOLS = [
+    _fn("order_status", "Look up the customer's order: by its number, or by the phone / email of the person writing.",
+        {"order_ref": {"type": "string", "description": "the order number if they gave one"}}, []),
+    _fn("open_ticket", "Open a support ticket for a problem the team must handle. Returns the ticket number to tell the customer.",
+        {"subject": {"type": "string"}, "summary": {"type": "string", "description": "what happened, in two or three sentences"},
+         "category": {"type": "string", "enum": ["order", "delivery", "refund", "product", "complaint", "billing", "technical", "other"]},
+         "priority": {"type": "string", "enum": ["low", "normal", "high", "urgent"]}, "order_ref": {"type": "string"}},
+        ["subject", "category", "priority"]),
+]
+CATALOG_TOOLS = [
+    _fn("search_catalog", "Search the product catalogue: names, codes, prices, sizes, stock.", {"query": {"type": "string"}}, ["query"]),
+    _fn("make_quote", "Create and send a price quote for products and quantities, after confirming the customer's name and phone or email.",
+        {"items": {"type": "array", "items": {"type": "object", "properties": {"code": {"type": "string"}, "qty": {"type": "number"}},
+                                               "required": ["code", "qty"]}},
+         "name": {"type": "string"}, "phone": {"type": "string"}, "email": {"type": "string"}, "note": {"type": "string"}},
+        ["items", "name"]),
+]
+
+
+def tool_defs(extras: tuple[str, ...] = ()) -> list[dict]:
+    return TOOL_DEFS + (SUPPORT_TOOLS if "support" in extras else []) + (CATALOG_TOOLS if "catalog" in extras else [])
+
+
 PARTS = {"morning": (0, 12), "afternoon": (12, 16), "evening": (16, 24), "any": (0, 24)}
 
 
@@ -67,6 +91,22 @@ async def run_tool(name: str, args: dict[str, Any], *, org_id: str, conversation
             return await _save_lead(org_id, conversation_id, args, source)
         if name == "handoff_to_human":
             return await _handoff(org_id, conversation_id, str(args.get("reason", "")), source)
+        if name == "order_status":
+            from agentry.automations.support_desk import order_status
+            return await order_status(org_id, conversation_id, args.get("order_ref"))
+        if name == "open_ticket":
+            from agentry.automations.support_desk import open_ticket
+            async with tenant_session(org_id) as conn:
+                t = await open_ticket(conn, org_id, subject=str(args.get("subject") or "Customer issue"), summary=args.get("summary"),
+                                      category=str(args.get("category") or "other"), priority=str(args.get("priority") or "normal"),
+                                      conversation_id=conversation_id, order_ref=args.get("order_ref"))
+            return {"ticket": t["number"], "tell_customer": f"Your ticket number is #{t['number']}. The team will reply here."}
+        if name == "search_catalog":
+            from agentry.automations.catalog_quotes import search_catalog
+            return await search_catalog(org_id, str(args.get("query", "")))
+        if name == "make_quote":
+            from agentry.automations.catalog_quotes import quote_from_chat
+            return await quote_from_chat(org_id, conversation_id, args, source)
         return {"error": f"unknown tool {name}"}
     except BookingError as e:
         return {"error": str(e), "alternatives": e.alternatives}
@@ -125,6 +165,11 @@ async def _handoff(org_id: str, conversation_id: str, reason: str, source: str =
             values (:o, 'handoff', :a, :c, :t, :r)"""),
             {"o": org_id, "a": "whatsapp_assistant" if whatsapp else "website_chat", "c": conversation_id,
              "t": "WhatsApp customer asked for a person" if whatsapp else "Website visitor asked for a person", "r": reason})
+        from agentry.automations.support_desk import open_ticket, settings_of
+        desk, cfg = await settings_of(conn)
+        if desk in ("live", "approval_mode") and cfg["tickets_from_handoffs"]:
+            await open_ticket(conn, org_id, subject=reason[:120] or "Customer asked for a person", summary=reason, conversation_id=conversation_id,
+                              source="handoff", category="complaint" if re.search(r"complain|angry|upset|refund", reason, re.IGNORECASE) else "other")
         await audit.record(conn, org_id=org_id, actor_type="agent", action="conversation.handoff",
                            target_type="conversation", target_id=conversation_id, metadata={"reason": reason, "channel": source})
     await send_owner_alert(org_id, "A WhatsApp customer needs a person" if whatsapp else "A website visitor needs a person",

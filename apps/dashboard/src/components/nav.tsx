@@ -2,7 +2,7 @@
 
 import { cn } from "@agentry/ui";
 import {
-  Bell, BookOpen, Briefcase, Film, CalendarClock, ClipboardList, FileSpreadsheet, Package, Repeat, Bot, Clapperboard, FileSignature, TrendingUp, Building2, CalendarDays, CreditCard, FileBarChart, Home, Inbox, Megaphone, MessagesSquare, Eye, MessageSquareText, Receipt, ReceiptText, Rocket, Star,
+  Bell, BookOpen, Briefcase, Film, LifeBuoy, CalendarClock, ClipboardList, FileSpreadsheet, Package, Repeat, Bot, Clapperboard, FileSignature, TrendingUp, Building2, CalendarDays, CreditCard, FileBarChart, Home, Inbox, Megaphone, MessagesSquare, Eye, MessageSquareText, Receipt, ReceiptText, Rocket, Star,
   ScrollText, Send, Settings, Sparkles, UserRoundSearch, Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -16,6 +16,7 @@ const clientItems: Item[] = [
   { href: "/ask", label: "Ask", icon: MessageSquareText },
   { href: "/automations", label: "Automations", icon: Bot },
   { href: "/conversations", label: "Conversations", icon: MessagesSquare },
+  { href: "/tickets", label: "Tickets", icon: LifeBuoy },
   { href: "/leads", label: "Leads", icon: UserRoundSearch },
   { href: "/invoices", label: "Invoices", icon: ReceiptText },
   { href: "/filings", label: "Filings", icon: ClipboardList },
@@ -56,7 +57,7 @@ export function Nav({ isStaff, canAudit, canTeam, hasOrg, compact = false, canCo
     .filter((i) => !pages || i.href === "/onboarding" || pages.includes(pageKey(i.href)))
     .filter((i) => (i.href !== "/audit" || canAudit) && (i.href !== "/team" || canTeam))
     .filter((i) => canConverse || !["/leads", "/knowledge", "/cold-email", "/content", "/reviews"].includes(i.href))
-    .filter((i) => canWork || !["/needs-you", "/conversations"].includes(i.href))
+    .filter((i) => canWork || !["/needs-you", "/conversations", "/tickets"].includes(i.href))
     .filter((i) => canConnect || i.href !== "/settings/connections")
     .filter((i) => canCalendar || i.href !== "/calendar")
     .filter((i) => canInvoices || !["/invoices", "/bookkeeping", "/recurring"].includes(i.href))

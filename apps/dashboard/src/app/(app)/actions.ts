@@ -866,3 +866,15 @@ export async function rejectVideo(id: string) {
 export async function startYouTube() {
   return run<{ url: string }>("/org/connections/youtube/start", { method: "POST" });
 }
+
+// ---------- support desk (ROADMAP-V3 A2) ----------
+
+export async function editTicket(id: string, body: Record<string, unknown>) {
+  return run<{ status: string }>(`/org/tickets/${id}`, { method: "PATCH", body }, ["/tickets", `/tickets/${id}`]);
+}
+export async function newTicket(body: Record<string, unknown>) {
+  return run<{ id: string; number: number }>("/org/tickets", { method: "POST", body }, ["/tickets"]);
+}
+export async function importOrders(form: FormData) {
+  return upload<{ imported: number }>("/org/tickets/orders/import", form, ["/tickets"]);
+}
