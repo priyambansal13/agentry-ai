@@ -69,6 +69,8 @@ FEATURES: dict[str, Feature] = {
     "local_seo": Feature(pages=("needs-you", "seo", "knowledge"), connections=(), steps=("knowledge", "settings"), go_live=()),
     # a shelf photo becomes counts; what's low is grouped by supplier with the order message ready (ROADMAP-V3 B2)
     "stock_scanner": Feature(pages=("stock",), connections=(), steps=("import", "settings"), go_live=()),
+    # Diwali, Holi, Eid, Christmas... plans weeks ahead with only the business's own offers (ROADMAP-V3 B3)
+    "festival_campaigns": Feature(pages=("needs-you", "festivals"), connections=(), steps=("settings",), go_live=()),
     "video_studio": Feature(pages=("needs-you", "videos"), connections=("youtube",), steps=("connect", "settings"), go_live=()),
 }
 # CA Firm pack (docs/PACKS.md): the firm's clients (ca-clients), the filing board (filings), the due-date calendar (compliance)

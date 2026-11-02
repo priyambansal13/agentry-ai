@@ -954,3 +954,12 @@ export async function applyScan(id: string, counts: unknown[], addNew: boolean) 
 export async function importStock(form: FormData) {
   return upload<{ imported: number }>("/org/stock/items/import", form, ["/stock"]);
 }
+
+// ---------- festival campaigns (ROADMAP-V3 B3) ----------
+
+export async function planFestival(festival: string, on_date: string) {
+  return run<{ id: string | null }>("/org/festivals/plans", { method: "POST", body: { festival, on_date } }, ["/festivals"]);
+}
+export async function festivalStatus(id: string, status: string) {
+  return run<unknown>(`/org/festivals/plans/${id}`, { method: "PATCH", body: { status } }, ["/festivals"]);
+}
