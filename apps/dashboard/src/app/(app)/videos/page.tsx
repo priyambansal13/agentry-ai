@@ -2,7 +2,7 @@ import { Badge, Card, CardBody, CardHeader, CardTitle } from "@agentry/ui";
 import Link from "next/link";
 import { AutoRefresh, MakeVideo, type Script, ScriptCard, type Video, WriteScript } from "@/components/videos";
 import { VIDEO_STATUS, WORKING } from "@/lib/videos";
-import { api, requirePage } from "@/lib/session";
+import { pageApi as api, requirePage } from "@/lib/session";
 
 export const metadata = { title: "AI videos" };
 

@@ -2,7 +2,7 @@ import { Badge, Card } from "@agentry/ui";
 import Link from "next/link";
 import { AddToWaitlist, BookingActions, RemoveFromWaitlist } from "@/components/calendar";
 import { BOOKING_STATUS } from "@/lib/format";
-import { api, requirePage } from "@/lib/session";
+import { pageApi as api, requirePage } from "@/lib/session";
 
 export const metadata = { title: "Calendar" };
 

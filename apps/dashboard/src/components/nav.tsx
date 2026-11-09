@@ -51,20 +51,21 @@ const clientItems: Item[] = [
 
 type NavProps = {
   isStaff: boolean; canAudit: boolean; canTeam: boolean; hasOrg: boolean; compact?: boolean;
-  canConverse?: boolean; showOnboarding?: boolean; needsYou?: number; canInvoices?: boolean; canBilling?: boolean; canConnect?: boolean; canWork?: boolean; canCalendar?: boolean;
+  canConverse?: boolean; showOnboarding?: boolean; needsYou?: number; canInvoices?: boolean; canBilling?: boolean; canConnect?: boolean; canWork?: boolean; canCalendar?: boolean; canConfigure?: boolean;
   pages?: string[]; // sections this client's automations bring (agentry/features.py)
 };
 
 const pageKey = (href: string) => (href === "/settings/connections" ? "connections" : href === "/settings/account" ? "notifications" : href.slice(1));
 
 /** Sidebar navigation. `compact` = the phone layout: one horizontal row, only the sections that exist today. */
-export function Nav({ isStaff, canAudit, canTeam, hasOrg, compact = false, canConverse = true, showOnboarding = false, needsYou = 0, canInvoices = true, canBilling = true, canConnect = true, canWork = canConverse, canCalendar = true, pages }: NavProps) {
+export function Nav({ isStaff, canAudit, canTeam, hasOrg, compact = false, canConverse = true, showOnboarding = false, needsYou = 0, canInvoices = true, canBilling = true, canConnect = true, canWork = canConverse, canCalendar = true, canConfigure = true, pages }: NavProps) {
   const pathname = usePathname();
   const base: Item[] = showOnboarding ? [{ href: "/onboarding", label: "Get live", icon: Rocket }, ...clientItems] : clientItems;
   const items = !hasOrg ? [] : base
     .filter((i) => !pages || i.href === "/onboarding" || pages.includes(pageKey(i.href)))
     .filter((i) => (i.href !== "/audit" || canAudit) && (i.href !== "/team" || canTeam))
-    .filter((i) => canConverse || !["/leads", "/knowledge", "/cold-email", "/content", "/reviews"].includes(i.href))
+    .filter((i) => canConverse || !["/leads", "/knowledge", "/cold-email", "/content", "/reviews", "/tickets", "/jobs", "/videos", "/renewals", "/hiring"].includes(i.href))
+    .filter((i) => canConfigure || i.href !== "/hiring")
     .filter((i) => canWork || !["/needs-you", "/conversations", "/tickets", "/jobs"].includes(i.href))
     .filter((i) => canConnect || i.href !== "/settings/connections")
     .filter((i) => canCalendar || i.href !== "/calendar")

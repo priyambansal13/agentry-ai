@@ -1,7 +1,7 @@
 import { Badge, buttonClasses, Card, CardBody, CardHeader, CardTitle, Stat } from "@agentry/ui";
 import Link from "next/link";
 import { NewContent } from "@/components/content";
-import { api, requirePage } from "@/lib/session";
+import { pageApi as api, requirePage } from "@/lib/session";
 
 export const metadata = { title: "Content" };
 

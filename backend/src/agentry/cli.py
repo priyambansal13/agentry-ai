@@ -70,6 +70,32 @@ def seed() -> None:
     asyncio.run(run())
 
 
+@app.command("seed-every-agent")
+def seed_every_agent() -> None:
+    """Every Agent Co (run `pnpm seed:auth` first): a live client with every agent on, one login per role, for testing."""
+    from sqlalchemy import text
+
+    from agentry.automations import load_all
+    from agentry.clients import provision
+    load_all()
+    from agentry.db import system_session, tenant_session
+    from agentry.features import FEATURES
+
+    async def run() -> None:
+        async with system_session() as conn:
+            oid = (await conn.execute(text("select id from auth.organization where slug = 'every-agent'"))).scalar_one()
+            admin = (await conn.execute(text("select id from auth.\"user\" where email = 'admin@agentry.dev'"))).scalar_one()
+        async with tenant_session(oid) as conn:
+            if not (await conn.execute(text("select 1 from app.org_settings"))).first():
+                await provision(conn, oid, name="Every Agent Co", country="IN", timezone="Asia/Kolkata", currency="INR", website=None,
+                                automations=sorted(k for k, f in FEATURES.items() if f.available), plan=None, staff_user_id=admin)
+            await conn.execute(text("update app.org_settings set status = 'live'"))
+            await conn.execute(text("update app.automation_instances set status = 'live'"))
+            n = (await conn.execute(text("select count(*) from app.automation_instances"))).scalar_one()
+        typer.echo(f"Every Agent Co: {n} agents live; logins owner|manager|frontdesk|finance|viewer@everyagent.example")
+    asyncio.run(run())
+
+
 @app.command("load-inbox")
 def load_inbox(org_slug: str, file: Path = Path("../mock-data/inbox-triage/sharma-inbox.jsonl")) -> None:
     """Feed a JSONL mock inbox into an organisation (the worker then triages each email)."""

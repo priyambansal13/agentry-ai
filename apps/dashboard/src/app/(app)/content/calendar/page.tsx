@@ -2,7 +2,7 @@ import { Badge, Card } from "@agentry/ui";
 import Link from "next/link";
 import { MovePost, ScheduleAll } from "@/components/content";
 import { PLATFORM } from "@/lib/format";
-import { api, requirePage } from "@/lib/session";
+import { pageApi as api, requirePage } from "@/lib/session";
 
 export const metadata = { title: "Content calendar" };
 

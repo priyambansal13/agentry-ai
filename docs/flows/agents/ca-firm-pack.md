@@ -54,14 +54,19 @@ flowchart TD
 
 A daily job at 9:30 IST puts due dates on the board, sends due-date cards, sends document reminders and books recurring entries.
 
-## Who does what
+## Who can do what
 
 | | Owner | Manager | Front desk | Finance | Viewer | Agentry |
 |---|---|---|---|---|---|---|
-| See clients, filings, results | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Add clients, move cards, upload, run the tools | ✓ | ✓ | ✓ | ✓ | | ✓ |
-| Settings (reminder days, tolerances) | ✓ | ✓ | | | | ✓ |
-| Switch agents on, the pack, WhatsApp templates | | | | | | ✓ |
+| See clients, filings, compliance, results | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Add clients, move cards, upload, run the tools | ✅ | ✅ | ✅ | ✅ | — | ✅ |
+| Settings (reminder days, tolerances) | ✅ | ✅ | — | — | — | ✅ |
+| Switch agents on, the pack, WhatsApp templates | — | — | — | — | — | ✅ |
+
+Reading needs conversation or money access (viewers have money read); working needs `conversation: act` or `invoice: act`
+(`automations/ca/core.py`). Each tool's endpoints also need its own agent switched on: the Filings board needs the
+filing tracker, Compliance the compliance calendar, and so on. Opening is checked by `tests/test_role_matrix.py`
+([roles-matrix.md](../roles-matrix.md)).
 
 Everything that changes something is in the audit log. Deleting a client deletes their filings and files.
 

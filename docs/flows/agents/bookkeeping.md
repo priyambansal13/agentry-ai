@@ -8,6 +8,20 @@ Code: `backend/src/agentry/documents.py` (Document AI, shared), `automations/boo
 migration 0026 (`app.documents`, card kind `document_review`). Samples: `mock-data/documents/` (`generate.py`).
 Tests: `tests/test_bookkeeping.py`.
 
+```mermaid
+flowchart TD
+    IN["Receipt or bill<br/>portal upload, WhatsApp or Telegram photo / PDF"] --> ST[Stored with SHA-256]
+    ST --> RD["Vision model reads fields + line items<br/>and lists what it guessed"]
+    RD --> CK{"Code checks: sums, taxes, GSTIN,<br/>dates, duplicates"}
+    CK -- all fields confident, no failed check --> FI[Filed]
+    CK -- doubtful --> CARD[Needs-you card: Check this document]
+    CARD --> FIX[Person fixes, accepts or rejects] --> FI
+    FI --> REPLY[Sender told: filed / being checked / send a clearer photo]
+    FI --> BUD["Budgets: 80% passed sends budget.alert"]
+    FI --> MON[Monthly summary on the 1st]
+    FI --> EX[Export to Tally XML or CSV, each document once]
+```
+
 ## How a document is read (Document AI)
 
 1. **Store** the file (`var/documents/<org>/<id>.<ext>`, JPG/PNG/WEBP/PDF up to 10 MB) with its SHA-256.
@@ -28,15 +42,18 @@ Seen in the live test: on a smudged café receipt the model read "7?0" as ₹770
 (520 + 240 = 760) caught it and sent it to a person. The smudged date was read as the 22nd without being flagged:
 reviewers should compare dates with the photo.
 
-## Who does what
+## Who can do what
 
-| Role | Sees | Acts |
-|---|---|---|
-| Owner, manager, finance | Bookkeeping page, receipt cards in Needs you | upload, check/fix/accept/reject, export |
-| Viewer | Bookkeeping page | — |
-| Front desk | — | — |
+| | Owner | Manager | Front desk | Finance | Viewer | Agentry |
+|---|---|---|---|---|---|---|
+| Open Bookkeeping, see documents | ✅ | ✅ | — | ✅ | ✅ | ✅ |
+| Upload, check / fix / accept / reject, receipt cards in Needs you | ✅ | ✅ | — | ✅ | — | ✅ |
+| Export to Tally / CSV | ✅ | ✅ | — | ✅ | — | ✅ |
+| Change settings (categories, threshold, budgets, who may send) | ✅ | ✅ | — | — | — | ✅ |
 
-Bookkeeping cards follow the money (invoice) permission, like invoice follow-up, including card routing.
+Bookkeeping follows the money (invoice) permission, like invoice follow-up, including card routing: `invoice: read` to
+open, `invoice: act` to change (`api/routes/bookkeeping_api.py`). Front desk is sent to Home and doesn't see it in the
+menu. Opening is checked by `tests/test_role_matrix.py` ([roles-matrix.md](../roles-matrix.md)).
 
 ## Ways in
 

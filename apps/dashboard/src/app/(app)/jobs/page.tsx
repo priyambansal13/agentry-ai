@@ -1,7 +1,7 @@
 import { Badge, Card, CardBody, CardHeader, CardTitle } from "@agentry/ui";
 import Link from "next/link";
 import { AddTech, type Job, JobRow, NewJob, type Tech } from "@/components/jobs";
-import { api, requirePage } from "@/lib/session";
+import { pageApi as api, requirePage } from "@/lib/session";
 
 export const metadata = { title: "Jobs" };
 

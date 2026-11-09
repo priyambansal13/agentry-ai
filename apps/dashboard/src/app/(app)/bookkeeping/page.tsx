@@ -2,7 +2,7 @@ import { Badge, Card } from "@agentry/ui";
 import Link from "next/link";
 import { AddDocuments } from "@/components/bookkeeping";
 import { DOC_STATUS, timeAgo } from "@/lib/format";
-import { api, requirePage } from "@/lib/session";
+import { pageApi as api, requirePage } from "@/lib/session";
 
 export const metadata = { title: "Bookkeeping" };
 

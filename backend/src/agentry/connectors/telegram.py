@@ -12,6 +12,7 @@ import secrets
 from datetime import UTC, datetime
 from urllib.parse import urlparse
 
+import httpx
 from sqlalchemy import text
 
 from agentry.config import settings
@@ -36,8 +37,11 @@ def mode() -> str:
 
 
 async def call(token: str, method: str, **params: object) -> dict:
-    async with http.client(timeout=40) as c:
-        r = await c.post(f"{API}/bot{token}/{method}", json={k: v for k, v in params.items() if v is not None})
+    try:
+        async with http.client(timeout=40) as c:
+            r = await c.post(f"{API}/bot{token}/{method}", json={k: v for k, v in params.items() if v is not None})
+    except httpx.HTTPError as e:  # Telegram unreachable: callers handle TelegramError, so pages don't fail
+        raise TelegramError(f"Telegram {method}: {type(e).__name__}") from e
     try:
         data = r.json()
     except ValueError as e:

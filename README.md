@@ -1,8 +1,25 @@
 # Agentry
 
-**Agentry**: an agency-operated SaaS for selling many AI automations to clients: AI receptionist, speed-to-lead, website chat, lead reactivation, personal cold email, inbox triage, invoice follow-up, content repurposing, and The Boring Machine (all lead agents → one calendar).
+**Agentry**: an agency-operated SaaS for selling AI agents to small businesses (India first), one by one or as packs, each client seeing only the agents they bought.
 
-**Status:** Phase 0 (platform core + brand) and Phase 1 (inbox triage, website chat agent, booking, knowledge base, industry packs, Demo Studio, onboarding wizard) Phase 1b (real Gmail and WhatsApp connections) and Phase 2 (lead engine, sequence engine, invoice follow-up, payments, lead reactivation, speed-to-lead text) built on 2026-10-24. Next: Phase 3 (billing, portal polish, Agentry HQ, deploy).
+**Status (2026-11-09):** 38 agents built, tested with every login and **live** at https://app.agentry.duckdns.org
+(portal), https://agentry.duckdns.org (website) and https://api.agentry.duckdns.org, on an Oracle VM
+([docs/DEPLOY-ORACLE.md](docs/DEPLOY-ORACLE.md)). Where things stand and what's next: [docs/HANDOFF.md](docs/HANDOFF.md).
+
+**Every agent, with its flow:** [docs/flows/README.md](docs/flows/README.md). Who can open what, per role:
+[docs/flows/roles-matrix.md](docs/flows/roles-matrix.md).
+
+| Group | Agents |
+|---|---|
+| Talk to customers | Website chat, WhatsApp assistant, Telegram assistant, AI receptionist (voice), Appointment concierge, Support desk, Catalogue & quotes |
+| Leads and sales | Speed-to-lead, Lead reactivation, Lead research, Personal cold email, Renewals & repeat business |
+| Back office | Inbox triage, Invoice follow-up, Bookkeeping, Hiring, Stock shelf scanner, Ops dispatcher, SOP & proposal drafter |
+| Marketing | Content repurposing (+ engagement loop), AI video studio (+ topic → script), Local SEO, Festival campaigns, Reviews, Competitor watch |
+| CA firm pack (13) | Filing tracker, Document chaser, Tax documents reader, Compliance calendar, ITR prep, Capital gains, Bank classifier, GST reconciliation, TDS returns, Tax audit (3CD), Notice handler, Recurring books, Excel desk |
+| Everyone | Ask your business + Business copilot (plans actions, runs on **Do it**), Business Pulse, Notification Center, MCP server, prompt-injection guard |
+| Agentry HQ | Clients, packs, Demo Studio, proposals, billing and margin, client health |
+
+The table below is the platform as first built (Phases 0–4); the agents above sit on top of it.
 
 ## What runs today
 
@@ -67,12 +84,17 @@ pnpm --filter @agentry/web dev           # :3200
 | natarajan@kaverisupplies.example | Owner, Kaveri Industrial (still onboarding, one blocker) |
 | jordan@brightpath.example | Owner, Brightpath Consulting (USD) |
 | multi@agentry.dev | Belongs to two businesses (org switcher) |
+| accounts@sharmadigital.example | Finance at Sharma Digital |
+| owner@ / manager@ / frontdesk@ / finance@ / viewer@everyagent.example | **Every Agent Co**: all 38 agents live, one login per role, for testing (`uv run agentry seed-every-agent` after `seed:auth`) |
 | admin@agentry.dev | Agentry staff → Agentry HQ |
 
 ## Checks
 
 ```bash
-cd backend && uv run pytest -q          # 112 tests (2 live-model tests skip without keys): RLS, roles, triage, booking, chat agent, widget, Demo Studio, onboarding, Gmail + WhatsApp, lead engine, sequences, invoices, payments, reactivation, speed-to-lead, billing, client onboarding, voice
+cd backend && uv run pytest -q          # ~390 tests (2 live-model tests skip without keys): every agent, RLS, roles, billing, voice
+cd backend && uv run pytest tests/test_role_matrix.py   # every portal endpoint x every role x every agent
+AGENTRY_ROLE_MATRIX=../docs/flows/roles-matrix.md uv run pytest tests/test_role_matrix.py   # ...and regenerate the role table
+uv run --project backend python infra/smoke/crawl_portal.py   # sign in as every demo login, open every portal page (dashboard on :3201)
 cd backend && uv run ruff check src tests migrations
 pnpm typecheck && pnpm build
 cd backend && uv run agentry eval invoice_reply_classifier ../mock-data/replies.jsonl --min-accuracy 0.9
@@ -110,5 +132,7 @@ Without keys everything runs in mock mode (rules and knowledge-base answers, cle
 - [Deploying to Oracle Cloud (k3s)](docs/DEPLOY.md)
 - [Phase 4 plan: voice (receptionist, speed-to-lead calls)](docs/PHASE-4-VOICE.md)
 - [Phase 5 plan: personal cold email](docs/PHASE-5-COLD-EMAIL.md)
-- **[Flows: sales, onboarding, billing and every agent, with diagrams](docs/flows/README.md)**
+- **[Flows: sales, onboarding, billing and every agent, with diagrams](docs/flows/README.md)** · [who can open what](docs/flows/roles-matrix.md)
+- Roadmaps: [v2](docs/ROADMAP-V2.md) · [v3](docs/ROADMAP-V3.md) · [packs](docs/PACKS.md) · [sales stories](docs/SALES-STORIES.md)
+- [Deploying to the Oracle VM (live)](docs/DEPLOY-ORACLE.md) · [Handoff: current state](docs/HANDOFF.md)
 - [Mock clients and test sets](mock-data/README.md)

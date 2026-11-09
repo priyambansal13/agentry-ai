@@ -1,0 +1,122 @@
+"""Every agent x every login: each portal GET endpoint is called by owner, manager, front desk, finance, viewer and Agentry
+staff, on a client that has every agent and on clients that have only one.
+
+    - nothing answers 5xx, for anyone
+    - a section an agent doesn't bring is 404 for everyone, Agentry included (what staff see is what the client sees)
+    - a section the client has is 200 or 403 by role, never 404; viewers are never refused a page that only reads
+
+AGENTRY_ROLE_MATRIX=path writes the result as a Markdown table (docs/flows/roles-matrix.md).
+"""
+import os
+
+import pytest
+from fastapi.routing import APIRoute
+
+from agentry.api.main import app
+from agentry.features import ALWAYS_PAGES, FEATURES
+
+ROLES = ("owner", "manager", "staff", "finance", "viewer", "agentry")
+LABEL = {"owner": "Owner", "manager": "Manager", "staff": "Front desk", "finance": "Finance", "viewer": "Viewer", "agentry": "Agentry"}
+
+
+def _page_of(route: APIRoute) -> str | None:
+    """The section a route belongs to: the `page` captured by its features.require_page guard (router or route level)."""
+    stack = list(route.dependant.dependencies)
+    while stack:
+        d = stack.pop()
+        call = d.call
+        if getattr(call, "__qualname__", "").startswith("require_page.") and call.__closure__:
+            return call.__closure__[0].cell_contents
+        stack += d.dependencies
+    return None
+
+
+def _walk(routes, prefix=""):
+    """FastAPI keeps included routers lazily (_IncludedRouter): follow them, adding each include's prefix."""
+    for r in routes:
+        if isinstance(r, APIRoute):
+            yield prefix + r.path, r
+        elif inner := getattr(r, "original_router", None):
+            yield from _walk(inner.routes, prefix + (r.include_context.prefix or ""))
+
+
+def org_routes() -> list[tuple[str, str | None]]:
+    out = {(path, _page_of(r)) for path, r in _walk(app.routes)
+           if "GET" in r.methods and path.startswith("/org/") and "{" not in path}
+    return sorted(out, key=lambda x: x[0])
+
+
+@pytest.fixture(autouse=True)
+def no_outside_calls(monkeypatch):
+    """GET pages must not need the internet; anything that tries gets a connection error (and must handle it)."""
+    import httpx
+    real = httpx.AsyncClient.send
+
+    async def guarded(self, request, *a, **kw):
+        if request.url.host in ("test", "testserver"):
+            return await real(self, request, *a, **kw)
+        raise httpx.ConnectError("no internet in tests", request=request)
+    monkeypatch.setattr(httpx.AsyncClient, "send", guarded)
+
+
+async def test_every_page_every_role_on_a_client_with_every_agent(client, team_org):
+    _oid, h = await team_org(sorted(FEATURES))
+    routes = org_routes()
+    assert len(routes) >= 50
+    seen: dict[str, dict[str, int]] = {}
+    for path, page in routes:
+        for role in ROLES:
+            r = await client.get(path, headers=h[role])
+            assert r.status_code < 500, f"{role} GET {path} -> {r.status_code}: {r.text[:300]}"
+            assert r.status_code in (200, 403), f"{role} GET {path} on a client with every agent -> {r.status_code} {r.text[:200]}"
+            seen.setdefault(path, {})[role] = r.status_code
+        assert seen[path]["agentry"] == 200 and seen[path]["owner"] == 200, f"{path}: owner/Agentry refused"
+    if out := os.environ.get("AGENTRY_ROLE_MATRIX"):
+        _write(out, routes, seen, await _brought_by(client, team_org, routes))
+
+
+async def _brought_by(client, team_org, routes) -> dict[str, list[str]]:
+    """Which agents unlock each endpoint: called by Agentry staff on a client with only that agent."""
+    out: dict[str, list[str]] = {p: [] for p, _ in routes}
+    for agent in sorted(FEATURES):
+        _oid, h = await team_org([agent])
+        for path, _ in routes:
+            if (await client.get(path, headers=h["agentry"])).status_code != 404:
+                out[path].append(agent)
+    return out
+
+
+@pytest.mark.parametrize("agent", sorted(FEATURES))
+async def test_one_agent_shows_only_its_own_sections(client, team_org, agent):
+    _oid, h = await team_org([agent])
+    mine = set(FEATURES[agent].pages) | set(ALWAYS_PAGES) | ({"connections"} if FEATURES[agent].connections else set())
+    for path, page in org_routes():
+        r = await client.get(path, headers=h["agentry"])
+        assert r.status_code < 500, f"{agent}: GET {path} -> {r.status_code}: {r.text[:300]}"
+        if page is None:
+            continue
+        if page in mine:
+            assert r.status_code != 404, f"{agent}: own section {page} ({path}) -> 404 {r.text[:200]}"
+        else:
+            assert r.status_code == 404, f"{agent}: {path} (section {page}) should be hidden, got {r.status_code}"
+
+
+def _write(out: str, routes, seen, brought: dict[str, list[str]]) -> None:
+    every = len(FEATURES)
+    mark = {200: "✅", 403: "—"}
+    lines = ["# Who can open what (generated)", "",
+             ("Generated by `AGENTRY_ROLE_MATRIX=../docs/flows/roles-matrix.md uv run pytest tests/test_role_matrix.py` "
+              "(backend/tests/test_role_matrix.py). Every portal endpoint was called by every login on a client that has every agent "
+              "(✅ = can open, — = refused with 403), and by Agentry staff on clients that each have one agent: an endpoint "
+              "is hidden (404) for everyone, Agentry included, unless the client has an agent listed under *Unlocked by*."), "",
+             "Opening is reading. Acting (approving, sending, editing) needs more; each agent's flow says who can act.", "",
+             "| Endpoint | Unlocked by | " + " | ".join(LABEL[r] for r in ROLES) + " |",
+             "|---|---|" + "---|" * len(ROLES)]
+    def key(p):
+        return (len(brought[p]) != every, ", ".join(brought[p]), p)
+    for path, _page in sorted(routes, key=lambda x: key(x[0])):
+        b = brought[path]
+        agents = "every client" if len(b) == every else ", ".join(f"`{a}`" for a in b) or "none alone"
+        lines.append(f"| `{path}` | {agents} | " + " | ".join(mark.get(seen[path][r], str(seen[path][r])) for r in ROLES) + " |")
+    with open(out, "w") as f:
+        f.write("\n".join(lines) + "\n")

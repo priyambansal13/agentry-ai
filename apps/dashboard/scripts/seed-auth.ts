@@ -16,6 +16,7 @@ const orgs = [
   { slug: "kaveri-industrial", name: "Kaveri Industrial Supplies" },
   { slug: "brightpath", name: "Brightpath Consulting" },
   { slug: "smilecraft", name: "SmileCraft Dental Clinic" },
+  { slug: "every-agent", name: "Every Agent Co" }, // every agent switched on, one login per role (provision: `uv run agentry seed-every-agent`)
   { slug: "agentry", name: "Agentry" }, // our own business: the website chat on the landing page
 ];
 
@@ -27,6 +28,11 @@ const users: Seed[] = [
   { email: "jordan@brightpath.example", name: "Jordan Ellis", orgs: [["brightpath", "owner"]] },
   { email: "neha@smilecraft.example", name: "Dr. Neha Kulkarni", orgs: [["smilecraft", "owner"]] },
   { email: "frontdesk@smilecraft.example", name: "Pooja (Front desk)", orgs: [["smilecraft", "staff"]] },
+  { email: "owner@everyagent.example", name: "Omar (Owner)", orgs: [["every-agent", "owner"]] },
+  { email: "manager@everyagent.example", name: "Meera (Manager)", orgs: [["every-agent", "manager"]] },
+  { email: "frontdesk@everyagent.example", name: "Farhan (Front desk)", orgs: [["every-agent", "staff"]] },
+  { email: "finance@everyagent.example", name: "Fatima (Finance)", orgs: [["every-agent", "finance"]] },
+  { email: "viewer@everyagent.example", name: "Vikram (Viewer)", orgs: [["every-agent", "viewer"]] },
   // An owner of two businesses, to exercise the org switcher.
   { email: "multi@agentry.dev", name: "Kabir Malhotra", orgs: [["sharma-digital", "viewer"], ["smilecraft", "manager"]] },
 ];

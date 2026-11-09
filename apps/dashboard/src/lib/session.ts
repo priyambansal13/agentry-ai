@@ -54,6 +54,16 @@ export async function api<T>(path: string, init: { orgId?: string; method?: stri
   return res.json() as Promise<T>;
 }
 
+/** `api` for a page's own data: a role that may not see it is sent Home instead of getting an error page. */
+export async function pageApi<T>(path: string, init: { orgId?: string; method?: string; body?: unknown } = {}): Promise<T> {
+  try {
+    return await api<T>(path, init);
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 403) redirect("/home");
+    throw e;
+  }
+}
+
 export const getMe = cache(() => api<Me>("/me"));
 
 /** The organisation being viewed: for Agentry staff, a client opened from HQ; otherwise the session's active org if the

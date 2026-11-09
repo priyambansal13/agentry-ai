@@ -12,7 +12,7 @@ video is made by **Google Veo 3.1**. OpenAI removed its Videos API (Sora 2 / Sor
 | Uploads whatever came back | A critic checks the plan first (no invented claims, prices, guarantees, medical / financial promises, competitors, or anything off-brand); one rewrite, else a person decides |
 | Always public | Approval mode: a review card with the video, title and description; Approve publishes. Live: publishes at the slot, public / unlisted / private as set |
 | No cost control | The cost per video is estimated before generating (video models bill per second); a monthly budget stops it; usage is billed per video (plan: AI videos included / per extra video) |
-| Nothing after upload | The video page shows where it went (YouTube link); views can come back later (8.6 engagement loop) |
+| Nothing after upload | The video page shows where it went (YouTube link); views and likes come back at 24 h and 7 days (engagement loop), and topics that did well are tried first |
 
 ## Flow
 
@@ -32,7 +32,16 @@ flowchart TD
   R -- live --> PUB
   AP --> PUB["YouTube upload (resumable, #Shorts),<br/>privacy as set"]
   PUB --> DONE["Published: link on the video page"]
+  DONE --> EN["Engagement loop: YouTube numbers at 24 h and 7 days"]
+  EN -.-> T
+  S["Topic -> script: timed script to film yourself"] -. "send to the studio" .-> P
 ```
+
+- **Topic → script** (Videos → Scripts): no budget for generated video? A topic (or the next unused one) becomes a timed
+  30–60 s script: hook, 4–7 beats (say / show / text on screen), close, caption and hashtags, checked by the same
+  risky-wording rules. Film it on a phone, or send it to the studio to be generated.
+- **Engagement loop:** published videos get their YouTube views, likes and comments at 24 h and 7 days; what worked is
+  saved on the business profile and the planner tries the best topics first (see [v3-agents.md](v3-agents.md)).
 
 ## Setup
 
@@ -58,3 +67,17 @@ Video models bill per second. The studio estimates the cost before generating, u
 So a 3-scene (24 s) fast video costs about $3.60. Change the rates if Google's prices change. Videos stop when the month's budget would be passed.
 
 Code: `backend/src/agentry/automations/video_studio/`, `connectors/youtube.py`, migration 0037.
+
+## Who can do what
+
+| | Owner | Manager | Front desk | Finance | Viewer | Agentry |
+|---|---|---|---|---|---|---|
+| Open Videos and Scripts | ✅ | ✅ | ✅ | — | — | ✅ |
+| Make one now, write scripts, edit plans, generate, approve / publish, reject | ✅ | ✅ | — | — | — | ✅ |
+| Settings (topics, schedule, privacy, budget) | ✅ | ✅ | — | — | — | ✅ |
+| Connect YouTube | ✅ | ✅ | — | — | — | ✅ |
+| Switch the agent on, rates | — | — | — | — | — | ✅ |
+
+Opening needs `conversation: read`; everything that makes or publishes needs `automation: configure`
+(`api/routes/videos.py`). Finance and viewers are sent to Home and don't see Videos in the menu. Opening is checked by
+`tests/test_role_matrix.py` ([roles-matrix.md](../roles-matrix.md)).

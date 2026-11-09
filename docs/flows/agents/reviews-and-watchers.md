@@ -4,6 +4,26 @@ Code: `backend/src/agentry/watchers.py`, `automations/reviews/`, `automations/co
 `api/routes/reviews_api.py` and `watch_api.py`, pages `/reviews` and `/watch`, migration 0028. Samples:
 `mock-data/reviews/sample.jsonl`, `mock-data/watchers/*.html`. Tests: `tests/test_reviews.py`.
 
+```mermaid
+flowchart TD
+    T[Every 15 min: due watchers] --> K{Kind}
+    K -- page --> PG[Read text, ignore dates and times]
+    K -- price --> PR[Read price, currency, stock]
+    K -- reviews --> RV["Pull new reviews: samples until Google approves the API"]
+    PG --> CH{Content hash changed?}
+    PR --> CH
+    CH -- no --> Z[Nothing]
+    CH -- yes --> SUM["Model summarises; numbers must be in the change"] --> WC["watch.changed: owner + manager"]
+    RV --> CL["Classify: sentiment, topics, urgent"]
+    CL --> BAD{1-2 stars or urgent?}
+    BAD -- yes --> AL[review.negative alert at once]
+    CL --> DR[Reply drafted in the business's voice]
+    DR --> GOV{"reviews.reply: live and 4-5 stars, non-urgent?"}
+    GOV -- yes --> AUTO["Answered automatically, 20 a day"]
+    GOV -- no --> CARD[Needs-you card: edit and reply]
+    SHOW["booking.showed or invoice paid"] --> ASK["Ask for a review after 2 h<br/>once per 90 days, never after a low review"]
+```
+
 ## Watchers (the shared engine)
 
 Every 15 minutes the due watchers run (each has its own interval):
@@ -31,9 +51,23 @@ The model only runs when the page's content hash changed. Three failed checks in
    Google review link set. Governance `reviews.ask` (quiet hours, 40/day).
 6. **Monthly report** on the 1st at 09:30 IST: count, average vs the month before, replies, what people liked and complained about.
 
-Who: owners, managers and front desk (conversation permission); finance and viewers don't see reviews.
+Who: owners, managers and front desk (conversation permission); finance and viewers don't see reviews (they're sent
+to Home and the menu hides it).
 
 ## Competitor & price watch
 
 Owners and managers add pages (`/watch`): a competitor's offers or a product price. Checked every 6 hours by default,
 up to 20 pages in the plan (Agentry can change both). Everyone in the business can see the list and recent changes.
+
+## Who can do what
+
+| | Owner | Manager | Front desk | Finance | Viewer | Agentry |
+|---|---|---|---|---|---|---|
+| Open Reviews | ✅ | ✅ | ✅ | — | — | ✅ |
+| Reply to reviews, approve reply / ask cards | ✅ | ✅ | ✅ | — | — | ✅ |
+| Open Watch (pages and recent changes) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Add, change or remove watched pages | ✅ | ✅ | — | — | — | ✅ |
+| Review settings (review link, delay), plan limits | ✅ | ✅ | — | — | — | ✅ (limits: Agentry only) |
+
+From `api/routes/reviews_api.py` (`conversation: read` / `act`) and `watch_api.py` (`dashboard: read` to see,
+`automation: configure` to change). Opening is checked by `tests/test_role_matrix.py` ([roles-matrix.md](../roles-matrix.md)).

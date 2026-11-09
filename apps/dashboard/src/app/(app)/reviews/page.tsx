@@ -2,7 +2,7 @@ import { Badge, Card } from "@agentry/ui";
 import Link from "next/link";
 import { CheckReviews, ReplyBox } from "@/components/reviews";
 import { timeAgo } from "@/lib/format";
-import { api, requirePage } from "@/lib/session";
+import { pageApi as api, requirePage } from "@/lib/session";
 
 export const metadata = { title: "Reviews" };
 

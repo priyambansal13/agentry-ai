@@ -14,6 +14,14 @@ MONDAY = date(2026, 11, 2)  # a Monday after the seeded holidays (8-9 Nov are ho
 NOW = datetime(2026, 10, 24, 12, 0, tzinfo=IST)
 
 
+def upcoming(weekday: int) -> date:
+    """The next such weekday that is still ahead (bookings can't be in the past) and after the seeded 8-9 Nov holidays."""
+    d = max(datetime.now(IST).date() + timedelta(days=1), date(2026, 11, 10))
+    while d.weekday() != weekday:
+        d += timedelta(days=1)
+    return d
+
+
 @pytest.fixture
 async def clean_bookings(orgs):
     yield
@@ -39,19 +47,18 @@ async def test_cleaning_only_offered_by_staff_who_do_it(orgs):
 
 
 async def test_booking_takes_the_slot_away(orgs, clean_bookings):
-    start = datetime(2026, 11, 3, 18, 0, tzinfo=IST)
+    d = upcoming(1)
+    start = datetime(d.year, d.month, d.day, 18, 0, tzinfo=IST)
     r = await book(orgs["smilecraft"], service_key="cleaning", start=start, name="Test Patient", phone="+91-90000-99901",
                    source="test")
-    assert r["when"].startswith("Tuesday 3 November at 6:00")
+    assert r["when"].startswith(f"Tuesday {d.day} {d:%B} at 6:00")
     slots, _, _ = await availability(orgs["smilecraft"], "cleaning", start.date(), days=1, limit=500, now=NOW)
     takers = [s.staff_name for s in slots if s.start == start]
     assert r["staff"] not in takers  # that person is busy now; the other cleaner may still be free
 
 
 async def test_unavailable_time_offers_alternatives(orgs):
-    d = max(datetime.now(IST).date() + timedelta(days=1), date(2026, 11, 10))  # after the seeded 8-9 Nov holidays
-    while d.weekday() != 6:  # the next Sunday (closed), always in the future so there are alternatives to offer
-        d += timedelta(days=1)
+    d = upcoming(6)  # the next Sunday (closed), always in the future so there are alternatives to offer
     with pytest.raises(BookingError) as e:
         await book(orgs["smilecraft"], service_key="consult", start=datetime(d.year, d.month, d.day, 11, 0, tzinfo=IST),
                    name="X", source="test")
@@ -60,7 +67,8 @@ async def test_unavailable_time_offers_alternatives(orgs):
 
 async def test_concurrent_bookings_never_double_book(orgs, clean_bookings):
     """Three agents grab the same slot at once; only as many succeed as there are free staff."""
-    start = datetime(2026, 11, 4, 11, 0, tzinfo=IST)
+    d = upcoming(2)
+    start = datetime(d.year, d.month, d.day, 11, 0, tzinfo=IST)
     slots, _, _ = await availability(orgs["smilecraft"], "implant", start.date(), days=1, limit=500, now=NOW)
     free_staff = len({s.staff_id for s in slots if s.start == start})
     results = await asyncio.gather(*[

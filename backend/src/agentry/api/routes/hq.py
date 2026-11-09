@@ -215,7 +215,7 @@ class NewClient(BaseModel):
     timezone: Annotated[str, Field(min_length=3, max_length=64)] = "Asia/Kolkata"
     currency: Literal["INR", "USD", "EUR", "GBP", "AED"] = "INR"
     website: Annotated[str | None, Field(max_length=300)] = None
-    automations: Annotated[list[str], Field(max_length=20)] = []  # standalone add-ons
+    automations: Annotated[list[str], Field(max_length=60)] = []  # standalone add-ons
     pack: str | None = None
     pack_agents: list[str] | None = None  # None = the pack's defaults
     plan: billing.PricingPlan | None = None  # None with a pack = the pack's price

@@ -6,6 +6,27 @@ WhatsApp/Telegram assistant, AI receptionist, reactivation, the waitlist or the 
 Code: `backend/src/agentry/automations/appointment_concierge/`, API `api/routes/calendar_api.py`, page `/calendar`,
 migration 0024 (`bookings.concierge`, `bookings.cancel_reason`, `app.waitlist`). Tests: `tests/test_appointment_concierge.py`.
 
+```mermaid
+flowchart TD
+    B["booking.created<br/>chat, WhatsApp, Telegram, receptionist, waitlist, concierge"] --> W[Durable workflow sleeps until the reminder]
+    W --> R1["Evening before: reminder<br/>Reply 1 confirm / 2 change"]
+    R1 --> G{"Governance: quiet hours 9 pm-8 am,<br/>daily limit, approval mode"}
+    G -- held --> CARD[Needs-you card: approve or edit, then send]
+    G -- ok --> SEND[WhatsApp, else Telegram, else email, else Call card]
+    CARD --> SEND
+    SEND --> REP{Customer replies}
+    REP -- 1 --> CONF[Confirmed: booking.confirmed]
+    REP -- 2 --> OFF[Next 3 free times A / B / C, 0 cancels]
+    OFF -- picks one --> RE[New booking, old one cancelled as rescheduled]
+    OFF -- 0 --> CAN
+    REP -- other --> AS[WhatsApp / Telegram assistant answers as usual]
+    CONF --> H2[2 hours before: see you today]
+    H2 --> MK{Team marks it}
+    MK -- Showed --> AF[Aftercare 2 h later, recall after N months]
+    MK -- No-show --> NS["We missed you: reply 1 for a new time<br/>booking.no_show"]
+    CAN[Cancelled] --> WL[First 3 on the waitlist offered the slot: first YES gets it]
+```
+
 ## The journey of one appointment
 
 | When | What the customer gets | What happens next |
@@ -43,8 +64,21 @@ conversation, not sent (test mode).
 - The week by day, with status, who booked it, contact details (not for viewers), and what the concierge is waiting for.
 - Buttons: Mark confirmed (future), Showed / No-show (past), Cancel (asks first; offers the slot to the waitlist).
 - Waitlist panel: add someone (name, phone or email, service, notes), remove them, see who has an offer open.
-- Roles: owner, manager, staff act; viewer reads; finance doesn't see it.
+- Roles: see *Who can do what* below. A role that can't see the calendar is sent to Home and the menu hides it.
 
 ## Notifications
 
 `booking.cancelled` and `booking.no_show` are in the Notification Center catalogue (Leads & bookings) for rules.
+
+## Who can do what
+
+| | Owner | Manager | Front desk | Finance | Viewer | Agentry |
+|---|---|---|---|---|---|---|
+| Open the calendar | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| See customers' contact details | ✅ | ✅ | ✅ | — | — | ✅ |
+| Confirm, Showed / No-show, Cancel, manage the waitlist | ✅ | ✅ | ✅ | — | — | ✅ |
+| Approve concierge message cards in Needs you | ✅ | ✅ | ✅ | — | — | ✅ |
+| Change concierge settings (reminder times, templates, recall months) | ✅ | ✅ | — | — | — | ✅ |
+
+From `api/routes/calendar_api.py` (`calendar: read` / `calendar: act`, contacts need `conversation: read`) and
+`config/roles.json`; opening is checked by `tests/test_role_matrix.py` ([roles-matrix.md](../roles-matrix.md)).

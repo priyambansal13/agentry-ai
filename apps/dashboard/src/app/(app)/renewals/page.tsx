@@ -1,6 +1,6 @@
 import { Badge, Card, CardBody, CardHeader, CardTitle } from "@agentry/ui";
 import { AddRenewal, ImportRenewals, MarkRenewal } from "@/components/renewals";
-import { api, requirePage } from "@/lib/session";
+import { pageApi as api, requirePage } from "@/lib/session";
 
 export const metadata = { title: "Renewals" };
 

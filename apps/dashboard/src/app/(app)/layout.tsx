@@ -23,7 +23,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                      canConverse, canWork, showOnboarding, needsYou, canInvoices: me.is_staff || can(role, "invoice", "read"),
                      canBilling: me.is_staff || can(role, "billing", "read"), pages: features?.pages,
                      canConnect: me.is_staff || can(role, "connection", "manage"),
-                     canCalendar: me.is_staff || can(role, "calendar", "read") };
+                     canCalendar: me.is_staff || can(role, "calendar", "read"),
+                     canConfigure: me.is_staff || can(role, "automation", "configure") };
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[260px_1fr]">
       <aside className="border-b border-line bg-card px-4 py-5 lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:border-r lg:border-b-0">
