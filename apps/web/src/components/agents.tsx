@@ -4,10 +4,10 @@ import { SketchFlow } from "./sketch";
 
 export function Agents() {
   return (
-    <section id="agents" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-20 sm:px-6">
-      <p className="font-hand text-2xl text-muted">meet the team</p>
+    <section id="favourites" className="mx-auto max-w-6xl scroll-mt-20 px-4 pb-20 sm:px-6">
+      <p className="font-hand text-2xl text-muted">how the favourites work</p>
       <h2 className="mt-1 max-w-3xl font-display text-3xl font-bold tracking-tight sm:text-5xl">
-        Eight agents. Each does one boring job <span className="highlight">really well.</span>
+        The eight most clients start with, <span className="highlight">sketched.</span>
       </h2>
       <div className="mt-12 grid gap-5 md:grid-cols-2">
         {agents.map((a, i) => (

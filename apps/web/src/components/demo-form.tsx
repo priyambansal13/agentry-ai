@@ -2,6 +2,7 @@
 
 import { Button, Input, Label, Select, Textarea } from "@agentry/ui";
 import { useEffect, useState } from "react";
+import { attribution, trackDemoRequest } from "./analytics";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8801";
 
@@ -11,8 +12,16 @@ function normaliseUrl(s: string): string | undefined {
   return /^https?:\/\//i.test(t) ? t : `https://${t}`;
 }
 
-export function DemoForm() {
-  const [form, setForm] = useState({ name: "", email: "", phone: "", company: "", website: "", niche: "", message: "", company_url: "" });
+/** The demo request API has no tracking fields, so where the visitor came from is added to the message (HQ sees it). */
+function withSource(message: string): string | undefined {
+  const a = attribution();
+  const tag = Object.entries(a).map(([k, v]) => `${k}=${v}`).join("; ");
+  const out = [message.trim(), tag && `[source: ${tag}]`].filter(Boolean).join("\n\n");
+  return out ? out.slice(0, 2000) : undefined;
+}
+
+export function DemoForm({ niche = "" }: { niche?: string }) {
+  const [form, setForm] = useState({ name: "", email: "", phone: "", company: "", website: "", niche, message: "", company_url: "" });
   const [state, setState] = useState<{ kind: "idle" | "sending" | "done" | "error"; message?: string }>({ kind: "idle" });
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -32,12 +41,13 @@ export function DemoForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          phone: form.phone || undefined, company: form.company || undefined, message: form.message || undefined,
+          phone: form.phone || undefined, company: form.company || undefined, message: withSource(form.message),
           niche: form.niche || undefined, website: normaliseUrl(form.website), company_url: form.company_url || undefined,
         }),
       });
       if (res.status === 429) throw new Error("Too many requests. Please try again in a few minutes.");
       if (!res.ok) throw new Error("Please check the highlighted details and try again.");
+      trackDemoRequest(form.niche || undefined);
       setState({ kind: "done" });
     } catch (err) {
       setState({ kind: "error", message: err instanceof Error ? err.message : "Something went wrong." });
@@ -49,7 +59,7 @@ export function DemoForm() {
       <div className="mx-auto grid max-w-6xl gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[1fr_1.2fr]">
         <div>
           <p className="font-hand text-2xl text-lime">no call needed</p>
-          <h2 className="mt-1 font-display text-4xl font-bold tracking-tight sm:text-5xl">Get a demo built with your business name</h2>
+          <h2 className="mt-1 font-display text-4xl font-bold tracking-tight sm:text-5xl">Get a free demo built with your business name</h2>
           <p className="mt-5 text-lg text-paper/75">Within one working day you get a short video of your own AI agent answering your customers, using your services and FAQs.</p>
         </div>
         {state.kind === "done" ? (

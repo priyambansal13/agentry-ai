@@ -1,6 +1,7 @@
+import { pageMeta } from "@/lib/catalog";
 import { CONTACT, LegalPage } from "@/components/legal";
 
-export const metadata = { title: "Privacy policy · Agentry" };
+export const metadata = pageMeta("Privacy policy", "How Agentry handles your data: plain-language privacy policy.", "/privacy");
 
 export default function PrivacyPage() {
   return (

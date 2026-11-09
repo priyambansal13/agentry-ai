@@ -1,6 +1,7 @@
+import { pageMeta } from "@/lib/catalog";
 import { CONTACT, LegalPage } from "@/components/legal";
 
-export const metadata = { title: "Terms of service · Agentry" };
+export const metadata = pageMeta("Terms of service", "How Agentry handles its service: plain-language terms of service.", "/terms");
 
 export default function TermsPage() {
   return (

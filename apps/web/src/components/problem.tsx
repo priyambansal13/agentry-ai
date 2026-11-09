@@ -1,4 +1,5 @@
-const STEPS: [string, string][] = [["100", "leads / month"], ["20", "missed"], ["1 in 5", "would buy"], ["4", "customers lost"]];
+// The India example from docs/PRICING.md §2 (a dental clinic).
+const STEPS: [string, string][] = [["150", "enquiries / month"], ["45", "missed (30%)"], ["1 in 4", "would book"], ["~11", "patients lost"]];
 
 export function Problem() {
   return (
@@ -18,10 +19,10 @@ export function Problem() {
           ))}
         </ol>
         <p className="mt-8 text-xl">
-          4 × $500 each = <span className="rounded-md bg-lime px-2 py-0.5 font-display font-bold text-lime-ink">$2,000 / month lost</span>
+          ~11 × ₹8,000 each = <span className="rounded-md bg-lime px-2 py-0.5 font-display font-bold text-lime-ink">₹90,000 / month walking away</span>
         </p>
         <p className="mt-3 max-w-2xl text-paper/70">
-          Example numbers. Our fee is a slice of the money we win back for you; you keep the rest.{" "}
+          Example numbers for a clinic. Our fee is a slice of the money we win back for you; you keep the rest.{" "}
           <a href="#calculator" className="text-lime underline underline-offset-4">Work out your own →</a>
         </p>
       </div>

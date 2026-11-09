@@ -21,6 +21,14 @@ export function Pricing() {
           </article>
         ))}
       </div>
+      <div className="mt-8 grid gap-5 rounded-3xl border-2 border-dashed border-ink p-6 sm:grid-cols-[auto_1fr] sm:items-center sm:p-8">
+        <p className="font-display text-2xl font-bold">Packs</p>
+        <p className="text-ink-soft">
+          Agents also come bundled for one kind of business, like the <a href="/for/ca-firms" className="font-semibold text-ink underline underline-offset-4">CA firm pack</a>,{" "}
+          <a href="/for/clinics" className="font-semibold text-ink underline underline-offset-4">Front Desk in a Box</a> for clinics or{" "}
+          <a href="/for/agencies" className="font-semibold text-ink underline underline-offset-4">Get Paid</a> for agencies. Untick what you don&apos;t need, add any agent on its own.
+        </p>
+      </div>
     </section>
   );
 }

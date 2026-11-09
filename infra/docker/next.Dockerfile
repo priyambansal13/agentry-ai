@@ -18,6 +18,12 @@ ARG APP=dashboard
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_DASHBOARD_URL
 ARG NEXT_PUBLIC_WEB_URL
+# website only, all optional (docs/ADS.md, docs/SEO.md): tracking tags load only when their ID is set
+ARG NEXT_PUBLIC_GA_ID
+ARG NEXT_PUBLIC_GOOGLE_ADS_ID
+ARG NEXT_PUBLIC_GOOGLE_ADS_LABEL
+ARG NEXT_PUBLIC_META_PIXEL_ID
+ARG NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
 RUN pnpm --filter @agentry/widget build && pnpm --filter @agentry/${APP} build
