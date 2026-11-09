@@ -3,6 +3,8 @@
 Three templates use the brand kit's two colours and logo: "bold" (quote on the brand colour), "light" (on white with
 an accent bar) and "split" (a colour panel beside the quote). Instagram gets a 1080x1080 square; LinkedIn and X a
 1200x675 landscape. Text size shrinks until the quote fits; very long quotes are cut at a sentence end.
+With AI images on (ai_images.py), a generated background is cropped to the card and laid under a veil of the card's
+own colour, so the quote reads the same as without it.
 """
 import io
 import re
@@ -63,7 +65,21 @@ def _shorten(quote: str, limit: int = 260) -> str:
     return out or quote[:limit].rsplit(" ", 1)[0] + "…"
 
 
-def render(platform: str, quote: str, speaker: str | None, kit: dict, logo: Path | None = None) -> bytes:
+def _backdrop(bg: tuple[int, int, int], w: int, h: int, background: Path | None) -> Image.Image:
+    img = Image.new("RGB", (w, h), bg)
+    if background and background.is_file():
+        try:
+            photo = Image.open(background).convert("RGB")
+        except OSError:
+            return img  # a broken file: the plain card
+        scale = max(w / photo.width, h / photo.height)  # cover, then centre-crop
+        photo = photo.resize((max(w, round(photo.width * scale)), max(h, round(photo.height * scale))))
+        left, top = (photo.width - w) // 2, (photo.height - h) // 2
+        img = Image.blend(photo.crop((left, top, left + w, top + h)), img, 0.72)
+    return img
+
+
+def render(platform: str, quote: str, speaker: str | None, kit: dict, logo: Path | None = None, background: Path | None = None) -> bytes:
     w, h = SIZES[platform]
     primary = _rgb(kit.get("primary_color"), (31, 42, 26))
     accent = _rgb(kit.get("accent_color"), (200, 240, 74))
@@ -72,7 +88,7 @@ def render(platform: str, quote: str, speaker: str | None, kit: dict, logo: Path
         bg, ink, mark = (255, 255, 252), primary, accent
     else:
         bg, ink, mark = primary, _ink_on(primary), accent
-    img = Image.new("RGB", (w, h), bg)
+    img = _backdrop(bg, w, h, background)
     d = ImageDraw.Draw(img)
     pad = int(min(w, h) * 0.09)
     left = pad

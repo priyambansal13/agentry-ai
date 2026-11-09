@@ -4,7 +4,7 @@ import { Badge, Button, Card, Input, Label, Select, Textarea } from "@agentry/ui
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
-  addContentLink, approveContentReady, cutContentClips, deleteContent, dropContentMoment, learnBrandVoice, moveContentPost, requestLongform, retryContent, reviewContentPost, sampleContent,
+  addContentLink, approveContentReady, cutContentClips, deleteContent, newBackground, dropContentMoment, learnBrandVoice, moveContentPost, requestLongform, retryContent, reviewContentPost, sampleContent,
   saveBrandKit, saveLongform, scheduleContent, uploadBrandLogo,
 } from "@/app/(app)/actions";
 import { PLATFORM } from "@/lib/format";
@@ -150,9 +150,25 @@ export function DropMoment({ id }: { id: string }) {
   );
 }
 
+export function NewBackground({ id }: { id: string }) {
+  const router = useRouter();
+  const [msg, setMsg] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  return (
+    <span className="inline-flex items-center gap-2">
+      <button type="button" className="text-xs text-muted underline" disabled={pending} onClick={() => start(async () => {
+        const r = await newBackground(id);
+        setMsg(r.ok ? null : r.error);
+        router.refresh();
+      })}>{pending ? "Making a background…" : "New background"}</button>
+      {msg && <span role="alert" className="text-xs text-danger">{msg}</span>}
+    </span>
+  );
+}
+
 export type ContentPost = {
   id: string; platform: "linkedin" | "instagram" | "x"; body: string; hashtags: string[]; review: "pending" | "needs_attention" | "approved" | "dropped";
-  critic: { ok?: boolean; problems?: string[]; attempts?: number; edited_by_person?: boolean }; edited: boolean; has_image: boolean;
+  critic: { ok?: boolean; problems?: string[]; attempts?: number; edited_by_person?: boolean }; edited: boolean; has_image: boolean; image_v?: number;
   scheduled_at: string | null; published_at: string | null; publish_ref: string | null; publish_error: string | null;
 };
 
@@ -185,7 +201,7 @@ export function PostCard({ p, canEdit }: { p: ContentPost; canEdit: boolean }) {
       </div>
       {p.has_image && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={`/api/content-image/${p.id}`} alt={`Quote card for the ${PLATFORM[p.platform]} post`} loading="lazy"
+        <img src={`/api/content-image/${p.id}?v=${p.image_v ?? 0}`} alt={`Quote card for the ${PLATFORM[p.platform]} post`} loading="lazy"
           className="mt-3 w-full rounded-lg border border-line" />
       )}
       {p.review === "needs_attention" && (
@@ -249,7 +265,9 @@ export function ScheduleAll({ count }: { count: number }) {
 }
 
 export type BrandKit = { primary_color: string; accent_color: string; template: "bold" | "light" | "split"; handle: string | null;
-  platforms: ("linkedin" | "instagram" | "x")[]; moments_per_source: number; voice: string | null; voice_samples: number; has_logo: boolean };
+  platforms: ("linkedin" | "instagram" | "x")[]; moments_per_source: number; voice: string | null; voice_samples: number; has_logo: boolean;
+  ai_images: boolean; image_style: string | null; images_per_month: number;
+  image_usage: { images: number; usd: number; per_image_usd: number; test_mode: boolean; backgrounds: number } };
 
 export function BrandForm({ kit }: { kit: BrandKit }) {
   const router = useRouter();
@@ -261,7 +279,8 @@ export function BrandForm({ kit }: { kit: BrandKit }) {
     <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); start(async () => {
         const r = await saveBrandKit({ primary_color: k.primary_color, accent_color: k.accent_color, template: k.template, handle: k.handle || "",
-                                        platforms: k.platforms, moments_per_source: k.moments_per_source });
+                                        platforms: k.platforms, moments_per_source: k.moments_per_source,
+                                        ai_images: k.ai_images, image_style: k.image_style ?? "", images_per_month: k.images_per_month });
         setMsg(r.ok ? { ok: true, text: `Saved${r.data.images_redrawn ? `: ${r.data.images_redrawn} images redrawn` : ""}` } : { ok: false, text: r.error });
         setStamp(Date.now());
         router.refresh();
@@ -286,6 +305,18 @@ export function BrandForm({ kit }: { kit: BrandKit }) {
             ))}</div></fieldset>
           <div><Label htmlFor="bk-moments">Moments per recording</Label>
             <Input id="bk-moments" type="number" min={3} max={20} value={k.moments_per_source} onChange={(e) => setK({ ...k, moments_per_source: Number(e.target.value) })} /></div>
+          <fieldset className="space-y-2 rounded-lg border border-line p-3 sm:col-span-2"><legend className="px-1 text-sm font-medium">AI images</legend>
+            <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={k.ai_images} onChange={(e) => setK({ ...k, ai_images: e.target.checked })} />
+              <span>Put an AI-made background behind each quote card. One per moment, shared by its platforms; never shows people or text
+                (each image is checked). About ${k.image_usage.per_image_usd.toFixed(3)} per image.</span></label>
+            {k.ai_images && <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
+              <div><Label htmlFor="bk-style">Image style</Label><Input id="bk-style" maxLength={300} value={k.image_style ?? ""} onChange={(e) => setK({ ...k, image_style: e.target.value })}
+                placeholder="e.g. soft pastel watercolour, calm and clean" /></div>
+              <div><Label htmlFor="bk-cap">Images a month</Label><Input id="bk-cap" type="number" min={0} max={500} value={k.images_per_month}
+                onChange={(e) => setK({ ...k, images_per_month: Number(e.target.value) })} /></div></div>}
+            <p className="text-xs text-muted">This month: {k.image_usage.images} image{k.image_usage.images === 1 ? "" : "s"}, ${k.image_usage.usd.toFixed(2)}
+              {k.image_usage.test_mode ? " (test mode: sample backgrounds, no cost)" : ""}. Turning it on doesn't redo existing posts; use "New background" on a moment.</p>
+          </fieldset>
         </div>
         <div className="flex flex-wrap items-center gap-3"><Button type="submit" disabled={pending}>Save brand kit</Button><Status msg={msg} /></div>
       </form>

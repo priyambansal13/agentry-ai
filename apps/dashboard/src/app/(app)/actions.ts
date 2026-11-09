@@ -589,6 +589,10 @@ export async function moveContentPost(id: string, scheduledAt: string | null) {
   return run<{ id: string }>(`/org/content/posts/${id}/slot`, { method: "PATCH", body: { scheduled_at: scheduledAt } }, ["/content/calendar"]);
 }
 
+export async function newBackground(momentId: string) {
+  return run<{ path: string; redrawn: number }>(`/org/content/moments/${momentId}/background`, { method: "POST" }, ["/content"]);
+}
+
 export async function saveBrandKit(changes: Record<string, unknown>) {
   return run<{ saved: string[]; images_redrawn: number }>("/org/content/brand", { method: "PUT", body: changes }, ["/content/brand"]);
 }

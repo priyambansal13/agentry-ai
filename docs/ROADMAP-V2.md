@@ -173,7 +173,7 @@ today's invoice import (photographed invoices).
 | 8.4 | **Topic → script mode** (StoryForge): no recording? Give a topic; it researches and writes a timed Shorts script for the owner to record, in 8 languages. Ported from `swarm-ai/docs/STUDIO.md` | A clinic owner gets 4 scripts a week to film on their phone; the recordings come back through the normal flow |
 | 8.5 | **Languages:** Hindi and regional transcription (Sarvam), posts in the language spoken or chosen, Hinglish | A Hindi podcast gives Hindi posts with exact Hindi quotes |
 | 8.6 | **Engagement loop:** fetch likes, comments and reach at +24 h and +7 d; learn which hooks and topics work for this business; feed that into moment ranking; a "top post" event | Ranking weights change per business based on results; the monthly report shows the best posts |
-| 8.7 | **AI images (opt-in):** a generated background behind the quote card, or an illustration, with cost per image shown | Off by default; per-business switch; never shows people |
+| 8.7 ✅ (2026-11-09) | **AI images (opt-in):** a generated background behind the quote card, or an illustration, with cost per image shown | Off by default; per-business switch; never shows people |
 
 ## 4. Phase 9–11 — New agents
 

@@ -70,7 +70,8 @@ def logo_path(kit: dict) -> Path | None:
 
 async def render_post_image(conn: AsyncConnection, org_id: str, kit: dict, post: dict, moment: dict) -> str:
     """Draw (or redraw) a post's card and store it; returns its relative path."""
-    png = images.render(post["platform"], moment["quote"], moment.get("speaker"), kit, logo_path(kit))
+    bg = sources.resolve(moment.get("ai_bg_path")) if kit.get("ai_images") else None
+    png = images.render(post["platform"], moment["quote"], moment.get("speaker"), kit, logo_path(kit), bg)
     path = sources.folder(org_id, str(post["source_id"])) / f"{post['id']}.png"
     path.write_bytes(png)
     rel = sources.relative(path)
@@ -82,8 +83,8 @@ async def render_post_image(conn: AsyncConnection, org_id: str, kit: dict, post:
 async def rerender_all(conn: AsyncConnection, org_id: str) -> int:
     """After the brand kit changes: every card not yet published is redrawn."""
     kit = await get_kit(conn, org_id)
-    rows = (await conn.execute(text("""select p.id, p.source_id, p.platform, m.quote, m.speaker from app.content_posts p
+    rows = (await conn.execute(text("""select p.id, p.source_id, p.platform, m.quote, m.speaker, m.ai_bg_path from app.content_posts p
         join app.content_moments m on m.id = p.moment_id where p.published_at is null and p.review <> 'dropped'"""))).mappings().all()
     for r in rows:
-        await render_post_image(conn, org_id, kit, dict(r), {"quote": r["quote"], "speaker": r["speaker"]})
+        await render_post_image(conn, org_id, kit, dict(r), {"quote": r["quote"], "speaker": r["speaker"], "ai_bg_path": r["ai_bg_path"]})
     return len(rows)

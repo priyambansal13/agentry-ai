@@ -2,7 +2,7 @@ import { Badge, Card } from "@agentry/ui";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RefreshWhileBuilding } from "@/components/cold-email";
-import { BulkActions, type Clip, ClipCard, type ContentPost, CutClips, DropMoment, LongformPanel, PostCard, SourceActions } from "@/components/content";
+import { BulkActions, type Clip, ClipCard, type ContentPost, CutClips, DropMoment, NewBackground, LongformPanel, PostCard, SourceActions } from "@/components/content";
 import { api, ApiError, requirePage } from "@/lib/session";
 
 export const metadata = { title: "Content review" };
@@ -10,7 +10,7 @@ export const metadata = { title: "Content review" };
 type Moment = { id: string; rank: number; start_s: number; end_s: number; quote: string; speaker: string | null; hook: string; insight: string;
                 topic: string | null; dropped: boolean };
 type Source = { id: string; title: string; kind: string; source_url: string | null; status: string; error: string | null; progress: { moments_total?: number; moments_done?: number };
-                duration_seconds: number | null; moments: Moment[]; posts: (ContentPost & { moment_id: string })[]; clips: Record<string, Clip>; can_edit: boolean };
+                duration_seconds: number | null; moments: Moment[]; posts: (ContentPost & { moment_id: string })[]; clips: Record<string, Clip>; can_edit: boolean; ai_images?: boolean };
 const STEP: Record<string, string> = { downloading: "Downloading from the link…", uploaded: "Queued…", transcribing: "Transcribing the recording…", finding_moments: "Finding the best moments…",
                                        writing: "Writing posts and drawing images…", cutting_clips: "Cutting vertical clips…" };
 
@@ -73,7 +73,7 @@ export default async function ContentSourcePage({ params }: { params: Promise<{ 
               <span className="ml-auto text-xs text-muted">{clock(m.start_s)}–{clock(m.end_s)}</span>
             </div>
             <blockquote className="mt-2 border-l-4 border-lime pl-3 text-sm text-ink-soft">“{m.quote}”{m.speaker ? <span className="text-muted"> — {m.speaker}</span> : null}</blockquote>
-            {s.can_edit && <div className="mt-2"><DropMoment id={m.id} /></div>}
+            {s.can_edit && <div className="mt-2 flex flex-wrap gap-4"><DropMoment id={m.id} />{s.ai_images && <NewBackground id={m.id} />}</div>}
           </Card>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {(() => { const c = s.clips[m.id]; return c ? <ClipCard momentId={m.id} clip={c} hook={m.hook} /> : null; })()}

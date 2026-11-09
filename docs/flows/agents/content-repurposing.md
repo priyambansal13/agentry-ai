@@ -103,3 +103,28 @@ and blog outputs, engagement metrics feeding back into which moments are picked.
   or **LinkedIn** (a person's profile) under Settings → Connections. Once a platform is connected, its approved posts go
   out for real at their slot (never test mode), with the quote card and a *View post* link; an expired connection holds
   posts and alerts the owner. LinkedIn company pages need LinkedIn's Community Management API (not yet).
+
+## AI images (ROADMAP-V2 8.7, 2026-11-09)
+
+An opt-in background behind each quote card. **Off by default**; owners and managers switch it on in Content → Brand kit.
+
+```mermaid
+flowchart TD
+  M[Moment chosen from the recording] --> O{AI images on?}
+  O -- no --> P[Plain brand card, as before]
+  O -- yes --> C{Under this month's image limit?}
+  C -- no --> P
+  C -- yes --> G[Image model: business's style + the moment's topic + fixed rules: no people, no text]
+  G --> V{Vision check: people or text?}
+  V -- yes, first time --> G
+  V -- yes again --> P
+  V -- no --> B[Background saved for the moment]
+  B --> K[Each platform's card: background cropped to size, under a veil of the card colour]
+```
+
+- **One image per moment**, shared by its LinkedIn, Instagram and X cards. **New background** on a moment makes another one and redraws its cards.
+- **Prompt:** built by Agentry from the business's *image style* (e.g. "soft pastel watercolour") and the moment's topic, asking for objects, textures, nature or abstract shapes, with calm space in the middle. People and text are never asked for, and the vision model rejects any image showing them (retried once, then the plain card is used).
+- **Cost:** `gpt-image-1-mini` at low quality, about US$0.002–0.006 an image (measured 2026-11-09: $0.0024). Every image is recorded in `llm_calls` (`ai_image`) and the month's count and spend show on the brand kit. A monthly cap (default 40) stops generation.
+- **Settings:** `AGENTRY_MODEL_IMAGE` (default `openai/gpt-image-1-mini`, `mock` = brand-colour test images), `AGENTRY_IMAGE_QUALITY` (low/medium/high). Without an OpenAI key it runs in test mode.
+- **Who:** turning it on, the style, the cap and New background need owner or manager (automation:configure).
+- Code: `automations/content/ai_images.py`, `images.py` (`background=`), `POST /org/content/moments/{id}/background`. Migration 0051. Tests: `test_ai_images.py`.

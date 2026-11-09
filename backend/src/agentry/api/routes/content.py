@@ -15,7 +15,7 @@ from sqlalchemy import text
 
 from agentry import audit
 from agentry.auth import OrgContext, client_ip, require
-from agentry.automations.content import brand, calendar, links, pipeline, results, sources
+from agentry.automations.content import ai_images, brand, calendar, links, pipeline, results, sources
 from agentry.db import tenant_session
 from agentry.events import emit
 from agentry.features import require_page
@@ -152,7 +152,7 @@ async def delete_source(sid: str, request: Request, ctx: Editor) -> dict:
 
 
 POST_SQL = """select p.id, p.platform, p.body, p.hashtags, p.critic, p.review, p.edited, p.scheduled_at, p.published_at, p.publish_ref,
-    p.publish_error, p.moment_id, p.source_id, (p.image_path is not null) as has_image, m.rank, m.quote, m.speaker, m.hook, m.start_s, m.end_s,
+    p.publish_error, p.moment_id, p.source_id, (p.image_path is not null) as has_image, extract(epoch from p.updated_at)::bigint as image_v, m.rank, m.quote, m.speaker, m.hook, m.start_s, m.end_s,
     m.topic, s.title as source_title from app.content_posts p join app.content_moments m on m.id = p.moment_id
     join app.content_sources s on s.id = p.source_id"""
 
@@ -172,7 +172,7 @@ async def get_source(sid: str, ctx: Viewer) -> dict:
         cl = (await conn.execute(text("""select moment_id::text, status, start_s, end_s, duration_s, error, updated_at
             from app.content_clips where source_id = cast(:i as uuid)"""), {"i": sid})).mappings().all()
     return {**dict(s), "moments": [dict(m) for m in ms], "posts": [dict(p) for p in posts], "platforms": kit["platforms"],
-            "clips": {c["moment_id"]: dict(c) for c in cl}, "can_edit": ctx.can("automation", "configure")}
+            "clips": {c["moment_id"]: dict(c) for c in cl}, "can_edit": ctx.can("automation", "configure"), "ai_images": kit["ai_images"]}
 
 
 # ---------- review ----------
@@ -327,13 +327,17 @@ class Kit(BaseModel):
     handle: Annotated[str | None, Field(max_length=60)] = None
     platforms: list[Literal["linkedin", "instagram", "x"]] | None = None
     moments_per_source: Annotated[int | None, Field(ge=3, le=20)] = None
+    ai_images: bool | None = None
+    image_style: Annotated[str | None, Field(max_length=300)] = None
+    images_per_month: Annotated[int | None, Field(ge=0, le=500)] = None
 
 
 @router.get("/brand")
 async def get_brand(ctx: Viewer) -> dict:
     async with tenant_session(ctx.org_id) as conn:
         kit = await brand.get_kit(conn, ctx.org_id)
-    return {**kit, "has_logo": bool(brand.logo_path(kit)), "can_edit": ctx.can("automation", "configure")}
+        usage = await ai_images.month_usage(conn)
+    return {**kit, "has_logo": bool(brand.logo_path(kit)), "can_edit": ctx.can("automation", "configure"), "image_usage": usage}
 
 
 @router.put("/brand")
@@ -345,7 +349,7 @@ async def put_brand(b: Kit, request: Request, ctx: Editor) -> dict:
         await brand.get_kit(conn, ctx.org_id)
         if changes:
             await conn.execute(text("update app.brand_kits set " + ", ".join(f"{k} = :{k}" for k in changes) + ", updated_at = now()"), changes)
-        redrawn = await brand.rerender_all(conn, ctx.org_id) if {"primary_color", "accent_color", "template", "handle"} & set(changes) else 0
+        redrawn = await brand.rerender_all(conn, ctx.org_id) if {"primary_color", "accent_color", "template", "handle", "ai_images"} & set(changes) else 0
         await _record(conn, ctx, request, "brand_changed", ctx.org_id, fields=sorted(changes))
     return {"saved": sorted(changes), "images_redrawn": redrawn}
 
@@ -384,6 +388,30 @@ async def learn_voice(b: VoiceIn, request: Request, ctx: Editor) -> dict:
         r = await brand.learn_voice(conn, ctx.org_id, b.posts)
         await _record(conn, ctx, request, "voice_learned", ctx.org_id, samples=r["samples"])
     return r
+
+
+@router.post("/moments/{mid}/background")
+async def new_background(mid: str, request: Request, ctx: Editor) -> dict:
+    """AI images: make a (new) background for one moment and redraw its cards."""
+    async with tenant_session(ctx.org_id) as conn:
+        kit = await brand.get_kit(conn, ctx.org_id)
+        if not kit["ai_images"]:
+            raise HTTPException(409, "switch AI images on in the brand kit first")
+        m = (await conn.execute(text("select * from app.content_moments where id = cast(:i as uuid)"), {"i": mid})).mappings().first()
+        if not m:
+            raise HTTPException(404, "moment not found")
+        before = m["ai_bg_path"]
+        path = await ai_images.background(conn, ctx.org_id, kit, dict(m), again=True)
+        if path == before:
+            usage = await ai_images.month_usage(conn)
+            raise HTTPException(409, "this month's image limit is reached" if usage["images"] >= kit["images_per_month"] and not usage["test_mode"]
+                                else "no safe image this time: try again, or change the image style")
+        posts = (await conn.execute(text("select id, source_id, platform from app.content_posts where moment_id = cast(:i as uuid) and published_at is null"),
+                                    {"i": mid})).mappings().all()
+        for p in posts:
+            await brand.render_post_image(conn, ctx.org_id, kit, dict(p), {"quote": m["quote"], "speaker": m["speaker"], "ai_bg_path": path})
+        await _record(conn, ctx, request, "ai_background", mid)
+    return {"path": path, "redrawn": len(posts)}
 
 
 @router.get("/brand/preview")

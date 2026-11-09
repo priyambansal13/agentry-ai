@@ -8,7 +8,7 @@ from dbos import DBOS, SetWorkflowID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from agentry.automations.content import brand, clips, drafts, engagement, links, moments, sources
+from agentry.automations.content import ai_images, brand, clips, drafts, engagement, links, moments, sources
 from agentry.db import tenant_session
 from agentry.events import emit
 from agentry.runs import current, run
@@ -98,6 +98,7 @@ async def write_one(conn: AsyncConnection, org_id: str, moment_id: str, platform
         returning id, source_id, platform"""),
         {"o": org_id, "s": m["source_id"], "m": moment_id, "p": platform, "b": d["body"], "h": d["hashtags"],
          "c": json.dumps({k: d[k] for k in ("ok", "problems", "attempts")}), "r": "pending" if d["ok"] else "needs_attention"})).mappings().one()
+    mom["ai_bg_path"] = await ai_images.background(conn, org_id, kit, m)  # opt-in; one per moment, shared by its platforms
     await brand.render_post_image(conn, org_id, kit, dict(post), mom)
     return {"id": str(post["id"]), **d}
 

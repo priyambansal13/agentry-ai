@@ -134,6 +134,10 @@ class Settings(BaseSettings):
     model_conversation: str | None = None
     model_voice: str | None = None  # phone calls: a fast, non-reasoning model keeps replies under ~2 s (unset = conversation)
     model_vision: str | None = None
+    # AI images (content cards, opt-in per business): a LiteLLM image model; "mock" = brand-colour test images, no cost
+    model_image: str = "openai/gpt-image-1-mini"
+    image_quality: str = "low"  # low | medium | high (price per image rises with quality)
+    image_cost_usd: float = 0.006  # used when the provider doesn't report a price (gpt-image-1-mini, low, 1024x1024)
     model_embed: str | None = None
     embed_dimensions: int = 768  # must match app.kb_chunks.embedding
 
