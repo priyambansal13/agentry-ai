@@ -5,6 +5,8 @@
 
 agentry.duckdns.org {
 	encode zstd gzip
+	# Google Search Console ownership check (also in apps/web/public; keep both)
+	respond /google7ae1a7860761be90.html "google-site-verification: google7ae1a7860761be90.html" 200
 	reverse_proxy web:3000
 	header -Server
 }
