@@ -28,6 +28,13 @@ export function attribution(): Record<string, string> {
   }
 }
 
+/** Any other step worth counting (audit started, report unlocked): GA4 event + Meta custom event. */
+export function track(event: string, params: Record<string, string> = {}) {
+  const w = window as Win;
+  w.gtag?.("event", event, params);
+  w.fbq?.("trackCustom", event, params);
+}
+
 /** A demo request was sent: count it as a conversion everywhere that's set up. */
 export function trackDemoRequest(niche?: string) {
   const w = window as Win;

@@ -6,6 +6,7 @@ import { Cta } from "@/components/cta";
 import { DemoForm } from "@/components/demo-form";
 import { Footer } from "@/components/footer";
 import { breadcrumbs, JsonLd } from "@/components/json-ld";
+import { Playground } from "@/components/playground";
 import { SiteChat } from "@/components/site-chat";
 import { SiteNav } from "@/components/site-nav";
 import { audiences, bySlug, catalog, groups, inGroup, pageMeta, SITE_URL, midSentence } from "@/lib/catalog";
@@ -55,6 +56,7 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
               {a.note && <p className="mt-5 rounded-2xl bg-lime-soft p-4 text-sm"><span className="font-semibold">Good to know:</span> {a.note}</p>}
             </div>
           </div>
+          <Playground slug={a.slug} />
           <section className="mt-16 grid gap-6 rounded-3xl border-2 border-line p-6 sm:grid-cols-3 sm:p-8" aria-label="How we run it">
             <div><h2 className="font-display text-lg font-bold">Done for you</h2><p className="mt-1 text-ink-soft">We set it up with your business, connect your accounts and test it with you.</p></div>
             <div><h2 className="font-display text-lg font-bold">You stay in control</h2><p className="mt-1 text-ink-soft">It starts in approval mode: you see drafts until you trust it, and nothing goes out at night.</p></div>

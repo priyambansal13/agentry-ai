@@ -1,5 +1,10 @@
 # Plan: "try it now" on the website + AI search visibility agent (2026-11-10)
 
+> **Status: ✅ steps 1–6 built 2026-11-10** (not yet deployed). How it works now: [flows/agents/ai-visibility.md](flows/agents/ai-visibility.md),
+> [flows/website-try-it.md](flows/website-try-it.md). Differences from this plan: the instant demo is a 24-hour preview answering from
+> the crawled pages (visitors can't create portal accounts, so no Demo Studio org); playgrounds are "try it" boxes plus the
+> invoice-reminder preview (no sample-clinic chat or content samples yet).
+
 Two things from [MARKET-2026.md](MARKET-2026.md):
 - **A. Something a visitor can try on the website straight away.** Today they can only request a demo and wait.
 - **B. A monthly AI visibility check.** Does ChatGPT / Gemini / Perplexity name the business when customers ask, compared with

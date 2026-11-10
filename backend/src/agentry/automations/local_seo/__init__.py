@@ -46,6 +46,10 @@ register(AutomationTemplate(
 ))
 
 WEIGHT = {"high": 12, "medium": 6, "low": 2}
+# a chat widget on the page (live chat or chatbot), and links to book online
+CHAT_WIDGET = re.compile(r"tawk\.to|intercom|crisp\.chat|salesiq|zohopublic|freshchat|tidio|drift\.com|hs-scripts|livechatinc|"
+                         r"wati\.io|interakt|aisensy|gallabox|chatwoot|botpress|landbot|manychat|/widget/v1|agentry-widget|elfsight", re.IGNORECASE)
+BOOKING = re.compile(r"calendly\.com|book(ing)?|appointment|schedule|practo\.com|setmore|zcal|cal\.com", re.IGNORECASE)
 
 
 async def settings_of(conn: AsyncConnection) -> tuple[str | None, dict]:
@@ -68,15 +72,18 @@ def page_facts(html: str, url: str, ms: int) -> dict:
             continue
     links = [a.attributes.get("href") or "" for a in t.css("a[href]")]
     host = urlparse(url).hostname
+    scripts = " ".join((s.attributes.get("src") or "") + " " + (s.text() or "")[:2000] for s in t.css("script")).lower()
     for n in t.css("script,style,noscript"):
         n.decompose()
     body = re.sub(r"\s+", " ", t.body.text(separator=" ") if t.body else "")
-    return {"url": url, "ms": ms, "bytes": len(html), "title": title, "description": meta.get("description", ""),
+    return {"url": url, "ms": ms, "bytes": len(html), "title": title, "description": meta.get("description", ""), "site_name": meta.get("og:site_name", ""),
             "h1": [h.text(strip=True) for h in t.css("h1")], "images": len(t.css("img")), "no_alt": sum(1 for i in t.css("img") if not (i.attributes.get("alt") or "").strip()),
             "words": len(body.split()), "viewport": "viewport" in meta, "canonical": bool(t.css_first('link[rel="canonical"]')), "jsonld": jsonld,
             "phones": sorted({re.sub(r"\D", "", p)[-10:] for p in re.findall(r"(?:\+91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}", body + " " + " ".join(links))}),
             "maps": any(re.search(r"google\.[a-z.]+/maps|maps\.app\.goo\.gl|g\.page/", h) for h in links),
             "whatsapp": any(re.search(r"wa\.me/|api\.whatsapp\.com|whatsapp://", h) for h in links),
+            "chat": bool(CHAT_WIDGET.search(scripts)),
+            "booking": any(BOOKING.search(h) for h in links),
             "internal": sorted({urljoin(url, h).split("#")[0] for h in links if urlparse(urljoin(url, h)).hostname == host})[:80]}
 
 

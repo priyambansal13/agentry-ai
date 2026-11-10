@@ -38,6 +38,7 @@ const clientItems: Item[] = [
   { href: "/content", label: "Content", icon: Clapperboard },
   { href: "/videos", label: "AI videos", icon: Film },
   { href: "/seo", label: "Local SEO", icon: Search },
+  { href: "/ai-visibility", label: "AI visibility", icon: Sparkles },
   { href: "/festivals", label: "Festivals", icon: PartyPopper },
   { href: "/knowledge", label: "Knowledge", icon: BookOpen },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },

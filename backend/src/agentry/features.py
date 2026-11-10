@@ -66,6 +66,8 @@ FEATURES: dict[str, Feature] = {
     # CVs scored with reasons quoted from the CV, shortlist, interviews, regrets (ROADMAP-V3 A5)
     "hiring": Feature(pages=("needs-you", "hiring"), connections=("whatsapp", "gmail"), steps=("settings",), go_live=()),
     # website audit for local search + articles from the business's own facts (ROADMAP-V3 B1)
+    # PLAN-TRY-IT-AND-AI-VISIBILITY B: do AI assistants name the business? monthly score against competitors + fixes
+    "ai_visibility": Feature(pages=("needs-you", "ai-visibility"), connections=(), steps=("settings",), go_live=()),
     "local_seo": Feature(pages=("needs-you", "seo", "knowledge"), connections=(), steps=("knowledge", "settings"), go_live=()),
     # a shelf photo becomes counts; what's low is grouped by supplier with the order message ready (ROADMAP-V3 B2)
     "stock_scanner": Feature(pages=("stock",), connections=(), steps=("import", "settings"), go_live=()),

@@ -24,6 +24,23 @@ NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION=xxxxxxxx   # Search Console (docs/SEO.md)
 5. **Final URL format**: `https://agentry.duckdns.org/for/<page>?utm_source=google&utm_medium=cpc&utm_campaign=<page>` (Meta: `utm_source=meta&utm_medium=paid_social`). Turn on auto-tagging in Google Ads (adds `gclid`).
 6. A custom domain (e.g. agentry.in) will lift click-through and ad quality noticeably compared with a duckdns.org subdomain; worth doing before spending much.
 
+## The free audit as a landing page (new, 2026-11-10)
+
+`/audit` gives a visitor something in 60 seconds (does ChatGPT name you, can visitors reach you at night, website basics), and
+leaving name + email for the full report creates a demo request. It usually converts better than "request a demo".
+See [flows/website-try-it.md](flows/website-try-it.md).
+
+| Ad | Final URL | Headlines (≤ 30) | Description (≤ 90) |
+|---|---|---|---|
+| Google Search, clinics | `/audit?service=dental%20clinic&utm_source=google&utm_medium=cpc&utm_campaign=audit-clinics` | Does ChatGPT Recommend You? · Free 60-Second Clinic Audit · See Who AI Recommends | Find out if ChatGPT names your clinic or a competitor, and what to fix. Free, no call. |
+| Google Search, CA firms | `/audit?service=CA%20firm&utm_source=google&utm_medium=cpc&utm_campaign=audit-ca` | Is AI Sending Clients Elsewhere? · Free CA Firm Visibility Check | We ask ChatGPT who to hire for CA services in your city. See if it names your firm. |
+| Meta, any business | `/audit?utm_source=meta&utm_medium=paid_social&utm_campaign=audit` | Ask ChatGPT for the best in your city. Does it name you? | A free 60-second check of your business on AI assistants and your website. |
+| Meta, instant demo | `/try?utm_source=meta&utm_medium=paid_social&utm_campaign=try` | Meet your own AI assistant in 30 seconds | Type your website, then chat with an assistant that answers your customers from it. |
+
+Conversions: count `audit_report_unlocked` (fires the same Lead / generate_lead / Ads conversion as a demo request) as the main one, and
+`audit_start` and `instant_demo_chat` as secondary. The audit has a daily spend cap (`AGENTRY_AUDIT_DAILY_BUDGET_USD`, default $5, about 60 audits);
+raise it when ads run (each audit costs about $0.08–0.15).
+
 ## Budget (suggested starting point)
 
 | Campaign | Daily | Why |

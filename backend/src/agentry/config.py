@@ -138,6 +138,14 @@ class Settings(BaseSettings):
     model_image: str = "openai/gpt-image-1-mini"
     image_quality: str = "low"  # low | medium | high (price per image rises with quality)
     image_cost_usd: float = 0.006  # used when the provider doesn't report a price (gpt-image-1-mini, low, 1024x1024)
+    # AI assistants asked with web search on (AI visibility agent, website audit); engines without a key are skipped
+    ai_search_engines: str = "chatgpt=openai/gpt-5.4-mini,gemini=gemini/gemini-3.5-flash,perplexity=perplexity/sonar"
+    ai_search_cost_usd: float = 0.02  # used when the provider doesn't report a price (one question with web search)
+    ai_visibility_repeats: int = 3  # each question is asked this many times per engine (answers vary)
+    # public website audit (apps/web /audit): spend cap across all visitors, captcha (Cloudflare Turnstile; unset = off)
+    audit_daily_budget_usd: float = 5.0
+    audit_questions: int = 5
+    turnstile_secret: str | None = None
     model_embed: str | None = None
     embed_dimensions: int = 768  # must match app.kb_chunks.embedding
 

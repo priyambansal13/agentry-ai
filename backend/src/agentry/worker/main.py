@@ -11,6 +11,7 @@ from sqlalchemy import text
 
 from agentry import telegram_team
 from agentry.automations import load_all
+from agentry.automations.ai_visibility import ai_visibility_monthly
 from agentry.automations.appointment_concierge import send_recalls
 from agentry.automations.bookkeeping import bookkeeping_monthly
 from agentry.automations.ca.tracker import ca_daily
@@ -31,6 +32,7 @@ from agentry.connectors import telegram
 from agentry.db import system_session
 from agentry.metrics import rollup, sync_definitions
 from agentry.watchers import run_watchers
+from agentry.worker.audit_jobs import release_waiting_audits
 from agentry.worker.billing_jobs import (
     finalize_statements,
     inbox_follow_ups,
@@ -157,6 +159,10 @@ async def run() -> None:
         {"schedule_name": "engagement", "workflow_fn": engagement_schedule, "schedule": "0 20 * * * *",
          "context": None, "automatic_backfill": False, "cron_timezone": None, "queue_name": None},
         {"schedule_name": "festival-plans", "workflow_fn": festival_schedule, "schedule": "0 45 9 * * *",
+         "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
+        {"schedule_name": "audits-waiting", "workflow_fn": release_waiting_audits, "schedule": "0 7 * * * *",
+         "context": None, "automatic_backfill": False, "cron_timezone": None, "queue_name": None},
+        {"schedule_name": "ai-visibility-monthly", "workflow_fn": ai_visibility_monthly, "schedule": "0 0 8 1 * *",
          "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
         {"schedule_name": "seo-monthly", "workflow_fn": seo_monthly, "schedule": "0 30 8 1 * *",
          "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},

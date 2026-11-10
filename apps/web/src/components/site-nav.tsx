@@ -9,6 +9,8 @@ export function SiteNav() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link href="/" aria-label="Agentry home"><Logo /></Link>
         <nav className="hidden items-center gap-7 text-sm text-ink-soft md:flex" aria-label="Main">
+          <Link href="/audit" className="font-semibold text-ink hover:underline">Free audit</Link>
+          <Link href="/try" className="hover:text-ink">Try it</Link>
           <Link href="/agents" className="hover:text-ink">Agents</Link>
           <Link href="/for/ca-firms" className="hover:text-ink">CA firms</Link>
           <Link href="/for/clinics" className="hover:text-ink">Clinics</Link>

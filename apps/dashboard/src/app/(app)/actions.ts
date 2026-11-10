@@ -998,3 +998,14 @@ export async function jobPhoto(id: string, form: FormData) {
 export async function addTechnician(body: Record<string, unknown>) {
   return run<{ id: string }>("/org/dispatch/technicians", { method: "POST", body }, ["/jobs"]);
 }
+
+// ---------- AI visibility ----------
+export async function saveVisibilitySetup(body: Record<string, unknown>) {
+  return run<{ missing: string | null }>("/org/ai-visibility/setup", { method: "PUT", body }, ["/ai-visibility"]);
+}
+export async function checkVisibilityNow() {
+  return run<{ run_id: string }>("/org/ai-visibility/check", { method: "POST", body: {} }, ["/ai-visibility"]);
+}
+export async function writeAnswerPage(question: string) {
+  return run<{ id: string }>("/org/ai-visibility/write-page", { method: "POST", body: { question } }, ["/ai-visibility", "/seo"]);
+}

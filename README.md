@@ -2,7 +2,7 @@
 
 **Agentry**: an agency-operated SaaS for selling AI agents to small businesses (India first), one by one or as packs, each client seeing only the agents they bought.
 
-**Status (2026-11-09):** 38 agents built, tested with every login and **live** at https://app.agentry.duckdns.org
+**Status (2026-11-10):** 39 agents built, tested with every login and **live** at https://app.agentry.duckdns.org
 (portal), https://agentry.duckdns.org (website) and https://api.agentry.duckdns.org, on an Oracle VM
 ([docs/DEPLOY-ORACLE.md](docs/DEPLOY-ORACLE.md)). Where things stand and what's next: [docs/HANDOFF.md](docs/HANDOFF.md).
 
@@ -14,7 +14,7 @@
 | Talk to customers | Website chat, WhatsApp assistant, Telegram assistant, AI receptionist (voice), Appointment concierge, Support desk, Catalogue & quotes |
 | Leads and sales | Speed-to-lead, Lead reactivation, Lead research, Personal cold email, Renewals & repeat business |
 | Back office | Inbox triage, Invoice follow-up, Bookkeeping, Hiring, Stock shelf scanner, Ops dispatcher, SOP & proposal drafter |
-| Marketing | Content repurposing (+ engagement loop), AI video studio (+ topic → script), Local SEO, Festival campaigns, Reviews, Competitor watch |
+| Marketing | Content repurposing (+ engagement loop), AI video studio (+ topic → script), Local SEO, AI visibility (does ChatGPT recommend you?), Festival campaigns, Reviews, Competitor watch |
 | CA firm pack (13) | Filing tracker, Document chaser, Tax documents reader, Compliance calendar, ITR prep, Capital gains, Bank classifier, GST reconciliation, TDS returns, Tax audit (3CD), Notice handler, Recurring books, Excel desk |
 | Everyone | Ask your business + Business copilot (plans actions, runs on **Do it**), Business Pulse, Notification Center, MCP server, prompt-injection guard |
 | Agentry HQ | Clients, packs, Demo Studio, proposals, billing and margin, client health |
@@ -25,7 +25,7 @@ The table below is the platform as first built (Phases 0–4); the agents above 
 
 | Piece | Where | What it does |
 |---|---|---|
-| Landing page | `apps/web` → http://localhost:3200 | Hero with "build my free demo", Boring Machine sketch, 8 agents, niches, ROI calculator, pricing, FAQ, demo request form |
+| Landing page | `apps/web` → http://localhost:3200 | Free 60-second audit (`/audit`: does ChatGPT name you, can visitors reach you, website basics), instant demo (`/try`: chat with an assistant trained on your website), try-it boxes on agent pages; hero with "build my free demo", Boring Machine sketch, 8 agents, niches, ROI calculator, pricing, FAQ, demo request form |
 | Client portal + Agentry HQ | `apps/dashboard` → http://localhost:3201 | Sign in (password or magic link), org switcher, Home (KPI tiles, trend chart, agents, onboarding progress), Team (invite with roles), Audit log, HQ (all clients, onboarding blockers, demo requests) |
 | API | `backend` → http://localhost:8801 (docs at `/docs`) | JWT-verified, per-org row-level security, roles from `config/roles.json`, audit log, public demo-request endpoint |
 | Worker | `backend` (DBOS) | Outbox → durable event handlers: inbox triage per email, demo request emails, daily inbox digest, metric rollups |
@@ -85,7 +85,7 @@ pnpm --filter @agentry/web dev           # :3200
 | jordan@brightpath.example | Owner, Brightpath Consulting (USD) |
 | multi@agentry.dev | Belongs to two businesses (org switcher) |
 | accounts@sharmadigital.example | Finance at Sharma Digital |
-| owner@ / manager@ / frontdesk@ / finance@ / viewer@everyagent.example | **Every Agent Co**: all 38 agents live, one login per role, for testing (`uv run agentry seed-every-agent` after `seed:auth`) |
+| owner@ / manager@ / frontdesk@ / finance@ / viewer@everyagent.example | **Every Agent Co**: all 39 agents live, one login per role, for testing (`uv run agentry seed-every-agent` after `seed:auth`) |
 | admin@agentry.dev | Agentry staff → Agentry HQ |
 
 ## Checks

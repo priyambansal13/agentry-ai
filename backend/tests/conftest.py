@@ -19,6 +19,8 @@ def mock_completion_models(monkeypatch):
     from agentry.config import settings
     for tier in ("fast", "writer", "conversation", "vision", "embed"):
         monkeypatch.setattr(settings, f"model_{tier}", None)
+    monkeypatch.setattr(settings, "ai_search_engines", "")  # AI visibility / audit: mock answers
+    monkeypatch.setattr(settings, "turnstile_secret", None)
 
 
 @pytest.fixture(autouse=True)
@@ -74,7 +76,7 @@ async def cleanup_test_rows():
             delete from app.contacts where id in (select contact_id from lead_contacts) and source in ('email', 'inbox', 'web_chat')"""))
 
 
-TABLES = ["service_jobs", "technicians", "copilot_plans", "doc_drafts", "festival_plans", "stock_scans", "stock_items", "seo_articles", "seo_audits", "video_scripts", "candidates", "jobs", "renewals", "quotes", "products", "tickets", "orders", "ai_videos", "ca_work", "ca_bank_rules", "recurring_entries", "ca_files", "ca_filings", "ca_clients", "statement_lines", "statements", "outcomes", "pricing_plans", "notification_preferences", "autonomy", "action_counts", "agent_runs", "notifications", "notification_rules", "telegram_links", "approvals", "content_posts", "content_moments", "content_sources", "brand_kits", "messages", "waitlist", "api_tokens", "content_longform", "documents", "review_requests", "reviews", "watch_snapshots", "watchers", "bookings", "sequence_enrollments", "prospects", "prospect_companies", "campaigns", "sequences", "payments", "invoices",
+TABLES = ["ai_vis_answers", "ai_vis_runs", "service_jobs", "technicians", "copilot_plans", "doc_drafts", "festival_plans", "stock_scans", "stock_items", "seo_articles", "seo_audits", "video_scripts", "candidates", "jobs", "renewals", "quotes", "products", "tickets", "orders", "ai_videos", "ca_work", "ca_bank_rules", "recurring_entries", "ca_files", "ca_filings", "ca_clients", "statement_lines", "statements", "outcomes", "pricing_plans", "notification_preferences", "autonomy", "action_counts", "agent_runs", "notifications", "notification_rules", "telegram_links", "approvals", "content_posts", "content_moments", "content_sources", "brand_kits", "messages", "waitlist", "api_tokens", "content_longform", "documents", "review_requests", "reviews", "watch_snapshots", "watchers", "bookings", "sequence_enrollments", "prospects", "prospect_companies", "campaigns", "sequences", "payments", "invoices",
           "lead_sources", "leads", "consents", "suppressions", "conversations", "events", "connections", "automation_instances",
           "audit_log", "llm_calls", "kb_chunks", "kb_documents", "staff", "services", "onboarding_progress", "metrics_daily"]
 

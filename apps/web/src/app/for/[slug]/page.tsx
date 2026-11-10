@@ -2,6 +2,7 @@ import { ArrowRight, X } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AuditForm } from "@/components/audit-form";
 import { Cta } from "@/components/cta";
 import { DemoForm } from "@/components/demo-form";
 import { Footer } from "@/components/footer";
@@ -11,6 +12,7 @@ import { SiteNav } from "@/components/site-nav";
 import { audiences, bySlug, pageMeta, SITE_URL, midSentence } from "@/lib/catalog";
 
 export const dynamicParams = false;
+const SERVICE: Record<string, string> = { "ca-firms": "CA firm", agencies: "digital marketing agency", clinics: "dental clinic", "home-services": "AC repair" };
 const NICHE: Record<string, string> = { "ca-firms": "agency_or_firm", agencies: "agency_or_firm", clinics: "clinic_or_appointments", "home-services": "home_services" };
 
 export function generateStaticParams() {
@@ -51,6 +53,14 @@ export default async function AudiencePage({ params }: { params: Promise<{ slug:
             <ul className="mt-8 grid gap-4 sm:grid-cols-3">
               {a.pains.map((p) => <li key={p} className="flex gap-3 rounded-2xl border border-paper/20 p-5"><X aria-hidden="true" className="h-5 w-5 shrink-0 text-lime" />{p}</li>)}
             </ul>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-6xl px-4 pt-16 sm:px-6">
+          <div className="rounded-3xl border-2 border-ink bg-card p-5 shadow-[6px_6px_0_0_var(--ink)] sm:p-7">
+            <p className="font-hand text-2xl text-muted">free · 60 seconds</p>
+            <h2 className="mt-1 font-display text-2xl font-bold tracking-tight sm:text-3xl">Does ChatGPT recommend your {a.name === "CA firms" ? "firm" : "business"}, or your competitor?</h2>
+            <div className="mt-5"><AuditForm service={SERVICE[a.slug]} compact /></div>
           </div>
         </section>
 

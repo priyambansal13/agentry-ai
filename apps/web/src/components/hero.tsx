@@ -44,6 +44,8 @@ export function Hero() {
           </Button>
         </form>
         <p className="mt-3 text-sm text-muted">We build a demo with <em>your</em> business name and send you a 2-minute video. No call needed.</p>
+        <a href={`/audit${site ? `?site=${encodeURIComponent(site)}` : ""}`} className="mt-3 inline-flex items-center gap-1.5 font-semibold underline decoration-2 underline-offset-4 hover:decoration-lime">
+          Or: does ChatGPT recommend you? Free 60-second audit <ArrowRight aria-hidden="true" className="h-4 w-4" /></a>
         <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm font-medium text-ink-soft">
           {PROOF.map((p) => <li key={p} className="inline-flex items-center gap-1.5"><Check aria-hidden="true" className="h-4 w-4 text-success" />{p}</li>)}
         </ul>

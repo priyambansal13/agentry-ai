@@ -34,6 +34,7 @@ def load_all() -> None:
     """Import every automation package so its template and event handlers register."""
     from agentry.automations import (  # noqa: F401
         ai_receptionist,
+        ai_visibility,
         appointment_concierge,
         bookkeeping,
         ca,
@@ -66,6 +67,7 @@ def load_all() -> None:
     from agentry.automations.content import engagement, longform, pipeline  # noqa: F401
     from agentry.voice import summary  # noqa: F401 - call summaries after voice calls
     from agentry.worker import (
+        audit_jobs,  # noqa: F401 - the free website audit
         delivery,  # noqa: F401 - outbound delivery + Gmail sync workflows
         inbox_jobs,  # noqa: F401 - writing style from sent mail
         notify_jobs,  # noqa: F401 - Notification Center: any event -> rules -> channels
