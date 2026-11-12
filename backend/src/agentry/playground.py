@@ -680,6 +680,7 @@ _TEXT = {  # what the other boxes rest on: (basis, [(label, source, url)])
         ("GSTIN format and check digit", "GST registration rules", "https://www.gst.gov.in/")]),
     "stock-shelf-scanner": ("Your photo. Each count shows how sure it is; doubtful ones are for a person to check.", []),
     "lead-reactivation": ("What the lead asked about before and the offer you give; nothing else is promised.", []),
+    "missed-call-recovery": ("Your phone system's missed-call record and your calendar's free slots. Only callers told they'd get a WhatsApp are messaged, once a day.", []),
     "speed-to-lead": ("Your enquiry form and your calendar's free slots. Opt-outs are respected.", []),
     "ops-dispatcher": ("Your technicians' skills, areas and daily capacity.", []),
     "invoice-follow-up": ("Your invoices and due dates. Reminders stop when an invoice is paid.", []),

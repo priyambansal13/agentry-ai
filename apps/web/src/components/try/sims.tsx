@@ -160,3 +160,57 @@ export function RenewalsBox() {
     </TryShell>
   );
 }
+
+/* ---------- missed-call recovery: call, miss, WhatsApp, book ---------- */
+
+export function MissedCallBox() {
+  const [biz, setBiz] = useState("SmileCraft Dental");
+  const [step, setStep] = useState<"idle" | "ringing" | "missed" | "sent" | "replied" | "booked">("idle");
+  const [missed, setMissed] = useState(20);
+  const [value, setValue] = useState(3000);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  function call() {
+    timers.current.forEach(clearTimeout);
+    setStep("ringing");
+    timers.current = [setTimeout(() => setStep("missed"), 1600), setTimeout(() => setStep("sent"), 3200)];
+  }
+  const won = Math.round(missed * 4 * 0.25);
+  return (
+    <TryShell title="Every missed call gets a WhatsApp in a minute"
+      intro="Play the customer: call the business while they're busy. Watch what lands on your WhatsApp a minute later (sped up here), reply, and book."
+      sell="In the portal it works with Exotel, MyOperator, Knowlarity, TATA Tele, Airtel IQ or any phone system that can call a web address. You see every missed call and who was won back.">
+      <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+            <Field id="mc-b" label="Business" value={biz} onChange={setBiz} />
+            <button type="button" onClick={call} disabled={step === "ringing" || step === "missed"} className="inline-flex h-11 items-center rounded-xl bg-ink px-6 font-semibold text-paper hover:opacity-90 disabled:opacity-50">
+              {step === "idle" ? "Call them" : "Call again"}</button>
+          </div>
+          <div className="grid gap-3 rounded-2xl border-2 border-ink bg-card p-4 sm:grid-cols-2">
+            <Field id="mc-m" label="Calls you miss in a week" type="number" value={missed} onChange={(v) => setMissed(Number(v) || 0)} />
+            <Field id="mc-v" label="Value of a new customer (₹)" type="number" value={value} onChange={(v) => setValue(Number(v) || 0)} />
+            <p className="text-sm sm:col-span-2">If even 1 in 4 of them books after the WhatsApp, that&apos;s <strong>{won} customers</strong> and <strong>{inr(won * value)}</strong> a month you&apos;d otherwise lose.</p>
+          </div>
+        </div>
+        <div className="rounded-[2rem] border-2 border-ink bg-card p-3 shadow-[6px_6px_0_0_var(--ink)]">
+          <p className="rounded-t-[1.5rem] bg-ink px-4 py-3 font-semibold text-paper">{step === "idle" || step === "ringing" || step === "missed" ? "Phone" : biz}</p>
+          <div className="min-h-[22rem] space-y-3 bg-paper p-3">
+            {step === "idle" && <p className="pt-24 text-center text-sm text-muted">Press “Call them”.</p>}
+            {step === "ringing" && <p className="pt-24 text-center text-lg font-semibold animate-pulse">Calling {biz}…</p>}
+            {step === "missed" && <p className="pt-24 text-center text-sm">No answer. <span className="text-muted">They&apos;re with a patient.</span></p>}
+            {(step === "sent" || step === "replied" || step === "booked") && <>
+              <Bubble from="them" meta="1 minute after the missed call">{`Hi, this is ${biz}. Sorry we missed your call! How can we help? Reply here and we'll take care of it.`}</Bubble>
+              {step === "sent" && <div className="flex flex-wrap justify-end gap-2">{["Need a cleaning this week", "What are your timings?"].map((t) => (
+                <button key={t} type="button" onClick={() => setStep("replied")} className="rounded-full border-2 border-ink bg-card px-3 py-1 text-xs font-semibold hover:bg-lime">{t}</button>))}</div>}
+              {(step === "replied" || step === "booked") && <><Bubble>Need a cleaning this week</Bubble>
+                <Bubble from="them">{"Sure! I have Thursday 11:00 or Friday 17:30. Which suits you?"}</Bubble></>}
+              {step === "replied" && <div className="flex justify-end"><button type="button" onClick={() => setStep("booked")} className="rounded-full border-2 border-ink bg-card px-3 py-1 text-xs font-semibold hover:bg-lime">Friday 17:30</button></div>}
+              {step === "booked" && <><Bubble>Friday 17:30</Bubble><Bubble from="them" meta="booked · counted as won back">{`Done! See you Friday at 17:30 at ${biz}. You'll get a reminder the day before.`}</Bubble></>}
+            </>}
+          </div>
+        </div>
+      </div>
+    </TryShell>
+  );
+}

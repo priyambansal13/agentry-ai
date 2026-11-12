@@ -2,7 +2,7 @@
 
 **Agentry**: an agency-operated SaaS for selling AI agents to small businesses (India first), one by one or as packs, each client seeing only the agents they bought.
 
-**Status (2026-11-10):** 39 agents built, tested with every login and **live** at https://app.agentry.duckdns.org
+**Status (2026-11-10):** 40 agents built, tested with every login and **live** at https://app.agentry.duckdns.org
 (portal), https://agentry.duckdns.org (website) and https://api.agentry.duckdns.org, on an Oracle VM
 ([docs/DEPLOY-ORACLE.md](docs/DEPLOY-ORACLE.md)). Where things stand and what's next: [docs/HANDOFF.md](docs/HANDOFF.md).
 
@@ -85,7 +85,7 @@ pnpm --filter @agentry/web dev           # :3200
 | jordan@brightpath.example | Owner, Brightpath Consulting (USD) |
 | multi@agentry.dev | Belongs to two businesses (org switcher) |
 | accounts@sharmadigital.example | Finance at Sharma Digital |
-| owner@ / manager@ / frontdesk@ / finance@ / viewer@everyagent.example | **Every Agent Co**: all 39 agents live, one login per role, for testing (`uv run agentry seed-every-agent` after `seed:auth`) |
+| owner@ / manager@ / frontdesk@ / finance@ / viewer@everyagent.example | **Every Agent Co**: all 40 agents live, one login per role, for testing (`uv run agentry seed-every-agent` after `seed:auth`) |
 | admin@agentry.dev | Agentry staff → Agentry HQ |
 
 ## Checks

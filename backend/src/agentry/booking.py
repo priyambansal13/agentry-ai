@@ -123,7 +123,7 @@ async def book(org_id: str, *, service_key: str, start: datetime, name: str, pho
         if conversation_id:
             await conn.execute(text("update app.conversations set contact_id = :c where id = :conv"),
                                {"c": contact_id, "conv": conversation_id})
-        await emit(conn, org_id, "booking.created", {"booking_id": str(booking), "source": source,
+        await emit(conn, org_id, "booking.created", {"booking_id": str(booking), "source": source, "contact_id": str(contact_id),
                                                      "service": service_key, "starts_at": start.isoformat()})
     return {"booking_id": str(booking), "service": svc["name"], "staff": staff_name,
             "when": start.astimezone(tz).strftime("%A %d %B at %I:%M %p").replace(" 0", " "),

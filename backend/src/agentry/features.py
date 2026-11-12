@@ -34,6 +34,8 @@ FEATURES: dict[str, Feature] = {
                                  steps=("connect", "import", "settings", "compliance"), go_live=("invoices", "channel")),
     "lead_reactivation": Feature(pages=("needs-you", "conversations", "leads", "campaigns", "calendar"), connections=("whatsapp", "gmail"),
                                  steps=("connect", "import", "settings", "persona", "compliance"), go_live=("channel",)),
+    "missed_call_recovery": Feature(pages=("needs-you", "conversations", "leads", "calendar", "missed-calls"), connections=("whatsapp",),
+                                    steps=("connect", "settings", "compliance"), go_live=("channel",)),
     "speed_to_lead": Feature(pages=("needs-you", "conversations", "leads", "calendar", "lead_forms"), connections=("whatsapp", "gmail"),
                              steps=("connect", "settings", "persona", "compliance"), go_live=("channel",)),
     # goes live once Agentry assigns it a phone number (HQ -> client -> Phone number; PHASE-4-VOICE.md 4.3)

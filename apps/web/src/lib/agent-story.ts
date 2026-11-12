@@ -51,6 +51,16 @@ export const stories: Record<string, Story> = {
     before: ["Missed calls during treatments, site visits or lunch", "Callers who reach voicemail don't call again", "Notes on paper that never reach the right person"],
     after: ["Every call answered, even when the whole team is busy", "Bookings made on the call itself", "A clean list of who to call back and why"],
   },
+  "missed-call-recovery": {
+    flow: ["Call missed", "WhatsApp in a minute", "They reply", "Assistant books", "You see it"], highlight: 1,
+    steps: [["customer", "Calls while you're with a patient, on a job or closed. Nobody picks up."],
+      ["agent", "Your phone system tells us at once. About a minute later the caller gets a WhatsApp from your number: “Sorry we missed your call, how can we help?”"],
+      ["customer", "Replies with what they wanted: a price, a slot, a question."],
+      ["agent", "Your WhatsApp assistant answers from your facts and books them into your calendar. Anything tricky comes to you."],
+      ["you", "See every missed call, who got a message, who replied and who booked."]],
+    before: ["Most missed callers never call back: they ring the next name on Google", "Calling back hours later, to people who've already booked elsewhere", "No idea how many calls you're losing"],
+    after: ["Every missed caller hears from you within a minute", "Many book without you lifting the phone", "A count of calls missed and customers won back"],
+  },
   "appointment-concierge": {
     flow: ["Booking made", "Confirm & remind", "Customer replies", "Reschedule or cancel", "Fill the gap"], highlight: 1,
     steps: [["customer", "Books through you, the website, WhatsApp or the receptionist: every booking is picked up."],

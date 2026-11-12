@@ -840,6 +840,10 @@ export async function hqDueDateDecide(id: string, action: "approve" | "reject" |
   return run<{ status: string; cards: number }>(`/hq/due-dates/${id}/${action}`, { method: "POST" }, ["/hq/due-dates", "/compliance"]);
 }
 
+export async function testMissedCall(phone: string) {
+  return run<{ recorded: boolean; reason?: string }>("/org/missed-calls/test", { method: "POST", body: { phone } }, ["/missed-calls"]);
+}
+
 export async function hqResendSignup(id: string) {
   return run<{ ok: boolean }>(`/hq/signups/${id}/resend`, { method: "POST" }, ["/hq"]);
 }

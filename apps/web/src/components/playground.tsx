@@ -5,7 +5,7 @@ import { useState } from "react";
 import { BillBox, ColdEmailBox, ContentBox, DocBox, FestivalBox, HiringBox, InboxBox, LeadResearchBox, ReactivationBox, ShelfBox, VideoBox } from "./try/ai";
 import { Audit3cdBox, BankBox, CalendarBox, CapitalGainsBox, ChaserBox, ExcelBox, FilingTrackerBox, GstBox, ItrBox, NoticeBox, RecurringBooksBox, TaxDocsBox, TdsBox } from "./try/ca";
 import { AgentSlug, SourceOfTruth } from "./try/kit";
-import { DispatcherBox, RenewalsBox, SpeedToLeadBox } from "./try/sims";
+import { DispatcherBox, MissedCallBox, RenewalsBox, SpeedToLeadBox } from "./try/sims";
 
 const TALK = ["website-chat-agent", "whatsapp-ai-assistant", "telegram-assistant", "ai-receptionist", "appointment-concierge", "support-desk", "catalogue-and-quotes"];
 const FOUND = ["ai-visibility", "local-seo", "review-management", "competitor-watch"];
@@ -15,7 +15,7 @@ const BOXES: Record<string, () => React.ReactNode> = {
   "ai-video-studio": VideoBox, "bookkeeping-assistant": BillBox, "content-repurposing": ContentBox, "excel-desk": ExcelBox,
   "festival-campaigns": FestivalBox, "hiring-assistant": HiringBox, "inbox-triage": InboxBox, "lead-reactivation": ReactivationBox,
   "lead-research": LeadResearchBox, "ops-dispatcher": DispatcherBox, "personal-cold-email": ColdEmailBox, "recurring-books": RecurringBooksBox,
-  renewals: RenewalsBox, "sop-and-proposal-drafter": DocBox, "speed-to-lead": SpeedToLeadBox, "stock-shelf-scanner": ShelfBox,
+  renewals: RenewalsBox, "missed-call-recovery": MissedCallBox, "sop-and-proposal-drafter": DocBox, "speed-to-lead": SpeedToLeadBox, "stock-shelf-scanner": ShelfBox,
   "ca-bank-classifier": BankBox, "ca-capital-gains": CapitalGainsBox, "ca-compliance-calendar": CalendarBox, "ca-document-chaser": ChaserBox,
   "ca-filing-tracker": FilingTrackerBox, "ca-gst-reconciliation": GstBox, "ca-itr-preparation": ItrBox, "ca-notice-handler": NoticeBox,
   "ca-tax-audit-3cd": Audit3cdBox, "ca-tax-documents-reader": TaxDocsBox, "ca-tds-returns": TdsBox,

@@ -51,6 +51,7 @@ def load_all() -> None:
         lead_reactivation,
         lead_research,
         local_seo,
+        missed_call,
         renewals,
         reviews,
         speed_to_lead,
