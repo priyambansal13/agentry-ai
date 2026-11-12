@@ -79,7 +79,41 @@ function ReminderPreview() {
           <p className="mt-2 rounded-2xl rounded-tl-sm bg-[#dcf8c6] p-3 text-sm text-[#111]">{s.text(v.customer || "there", v.invoice, amt, v.business)}</p>
         </li>))}</ol>
       <p className="mt-4 text-sm text-muted">Sample wording: yours uses your facts and tone, stops the moment it&apos;s paid, pauses when they promise a date, and passes disputes to a person.</p>
+      <MsmeCalc />
       <SourceOfTruth slug="invoice-follow-up" />
     </section>
+  );
+}
+
+/** MSME suppliers: the legal due date and the interest a late buyer owes, from the real engine (backend msme.py). */
+function MsmeCalc() {
+  const [v, setV] = useState({ amount: 250000, invoice_date: new Date(Date.now() - 80 * 86400000).toISOString().slice(0, 10), credit_days: "" });
+  const [r, setR] = useState<{ legal_due: string; days_late: number; interest: string; total: string; rate: number; credit_days: number; written: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function run() {
+    setBusy(true);
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8801"}/public/playground/msme`, { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input: v }) }).catch(() => null);
+    setBusy(false);
+    if (res?.ok) setR(await res.json());
+  }
+  const input = "h-11 w-full rounded-xl border-2 border-ink bg-card px-3 focus:outline-none";
+  const inr = (x: string | number) => `₹${Number(x).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+  return (
+    <div className="mt-8 rounded-2xl border-2 border-ink bg-card p-5">
+      <h3 className="font-display text-xl font-bold">Registered as a micro or small enterprise? What a late buyer owes you</h3>
+      <p className="mt-1 text-sm text-ink-soft">Under the MSMED Act, 2006 a buyer must pay within the days agreed in writing (at most 45), or 15 days without an agreement. After that they owe
+        compound interest at three times the RBI bank rate.</p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
+        <div><label htmlFor="ms-a" className="mb-1 block text-sm font-semibold">Unpaid (₹)</label><input id="ms-a" type="number" min={0} className={input} value={v.amount} onChange={(e) => setV({ ...v, amount: Number(e.target.value) || 0 })} /></div>
+        <div><label htmlFor="ms-d" className="mb-1 block text-sm font-semibold">Invoice date</label><input id="ms-d" type="date" className={input} value={v.invoice_date} onChange={(e) => setV({ ...v, invoice_date: e.target.value })} /></div>
+        <div><label htmlFor="ms-c" className="mb-1 block text-sm font-semibold">Credit agreed in writing (days)</label><input id="ms-c" inputMode="numeric" placeholder="none" className={input} value={v.credit_days} onChange={(e) => setV({ ...v, credit_days: e.target.value.replace(/\D/g, "") })} /></div>
+        <button type="button" onClick={() => void run()} disabled={busy} className="h-11 rounded-xl bg-ink px-5 font-semibold text-paper hover:opacity-90 disabled:opacity-50">{busy ? "…" : "Work it out"}</button>
+      </div>
+      {r && <p className="mt-4 text-sm">Due by <strong>{new Date(`${r.legal_due}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</strong>
+        {r.written ? ` (${r.credit_days} days agreed)` : " (15 days: no written agreement)"}. {r.days_late > 0 ? <>
+          <strong>{r.days_late} days late</strong>: interest so far <strong className="font-display text-lg">{inr(r.interest)}</strong> at {(r.rate * 100).toFixed(2)}% a year, compounded monthly.
+          They owe <strong>{inr(r.total)}</strong>, and it keeps growing until they pay.</> : "Not late yet."}</p>}
+    </div>
   );
 }

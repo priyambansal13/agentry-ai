@@ -16,6 +16,7 @@ import io
 import json
 import re
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import text
@@ -257,7 +258,24 @@ def renewals(p: dict) -> dict:
     return _jsonable({"reminders": plan, "winback": {"when": lapse, "text": winback}, "next_due": m.next_due(due, every)})
 
 
-CALC = {"itr": itr, "capital-gains": capital_gains, "tds": tds, "audit-3cd": audit_3cd, "gst": gst, "calendar": calendar,
+def msme_calc(p: dict) -> dict:
+    """The invoice follow-up page's MSME box: legal due date and interest so far, with the rate in force."""
+    from agentry.automations.invoice_follow_up import msme
+    try:
+        issued = date.fromisoformat(str(p.get("invoice_date")))
+    except ValueError:
+        issued = today() - timedelta(days=90)
+    amount = max(0.0, min(float(p.get("amount") or 0), 1e10))
+    days = p.get("credit_days")
+    attrs = {"credit_days": int(days)} if str(days or "").isdigit() and int(days) > 0 else {}
+    due = msme.legal_due(issued, issued, attrs)
+    acc = msme.interest(amount, due, today())
+    cd, written = msme.credit_days(attrs)
+    return {"legal_due": due.isoformat(), "days_late": max(0, (today() - due).days), "interest": str(acc), "total": str(Decimal(str(amount)) + acc),
+            "rate": msme.annual_rate(), "bank_rate": msme.rules.num("msme.bank_rate"), "credit_days": cd, "written": written}
+
+
+CALC = {"msme": msme_calc, "itr": itr, "capital-gains": capital_gains, "tds": tds, "audit-3cd": audit_3cd, "gst": gst, "calendar": calendar,
         "chaser": chaser, "tax-docs": tax_docs, "renewals": renewals}
 
 
@@ -653,7 +671,7 @@ async def run(kind: str, payload: dict, *, ip: str | None, token: str | None) ->
 
 _RULES = {  # website agent slug -> official figures it uses (official_rules key prefixes / keys)
     "ca-itr-preparation": ("itr.",), "ca-capital-gains": ("cg.", "itr.rate_111a", "itr.rate_112a", "itr.ltcg_exempt"),
-    "ca-tds-returns": ("tds.",), "ca-tax-audit-3cd": ("audit.",), "ca-bank-classifier": ("bank.", "audit.cash_receipt"),
+    "ca-tds-returns": ("tds.",), "invoice-follow-up": ("msme.",), "ca-tax-audit-3cd": ("audit.",), "ca-bank-classifier": ("bank.", "audit.cash_receipt"),
 }
 _TEXT = {  # what the other boxes rest on: (basis, [(label, source, url)])
     "ca-gst-reconciliation": ("Your purchase register against the GSTR-2B statement, matched by supplier GSTIN and invoice number.", [
@@ -683,7 +701,6 @@ _TEXT = {  # what the other boxes rest on: (basis, [(label, source, url)])
     "missed-call-recovery": ("Your phone system's missed-call record and your calendar's free slots. Only callers told they'd get a WhatsApp are messaged, once a day.", []),
     "speed-to-lead": ("Your enquiry form and your calendar's free slots. Opt-outs are respected.", []),
     "ops-dispatcher": ("Your technicians' skills, areas and daily capacity.", []),
-    "invoice-follow-up": ("Your invoices and due dates. Reminders stop when an invoice is paid.", []),
 }
 
 
@@ -698,7 +715,10 @@ async def sources(slug: str) -> dict:
         figs = [f for f in (await due_dates.rules_listing())["figures"] if any(f["key"].startswith(p) or f["key"] == p for p in _RULES[slug])]
         items = [{"label": f["label"], "value": f["shown"], "source": f["update"]["source"] if f.get("update") else f["source"],
                   "url": (f["update"]["source_url"] if f.get("update") else f["url"]), "updated": bool(f.get("update"))} for f in figs]
-        return {"basis": "The law for FY 2025-26 (AY 2026-27), with any change since that's verified on the official source and approved.",
+        basis = ("Your invoices and due dates; for MSME suppliers the MSMED Act, 2006 (sections 15 and 16) and the RBI bank rate, "
+                 "checked against official sources every day." if slug == "invoice-follow-up" else
+                 "The law for FY 2025-26 (AY 2026-27), with any change since that's verified on the official source and approved.")
+        return {"basis": basis,
                 "items": items, "official": True, "checked_at": checked}
     if slug == "ca-compliance-calendar":
         async with system_session() as conn:

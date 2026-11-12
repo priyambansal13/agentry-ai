@@ -24,6 +24,8 @@ IT = ("Income-tax law (Finance Act 2025 rates, AY 2026-27)", "https://www.income
 IT_TDS = ("Income-tax law: TDS rates and thresholds (FY 2025-26)", "https://www.incometax.gov.in/iec/foportal/")
 IT_AUDIT = ("Income-tax law: disallowances and penalties", "https://www.incometax.gov.in/iec/foportal/")
 BASE_FY = 2025  # the figures above are the law for FY 2025-26 (AY 2026-27): a change must apply from a later year
+RBI = ("Reserve Bank of India: bank rate", "https://www.rbi.org.in/")
+MSMED = ("MSMED Act, 2006 (sections 15 and 16)", "https://samadhaan.msme.gov.in/")
 FEST = ("Festival dates (government holiday lists and the published panchang)", "https://dopt.gov.in/")
 
 
@@ -72,6 +74,11 @@ RULES: dict[str, Rule] = {
     "audit.cash_receipt": Rule("Tax audit (3CD)", "269ST: cash received from one person in a day", "amount", 200000, IT_AUDIT, r"269st|cash receipt"),
     "audit.msme_days": Rule("Tax audit (3CD)", "43B(h): MSME payment limit (days, with an agreement)", "days", 45, IT_AUDIT, r"43b\(h\)|msme|micro"),
     "audit.tds_disallow": Rule("Tax audit (3CD)", "40(a)(ia): share disallowed when TDS isn't deducted", "rate", 0.30, IT_AUDIT, r"40\(a\)\(ia\)|disallow"),
+    # ---------- invoice follow-up: MSME payments ----------
+    "msme.bank_rate": Rule("Invoice follow-up", "RBI bank rate (MSME interest is three times this)", "rate", 0.0575, RBI, r"bank rate"),
+    "msme.max_days": Rule("Invoice follow-up", "Longest credit a buyer can agree with a micro / small supplier (days)", "days", 45, MSMED,
+                          r"45 days|forty.five days|msme|micro"),
+    "msme.default_days": Rule("Invoice follow-up", "Payment due without a written agreement (days)", "days", 15, MSMED, r"15 days|fifteen days|msme|micro"),
     # ---------- bank statements ----------
     "bank.sft_cash": Rule("Bank statement classifier", "Cash deposits reported to the department (SFT) above, a year", "amount", 1000000, IT, r"sft|cash deposit|specified financial"),
     "bank.44ad_digital": Rule("Bank statement classifier", "44AD presumptive income on digital receipts", "rate", 0.06, IT, r"44ad"),

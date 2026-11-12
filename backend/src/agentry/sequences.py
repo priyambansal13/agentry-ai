@@ -97,7 +97,7 @@ async def _load(conn: AsyncConnection, enrollment_id: str) -> dict | None:
 
 async def _subject(conn: AsyncConnection, e: dict) -> dict:
     if e["subject_type"] == "invoice":
-        inv = (await conn.execute(text("""select i.*, k.name as contact_name, k.company, k.email, k.phone_e164
+        inv = (await conn.execute(text("""select i.*, k.name as contact_name, k.company, k.email, k.phone_e164, k.attributes as contact_attributes
             from app.invoices i left join app.contacts k on k.id = i.contact_id where i.id = :i"""), {"i": e["subject_id"]})).mappings().one()
         return dict(inv)
     lead = (await conn.execute(text("""select l.*, k.name as contact_name, k.email, k.phone_e164
@@ -250,6 +250,11 @@ async def compose(conn: AsyncConnection, org_id: str, e: dict, subj: dict, step:
     if e["subject_type"] == "invoice" and facts["[AMOUNT]"] not in body:
         body += f"\n\n(Invoice {facts['[INVOICE]']}: {facts['[AMOUNT]']} due on {facts['[DUE_DATE]']}.)"  # facts always present
     body = re.sub(r"\[PAY_LINK\]|\[[A-Z_]+\]", "", body)
+    if e["subject_type"] == "invoice" and step["tone"] in ("polite", "firm", "final"):
+        from agentry.automations.invoice_follow_up import msme
+        s = msme.settings_of((await conn.execute(text("select msme from app.org_settings"))).scalar_one_or_none())
+        if (extra := msme.paragraph(s, subj, datetime.now(UTC).date())):  # the MSMED Act facts, from the database, never the writer
+            body = body.rstrip() + "\n\n" + extra
     return {"subject": subject, "body": body.strip(), "template_params": [first, *(
         [facts["[INVOICE]"], facts["[AMOUNT]"], facts["[DUE_DATE]"]] if e["subject_type"] == "invoice"
         else [vars_["interest"]])]}

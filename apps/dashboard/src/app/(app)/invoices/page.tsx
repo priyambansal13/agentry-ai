@@ -6,6 +6,7 @@ import { ClientRouting } from "@/components/card-routing";
 import { InvoiceActions, InvoiceImport } from "@/components/invoice-tools";
 import { formatMetric } from "@/lib/format";
 import { can } from "@/lib/permissions";
+import { type Msme, MsmePanel } from "@/components/msme";
 import { api, ApiError, getActiveOrg, getMe, requirePage } from "@/lib/session";
 
 export const metadata = { title: "Invoices" };
@@ -43,6 +44,7 @@ export default async function InvoicesPage() {
   const handledBy = new Map(rules.filter((r) => r.scope === "contact").map((r) => [r.key, r.assign_name]));
   const clients = [...new Map(d.items.filter((i) => i.contact_id).map((i) => [i.contact_id!, i.company ?? i.contact_name ?? i.email ?? "?"])).entries()]
     .map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  const msme = await api<Msme>("/org/invoices/msme", { orgId: active.id }).catch(() => null);
   const currency = d.items[0]?.currency ?? "INR";
   const ageing = d.ageing.find((a) => a.currency === currency) ?? {};
   const outstanding = BUCKETS.reduce((s, [k]) => s + Number(ageing[k] ?? 0), 0);
@@ -112,6 +114,8 @@ export default async function InvoicesPage() {
           </tbody>
         </table>
       </Card>
+      {msme && (msme.settings.enabled || canAct) && <Card><CardHeader><CardTitle>MSME 45-day rule</CardTitle></CardHeader>
+        <CardBody><MsmePanel d={msme} canAct={canAct} /></CardBody></Card>}
     </div>
   );
 }

@@ -827,6 +827,14 @@ export async function caRefreshCalendar() {
 }
 
 /** Check the official sources for due-date changes now (a check from the last hour is reused). */
+export async function msmeSettings(body: { enabled: boolean; udyam: string | null; category: string }) {
+  return run<unknown>("/org/invoices/msme", { method: "PUT", body }, ["/invoices"]);
+}
+
+export async function msmeCreditDays(cid: string, credit_days: number | null) {
+  return run<unknown>(`/org/invoices/msme/customers/${cid}`, { method: "PUT", body: { credit_days } }, ["/invoices"]);
+}
+
 export async function caPortalSettings(body: { enabled: boolean; title?: string; color?: string; logo_url?: string; welcome?: string }) {
   return run<{ enabled: boolean }>("/org/ca/portal", { method: "PUT", body }, ["/ca-clients"]);
 }

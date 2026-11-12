@@ -81,7 +81,7 @@ export const catalog: AgentInfo[] = [
     does: ["Every Gmail or Outlook email labelled within a minute", "Urgent ones ping the right person on WhatsApp or Telegram", "Ready replies in your tone, from your real prices", "Fraud warnings on changed bank details and lookalike domains"],
     keywords: ["AI email assistant Gmail", "email management for small business", "inbox automation India"] },
   { slug: "invoice-follow-up", name: "Invoice follow-up", group: "back-office", line: "Get paid without the awkward phone calls.",
-    does: ["Imports invoices from Sheets, Tally, Zoho or QuickBooks exports", "Polite, then firm reminders on day 7, 14, 21 and 28", "Payment links (Razorpay, Stripe); stops the moment it's paid", "Replies understood: promise to pay, dispute, already paid"],
+    does: ["Imports invoices from Sheets, Tally, Zoho or QuickBooks exports", "Polite, then firm reminders on day 7, 14, 21 and 28", "Payment links (Razorpay, Stripe); stops the moment it's paid", "Replies understood: promise to pay, dispute, already paid", "MSME suppliers: the 45-day rule, interest at 3× the RBI bank rate, a Samadhaan claim draft"],
     keywords: ["payment reminder software India", "invoice follow up automation", "overdue invoice reminder WhatsApp"] },
   { slug: "bookkeeping-assistant", name: "Bookkeeping assistant", group: "back-office", line: "Snap the bill. It's in Tally.",
     does: ["Bills and receipts from WhatsApp, Telegram or email read by AI", "Checked by code: totals, GST, duplicates", "Confident ones filed, the rest asked about", "Export to Tally or a spreadsheet"],

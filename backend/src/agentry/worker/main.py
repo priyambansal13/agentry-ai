@@ -44,7 +44,7 @@ from agentry.worker.billing_jobs import (
     weekly_summaries,
 )
 from agentry.worker.delivery import poll_gmail, poll_outlook, renew_gmail_watches
-from agentry.worker.due_date_jobs import due_dates_daily
+from agentry.worker.due_date_jobs import due_dates_daily, msme_daily
 from agentry.worker.handlers import HANDLERS
 from agentry.worker.notify_jobs import cards_waiting, release_notifications, send_pulses
 from agentry.worker.sales_jobs import check_sales_inbox
@@ -177,6 +177,8 @@ async def run() -> None:
          "context": None, "automatic_backfill": False, "cron_timezone": None, "queue_name": None},
         {"schedule_name": "video-schedule", "workflow_fn": video_schedule, "schedule": "0 */15 * * * *",
          "context": None, "automatic_backfill": False, "cron_timezone": None, "queue_name": None},
+        {"schedule_name": "msme-daily", "workflow_fn": msme_daily, "schedule": "0 45 9 * * *",
+         "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
         {"schedule_name": "due-dates-daily", "workflow_fn": due_dates_daily, "schedule": "0 30 7 * * *",
          "context": None, "automatic_backfill": False, "cron_timezone": "Asia/Kolkata", "queue_name": None},
         {"schedule_name": "ca-daily", "workflow_fn": ca_daily, "schedule": "0 30 9 * * *",

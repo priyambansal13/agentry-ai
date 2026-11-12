@@ -161,9 +161,10 @@ export const stories: Record<string, Story> = {
       ["agent", "When an invoice is overdue, sends a polite reminder with a payment link."],
       ["agent", "Gets gradually firmer on day 14, 21 and 28."],
       ["agent", "Stops the moment it's paid."],
-      ["agent", "Understands replies like “will pay Friday” or “wrong amount” and tells you only when you're needed."]],
+      ["agent", "Understands replies like “will pay Friday” or “wrong amount” and tells you only when you're needed."],
+      ["agent", "Registered as a micro or small enterprise? Past the MSMED Act's due date (45 days at most), reminders add the interest the buyer owes (3× the RBI bank rate) and a MSME Samadhaan claim is drafted for you."]],
     before: ["Hours chasing payments on calls and WhatsApp", "Awkward conversations with good clients", "Cash stuck in unpaid invoices"],
-    after: ["Reminders go out on schedule, politely", "You step in only for disputes", "Money comes in sooner"],
+    after: ["Reminders go out on schedule, politely", "You step in only for disputes", "Money comes in sooner, and MSME interest is claimed, not forgotten"],
   },
   "bookkeeping-assistant": {
     flow: ["Snap the bill", "AI reads it", "Code checks it", "Filed or asked", "Export to Tally"], highlight: 1,
