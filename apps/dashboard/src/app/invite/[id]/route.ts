@@ -2,6 +2,9 @@ import { headers } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
 import { auth, authPool, magicLinkCapture } from "@/lib/auth";
 
+// the portal's public address: behind the proxy request.url is the container's own (0.0.0.0:3000)
+const PUBLIC = process.env.BETTER_AUTH_URL ?? "http://localhost:3201";
+
 /**
  * The link in an invitation email. One click: it checks the invitation, signs the invited person in with a fresh
  * one-time sign-in link (made here, never emailed) and lands on the accept page, which joins them and offers to set a
@@ -10,13 +13,13 @@ import { auth, authPool, magicLinkCapture } from "@/lib/auth";
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const accept = new URL(`/accept-invitation/${id}`, request.url);
+  const accept = new URL(`/accept-invitation/${id}`, PUBLIC);
   const inv = (await authPool.query<{ email: string; verified: boolean | null }>(
     `select i.email, u."emailVerified" as verified from invitation i left join "user" u on lower(u.email) = lower(i.email)
      where i.id = $1 and i.status = 'pending' and i."expiresAt" > now()`, [id])).rows[0];
   if (!inv) return NextResponse.redirect(accept); // accepted, cancelled or expired: the accept page explains
   if (inv.verified) {
-    const signIn = new URL("/sign-in", request.url);
+    const signIn = new URL("/sign-in", PUBLIC);
     signIn.searchParams.set("next", `/accept-invitation/${id}`);
     return NextResponse.redirect(signIn);
   }

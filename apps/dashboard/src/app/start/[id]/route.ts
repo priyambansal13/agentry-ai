@@ -4,6 +4,9 @@ import { type NextRequest, NextResponse } from "next/server";
 import { auth, authPool, magicLinkCapture } from "@/lib/auth";
 import { createOrganization, deleteOrganization } from "@/lib/clients";
 
+// the portal's public address: behind the proxy request.url is the container's own (0.0.0.0:3000)
+const PUBLIC = process.env.BETTER_AUTH_URL ?? "http://localhost:3201";
+
 const API = process.env.AGENTRY_API_URL ?? "http://localhost:8801";
 
 /**
@@ -15,13 +18,13 @@ const API = process.env.AGENTRY_API_URL ?? "http://localhost:8801";
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const k = request.nextUrl.searchParams.get("k") ?? "";
-  const signIn = new URL("/sign-in", request.url);
+  const signIn = new URL("/sign-in", PUBLIC);
   const finish = `/start/${id}/finish?k=${encodeURIComponent(k)}`;
   const r = await fetch(`${API}/public/signups/${id}?k=${encodeURIComponent(k)}`, { cache: "no-store" });
   if (!r.ok) return NextResponse.redirect(signIn);
   const s: { status: string; business: string; name: string; email: string; org_id: string | null } = await r.json();
   if (s.status === "claimed") { signIn.searchParams.set("next", finish); return NextResponse.redirect(signIn); }
-  if (s.status === "provisioned") return NextResponse.redirect(new URL("/home", request.url));  // signed out: the sign-in page first
+  if (s.status === "provisioned") return NextResponse.redirect(new URL("/home", PUBLIC));  // signed out: the sign-in page first
   if (s.status !== "paid") { signIn.searchParams.set("next", "/home"); return NextResponse.redirect(signIn); }
 
   const email = s.email.toLowerCase();
