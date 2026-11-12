@@ -52,8 +52,8 @@ class PricingPlan(BaseModel):
     currency: Literal["INR", "USD", "EUR", "GBP", "AED"] = "INR"
     setup_fee: Decimal = Field(Decimal(0), ge=0)
     retainer: Decimal = Field(Decimal(0), ge=0)
-    included: dict[Literal["messages", "emails_triaged", "voice_minutes", "content_videos", "ai_videos"], int] = Field(default_factory=dict)
-    overage: dict[Literal["messages", "emails_triaged", "voice_minutes", "content_videos", "ai_videos"], Decimal] = Field(default_factory=dict)
+    included: dict[Literal["messages", "emails_triaged", "voice_minutes", "content_videos", "ai_videos", "portal_clients"], int] = Field(default_factory=dict)
+    overage: dict[Literal["messages", "emails_triaged", "voice_minutes", "content_videos", "ai_videos", "portal_clients"], Decimal] = Field(default_factory=dict)
     outcome_prices: list[OutcomePrice] = Field(default_factory=list)
     revenue_share: RevenueShare = Field(default_factory=RevenueShare)
     tax_rate: float = Field(0, ge=0, le=0.3)
@@ -180,9 +180,12 @@ async def generate_statement(conn: AsyncConnection, org_id: str, period_start: d
     if plan.retainer > 0:
         lines.append({"kind": "retainer", "description": f"Monthly retainer, {period_start:%B %Y}" + (" (pilot: no charge)" if in_pilot else ""),
                       "quantity": 1, "unit_price": Decimal(0) if in_pilot else plan.retainer})
-    for key in (*USAGE_EVENTS, "voice_minutes", "content_videos"):
+    for key in (*USAGE_EVENTS, "voice_minutes", "content_videos", "portal_clients"):
         if key == "voice_minutes":
             used = (await conn.execute(text(VOICE_MINUTES_SQL), {"a": start_ts, "b": end_ts})).scalar_one()
+        elif key == "portal_clients":  # a firm's clients who opened their portal or sent a file through it this month
+            used = (await conn.execute(text("""select count(distinct payload->>'client_id') from app.events where type = 'ca.portal_used'
+                and occurred_at >= :a and occurred_at < :b"""), {"a": start_ts, "b": end_ts})).scalar_one()
         elif key == "content_videos":  # recordings turned into posts (the demo sample doesn't count)
             from agentry.automations.content.results import VIDEOS_SQL
             used = (await conn.execute(text(VIDEOS_SQL), {"a": start_ts, "b": end_ts})).scalar_one()
@@ -191,7 +194,8 @@ async def generate_statement(conn: AsyncConnection, org_id: str, period_start: d
                 and coalesce(payload->>'mock', 'false') <> 'true'"""), {"t": USAGE_EVENTS[key], "a": start_ts, "b": end_ts})).scalar_one()
         extra = max(0, used - plan.included.get(key, 0)) if key in plan.overage else 0
         if extra:
-            lines.append({"kind": "overage", "description": f"{key.replace('_', ' ').capitalize()} beyond the {plan.included.get(key, 0):,} included ({used:,} used)",
+            lines.append({"kind": "overage", "description": (f"Client portal: {used:,} client{'s' if used != 1 else ''} used it" + (f" ({plan.included.get(key, 0):,} included)" if plan.included.get(key) else "")
+                           if key == "portal_clients" else f"{key.replace('_', ' ').capitalize()} beyond the {plan.included.get(key, 0):,} included ({used:,} used)"),
                           "quantity": extra, "unit_price": plan.overage[key]})
 
     outcomes = (await conn.execute(text("""select id, kind, value, evidence from app.outcomes where status = 'billable'

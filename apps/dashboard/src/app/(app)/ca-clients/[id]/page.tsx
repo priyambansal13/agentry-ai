@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import {
   type CaClient, type CaMeta, Checklist, ClientForm, DeleteClient, FileActions, type Filing, FilingControls, NewFiling, TrySamples, UploadFile,
 } from "@/components/ca";
+import { ClientPortalCard, type PortalLink, type PortalSettings } from "@/components/ca-portal";
 import { CaTools } from "@/components/ca-tools";
 import { day, STATUS_TONE } from "@/lib/ca";
 import { api, ApiError, requirePage } from "@/lib/session";
@@ -37,6 +38,7 @@ export default async function CaClientPage({ params, searchParams }: { params: P
   const on = (k: string) => meta.enabled.includes(k);
   const tax = on("ca_tax_docs_reader") ? await api<Tax>(`/org/ca/clients/${id}/tax${sp.ay ? `?ay=${encodeURIComponent(sp.ay)}` : ""}`, { orgId: active.id }) : null;
   const dates = on("ca_compliance_calendar") ? (await api<{ items: Due[] }>(`/org/ca/compliance/client/${id}`, { orgId: active.id })).items : null;
+  const portal = on("ca_filing_tracker") ? await api<{ link: PortalLink; settings: PortalSettings }>(`/org/ca/clients/${id}/portal`, { orgId: active.id }) : null;
   const c = d.client;
   const flags = Object.entries(c.profile ?? {}).filter(([k, v]) => v === true && meta.profile_flags[k]).map(([k]) => meta.profile_flags[k]!);
   const open = d.filings.filter((f) => !["filed", "verified"].includes(f.status));
@@ -122,6 +124,9 @@ export default async function CaClientPage({ params, searchParams }: { params: P
               </li>))}</ul>)}
         </CardBody>
       </Card>
+
+      {portal && <Card><CardHeader><CardTitle>Client portal</CardTitle><span className="text-sm text-muted">their filings, what&apos;s needed, uploads</span></CardHeader>
+        <CardBody><ClientPortalCard cid={id} link={portal.link} settings={portal.settings} canWork={meta.can_work} /></CardBody></Card>}
 
       {dates && (
         <Card>

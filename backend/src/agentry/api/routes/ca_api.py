@@ -879,3 +879,90 @@ async def recurring_delete(rid: str, ctx: RecurringOn) -> dict:
 async def recurring_run(ctx: RecurringOn) -> dict:
     _work(ctx)
     return {"booked": await recurring.book_due(ctx.org_id)}
+
+
+# ---------- client portal (automations/ca/portal.py) ----------
+
+def _portal_admin(ctx: OrgContext) -> None:
+    if ctx.role not in ("owner", "manager", None):
+        raise HTTPException(403, "only the owner or a manager can change the client portal")
+
+
+@router.get("/portal")
+async def portal_settings(ctx: Board) -> dict:
+    from agentry.automations.ca import portal
+    async with tenant_session(ctx.org_id) as conn:
+        return await portal.get_settings(conn)
+
+
+class PortalSettings(BaseModel):
+    enabled: bool
+    title: Annotated[str | None, Field(max_length=80)] = None
+    color: Annotated[str | None, Field(max_length=9)] = None
+    logo_url: Annotated[str | None, Field(max_length=400)] = None
+    welcome: Annotated[str | None, Field(max_length=300)] = None
+
+
+@router.put("/portal")
+async def save_portal(body: PortalSettings, ctx: Board) -> dict:
+    from agentry.automations.ca import portal
+    _portal_admin(ctx)
+    try:
+        async with tenant_session(ctx.org_id) as conn:
+            out = await portal.save_settings(conn, body.model_dump())
+            await audit.record(conn, org_id=ctx.org_id, actor_type=ctx.actor_type, actor_user_id=ctx.principal.user_id, action="ca.portal_settings",
+                               metadata={"enabled": body.enabled})
+        return out
+    except portal.PortalError as e:
+        raise HTTPException(e.status, str(e)) from e
+
+
+@router.get("/clients/{cid}/portal")
+async def client_portal_link(cid: str, ctx: Board) -> dict:
+    from agentry.automations.ca import portal
+    async with tenant_session(ctx.org_id) as conn:
+        return {"link": await portal.link_status(conn, cid), "settings": await portal.get_settings(conn)}
+
+
+@router.post("/clients/{cid}/portal")
+async def make_portal_link(cid: str, ctx: Board, send: bool = False) -> dict:
+    """A new private link for this client (the old one stops working): sent to them, or returned to copy."""
+    from agentry.automations.ca import portal
+    _work(ctx)
+    try:
+        if send:
+            return await portal.send_link(ctx.org_id, cid, ctx.principal.user_id)
+        async with tenant_session(ctx.org_id) as conn:
+            return await portal.create_link(conn, ctx.org_id, cid, ctx.principal.user_id)
+    except portal.PortalError as e:
+        raise HTTPException(e.status, str(e)) from e
+
+
+@router.delete("/clients/{cid}/portal")
+async def revoke_portal_link(cid: str, ctx: Board) -> dict:
+    from agentry.automations.ca import portal
+    _work(ctx)
+    async with tenant_session(ctx.org_id) as conn:
+        return {"revoked": await portal.revoke(conn, cid)}
+
+
+public_portal = APIRouter(prefix="/public/portal", tags=["public"])
+
+
+@public_portal.get("/{token}")
+async def portal_view(token: str) -> dict:
+    from agentry.automations.ca import portal
+    try:
+        return await portal.view(token)
+    except portal.PortalError as e:
+        raise HTTPException(e.status, str(e)) from e
+
+
+@public_portal.post("/{token}/files", status_code=201)
+async def portal_upload(token: str, file: Annotated[UploadFile, File()], filing_id: Annotated[str | None, Form()] = None) -> dict:
+    from agentry.automations.ca import portal
+    data = await file.read(core.MAX_FILE + 1)
+    try:
+        return await portal.upload(token, data, filename=file.filename, mime=file.content_type, filing_id=filing_id or None)
+    except portal.PortalError as e:
+        raise HTTPException(e.status, str(e)) from e

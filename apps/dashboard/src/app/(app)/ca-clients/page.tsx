@@ -1,6 +1,7 @@
 import { Card, CardBody, CardHeader, CardTitle } from "@agentry/ui";
 import Link from "next/link";
 import { type CaClient, type CaMeta, ClientForm, ImportClients } from "@/components/ca";
+import { PortalSettingsForm, type PortalSettings } from "@/components/ca-portal";
 import { api, requirePage } from "@/lib/session";
 
 export const metadata = { title: "Clients" };
@@ -12,6 +13,7 @@ export default async function CaClientsPage({ searchParams }: { searchParams: Pr
     api<CaMeta>("/org/ca/meta", { orgId: active.id }),
     api<{ items: CaClient[] }>(`/org/ca/clients${q ? `?q=${encodeURIComponent(q)}` : ""}`, { orgId: active.id }),
   ]);
+  const portal = meta.enabled.includes("ca_filing_tracker") ? await api<PortalSettings>("/org/ca/portal", { orgId: active.id }) : null;
   const who = Object.fromEntries(meta.team.map((t) => [t.id, t.name]));
   return (
     <div className="space-y-6">
@@ -43,6 +45,8 @@ export default async function CaClientsPage({ searchParams }: { searchParams: Pr
           <Card><CardHeader><CardTitle>Import your list</CardTitle></CardHeader><CardBody><ImportClients /></CardBody></Card>
         </div>
       )}
+      {portal && <Card><CardHeader><CardTitle>Client portal</CardTitle></CardHeader>
+        <CardBody><PortalSettingsForm s={portal} canEdit={["owner", "manager", "agentry_staff"].includes(active.role)} /></CardBody></Card>}
     </div>
   );
 }

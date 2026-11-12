@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import Script from "next/script";
 import { useEffect } from "react";
 
@@ -44,6 +45,7 @@ export function trackDemoRequest(niche?: string) {
 }
 
 export function Analytics() {
+  const path = usePathname();
   useEffect(() => {
     try {
       if (sessionStorage.getItem(STORE)) return;
@@ -62,6 +64,7 @@ export function Analytics() {
   }, []);
 
   const gtagId = GA ?? ADS;
+  if (path?.startsWith("/portal/")) return null;  // a CA firm's private client portal: no Agentry tracking
   return (
     <>
       {gtagId && (

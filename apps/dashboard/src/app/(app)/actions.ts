@@ -827,6 +827,18 @@ export async function caRefreshCalendar() {
 }
 
 /** Check the official sources for due-date changes now (a check from the last hour is reused). */
+export async function caPortalSettings(body: { enabled: boolean; title?: string; color?: string; logo_url?: string; welcome?: string }) {
+  return run<{ enabled: boolean }>("/org/ca/portal", { method: "PUT", body }, ["/ca-clients"]);
+}
+
+export async function caPortalLink(cid: string, send: boolean) {
+  return run<{ url: string; sent?: string; channel?: string }>(`/org/ca/clients/${cid}/portal${send ? "?send=true" : ""}`, { method: "POST" }, [`/ca-clients/${cid}`]);
+}
+
+export async function caPortalRevoke(cid: string) {
+  return run<{ revoked: number }>(`/org/ca/clients/${cid}/portal`, { method: "DELETE" }, [`/ca-clients/${cid}`]);
+}
+
 export async function caCheckDueDates() {
   return run<{ id: string; status: string; reused: boolean }>("/org/ca/compliance/updates/check", { method: "POST" }, ["/compliance"]);
 }
