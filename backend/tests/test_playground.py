@@ -96,3 +96,13 @@ async def test_cv_score_hides_personal_details(client):
     r = await client.post("/public/playground/hiring", headers=visitor(), json={"input": {"title": "Clinic receptionist", "must_have": "appointments, Tally", "cv": cv}})
     assert r.status_code == 200, r.text
     assert "married" in r.json()["hidden"] and all(s["quote"].lower() in cv.lower() for s in r.json()["strengths"])
+
+
+async def test_every_box_says_what_it_rests_on(client):
+    tds = (await client.get("/public/sources/ca-tds-returns")).json()
+    assert tds["official"] and any(i["label"].startswith("194J(b)") and i["value"] == "₹50,000" for i in tds["items"])
+    assert all(i["url"] for i in tds["items"])
+    cal = (await client.get("/public/sources/ca-compliance-calendar")).json()
+    assert cal["official"] and {"https://www.gst.gov.in/", "https://www.incometax.gov.in/iec/foportal/"} <= {i["url"] for i in cal["items"]}
+    cv = (await client.get("/public/sources/hiring-assistant")).json()
+    assert not cv["official"] and "CV" in cv["basis"]

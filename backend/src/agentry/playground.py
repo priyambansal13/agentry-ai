@@ -647,3 +647,74 @@ async def run(kind: str, payload: dict, *, ip: str | None, token: str | None) ->
         async with system_session() as conn:
             await conn.execute(text("update app.public_tries set cost_usd = :c where id = :i"), {"c": round(sum(bucket), 4), "i": tid})
     return {**result, "cost_usd": round(sum(bucket), 4)}
+
+
+# ---------- source of truth: what each box's answer rests on (shown under every try-it box) ----------
+
+_RULES = {  # website agent slug -> official figures it uses (official_rules key prefixes / keys)
+    "ca-itr-preparation": ("itr.",), "ca-capital-gains": ("cg.", "itr.rate_111a", "itr.rate_112a", "itr.ltcg_exempt"),
+    "ca-tds-returns": ("tds.",), "ca-tax-audit-3cd": ("audit.",), "ca-bank-classifier": ("bank.", "audit.cash_receipt"),
+}
+_TEXT = {  # what the other boxes rest on: (basis, [(label, source, url)])
+    "ca-gst-reconciliation": ("Your purchase register against the GSTR-2B statement, matched by supplier GSTIN and invoice number.", [
+        ("GSTR-2B", "Auto-drafted ITC statement from the GST portal (the sample here is a sample download)", "https://www.gst.gov.in/"),
+        ("Matching", "Same GSTIN + invoice number; tax within ₹10 counts as matched", None)]),
+    "ca-tax-documents-reader": ("Only what's printed in the client's Form 16 and AIS: every figure is traced to its line.", [
+        ("Form 16", "Issued by the employer (TRACES)", "https://www.tdscpc.gov.in/"), ("AIS / 26AS", "The department's statement on the e-filing portal", "https://www.incometax.gov.in/iec/foportal/")]),
+    "ca-document-chaser": ("The documents each filing needs, from what the client's profile says applies.", [
+        ("Checklists", "Agentry's checklist per filing (ITR, GST, TDS, audit, ROC); each firm can edit its own", None)]),
+    "ca-notice-handler": ("Only the notice's own text: the dates, demand and DIN read are checked against it before they're shown.", [
+        ("The notice", "As issued by the Income Tax Department (verify it on the e-filing portal with its DIN)", "https://www.incometax.gov.in/iec/foportal/")]),
+    "excel-desk": ("Your sheet. The AI only picks the columns and the calculation; the numbers are computed by code.", []),
+    "ca-filing-tracker": ("The firm's own filing board: the answer to the client is read from the card's status.", []),
+    "recurring-books": ("Your entries. EMIs are split with the standard reducing-balance loan formula.", []),
+    "renewals": ("Your renewal dates and amounts. Reminders 30, 7 and 1 days before; win-back 15 days after (both can be changed).", []),
+    "inbox-triage": ("The email itself. Fraud warnings come from fixed rules (changed bank details, lookalike domains, OTP requests); replies use only the facts you give.", []),
+    "lead-research": ("Only the lead's own website and what they wrote. Numbers and names not found there are removed.", []),
+    "personal-cold-email": ("One fact from the prospect's own website; a fact-checker rejects any line it doesn't support.", []),
+    "sop-and-proposal-drafter": ("Only your brief (and, in the portal, your services and prices). Any number not in them is sent back for a rewrite.", []),
+    "content-repurposing": ("Only your transcript or article. Each post's quote is checked word for word against it.", []),
+    "ai-video-studio": ("Your business and topic. Guarantees, invented prices and superlatives are checked before anything is made.", []),
+    "hiring-assistant": ("Only the CV text, with age, gender, marital status and religion removed first. Each strength quotes the CV.", []),
+    "bookkeeping-assistant": ("The bill itself, then fixed checks: totals add up, CGST equals SGST, the GSTIN's check digit, the date.", [
+        ("GSTIN format and check digit", "GST registration rules", "https://www.gst.gov.in/")]),
+    "stock-shelf-scanner": ("Your photo. Each count shows how sure it is; doubtful ones are for a person to check.", []),
+    "lead-reactivation": ("What the lead asked about before and the offer you give; nothing else is promised.", []),
+    "speed-to-lead": ("Your enquiry form and your calendar's free slots. Opt-outs are respected.", []),
+    "ops-dispatcher": ("Your technicians' skills, areas and daily capacity.", []),
+    "invoice-follow-up": ("Your invoices and due dates. Reminders stop when an invoice is paid.", []),
+}
+
+
+async def sources(slug: str) -> dict:
+    from agentry import official_rules
+    from agentry.automations.ca import calendar as cal
+    from agentry.automations.ca import due_dates
+    await official_rules.fresh()
+    last = await due_dates.last_sync()
+    checked = last["finished_at"] if last and last["status"] == "done" else None
+    if slug in _RULES:
+        figs = [f for f in (await due_dates.rules_listing())["figures"] if any(f["key"].startswith(p) or f["key"] == p for p in _RULES[slug])]
+        items = [{"label": f["label"], "value": f["shown"], "source": f["update"]["source"] if f.get("update") else f["source"],
+                  "url": (f["update"]["source_url"] if f.get("update") else f["url"]), "updated": bool(f.get("update"))} for f in figs]
+        return {"basis": "The law for FY 2025-26 (AY 2026-27), with any change since that's verified on the official source and approved.",
+                "items": items, "official": True, "checked_at": checked}
+    if slug == "ca-compliance-calendar":
+        async with system_session() as conn:
+            ups = await cal.active_updates(conn)
+        laws = {v for v in cal.STANDARD.values()}
+        items = [{"label": law, "value": "standard due dates", "source": "Statutory due date", "url": url, "updated": False} for law, url in sorted(laws)]
+        from agentry.automations.ca import core
+        items += [{"label": f"{core.KINDS.get(u['kind'], u['kind'])} {u['period']}: extended", "value": f"{u['due_on']:%d %b %Y} (was {u['original_on']:%d %b %Y})", "source": u["source"],
+                   "url": u["source_url"], "updated": True} for u in ups]
+        return {"basis": "The standard due date in the law for each filing, unless the government has extended it.", "items": items,
+                "official": True, "checked_at": checked}
+    if slug == "festival-campaigns":
+        fests = festivals_ahead(8)
+        items = [{"label": f["name"], "value": datetime.fromisoformat(f["date"]).strftime("%d %b %Y"), "source": official_rules.FEST[0],
+                  "url": official_rules.FEST[1], "updated": False} for f in fests]
+        return {"basis": "Festival dates from the government holiday lists and the published panchang; your posts use only your own offer.",
+                "items": items, "official": True, "checked_at": checked}
+    basis, links = _TEXT.get(slug, ("Your own input and the agent's checks; nothing is invented.", []))
+    return {"basis": basis, "items": [{"label": label, "value": None, "source": src, "url": url, "updated": False} for label, src, url in links],
+            "official": False, "checked_at": None}

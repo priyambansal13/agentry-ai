@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { BillBox, ColdEmailBox, ContentBox, DocBox, FestivalBox, HiringBox, InboxBox, LeadResearchBox, ReactivationBox, ShelfBox, VideoBox } from "./try/ai";
 import { Audit3cdBox, BankBox, CalendarBox, CapitalGainsBox, ChaserBox, ExcelBox, FilingTrackerBox, GstBox, ItrBox, NoticeBox, RecurringBooksBox, TaxDocsBox, TdsBox } from "./try/ca";
+import { AgentSlug, SourceOfTruth } from "./try/kit";
 import { DispatcherBox, RenewalsBox, SpeedToLeadBox } from "./try/sims";
 
 const TALK = ["website-chat-agent", "whatsapp-ai-assistant", "telegram-assistant", "ai-receptionist", "appointment-concierge", "support-desk", "catalogue-and-quotes"];
@@ -23,7 +24,7 @@ const BOXES: Record<string, () => React.ReactNode> = {
 /** "Try it" on an agent's page: every agent has something to try without signing up. */
 export function Playground({ slug }: { slug: string }) {
   const Box = BOXES[slug];
-  if (Box) return <Box />;
+  if (Box) return <AgentSlug.Provider value={slug}><Box /></AgentSlug.Provider>;
   if (slug === "invoice-follow-up") return <ReminderPreview />;
   if (TALK.includes(slug)) return <Card title="Try it on your own website" body="Type your website and chat with an assistant that answers from your own pages. 30 seconds, no sign-up." href="/try" cta="Build my assistant" field="site" />;
   if (FOUND.includes(slug)) return <Card title="Does ChatGPT recommend you?" body="A free 60-second check: who AI assistants name for your service in your city, and what visitors find on your website." href="/audit" cta="Run the free audit" field="site" />;
@@ -78,6 +79,7 @@ function ReminderPreview() {
           <p className="mt-2 rounded-2xl rounded-tl-sm bg-[#dcf8c6] p-3 text-sm text-[#111]">{s.text(v.customer || "there", v.invoice, amt, v.business)}</p>
         </li>))}</ol>
       <p className="mt-4 text-sm text-muted">Sample wording: yours uses your facts and tone, stops the moment it&apos;s paid, pauses when they promise a date, and passes disputes to a person.</p>
+      <SourceOfTruth slug="invoice-follow-up" />
     </section>
   );
 }

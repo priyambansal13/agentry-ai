@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, Check, Copy, Loader2, Minus, Plus, ShieldCheck, Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { track } from "../analytics";
 import { useTurnstile } from "../turnstile";
 
@@ -44,8 +44,43 @@ export function useRun<T = Any>(kind: string, live: boolean) {
   return { ...state, run, captcha, live, reset: () => setState({ busy: false, error: null, result: null }) };
 }
 
-/** The frame every box sits in: what it is, the box, and the line that sells the full agent. */
+/** Which agent page a box is on (set by Playground), so every box can show its source of truth. */
+export const AgentSlug = createContext<string | null>(null);
+
+type Sources = { basis: string; official: boolean; checked_at: string | null;
+  items: { label: string; value: string | null; source: string; url: string | null; updated: boolean }[] };
+
+/** What the box's answer rests on: the official figures and dates with links (and the last check against official
+ *  sources), or the visitor's own input. */
+export function SourceOfTruth({ slug }: { slug: string }) {
+  const [s, setS] = useState<Sources | null>(null);
+  useEffect(() => { fetch(`${API}/public/sources/${slug}`).then((r) => (r.ok ? r.json() : null)).then(setS).catch(() => setS(null)); }, [slug]);
+  if (!s) return null;
+  const many = s.items.length > 6;
+  const plain = s.items.filter((i) => !i.updated);
+  const shared = plain.length > 1 && plain.every((i) => i.source === plain[0]!.source) ? plain[0]! : null;  // one source for all: say it once
+  const link = (i: { source: string; url: string | null }) => (i.url ? <a href={i.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">{i.source}</a> : i.source);
+  const list = (
+    <ul className="mt-3 grid gap-x-8 text-sm sm:grid-cols-2">{s.items.map((i) => (
+      <li key={`${i.label}${i.value}`} className="border-b border-line py-1.5">
+        <div className="flex items-baseline justify-between gap-3"><span>{i.label}</span>
+          <span className="flex shrink-0 items-baseline gap-1.5">{i.updated && <span className="rounded-full bg-lime px-1.5 text-[11px] font-bold text-lime-ink">updated</span>}
+            {i.value && <span className="font-semibold tabular-nums">{i.value}</span>}</span></div>
+        {(!shared || i.updated) && <p className="text-xs text-muted">{link(i)}</p>}
+      </li>))}</ul>);
+  return (
+    <div className="mt-6 rounded-2xl border-2 border-dashed border-ink/40 bg-card p-4">
+      <p className="flex flex-wrap items-center gap-2 text-sm font-semibold"><ShieldCheck aria-hidden="true" className="h-4 w-4" /> Source of truth
+        {s.official && <span className="text-xs font-normal text-muted">{s.checked_at ? `checked against official sources ${new Date(s.checked_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}` : "checked against official sources every morning"}</span>}</p>
+      <p className="mt-1 text-sm text-ink-soft">{s.basis}{shared && <> Source: {link(shared)}.</>}</p>
+      {s.items.length > 0 && (many ? <details className="mt-1"><summary className="cursor-pointer text-sm font-semibold underline underline-offset-4">See all {s.items.length} figures and their sources</summary>{list}</details> : list)}
+    </div>
+  );
+}
+
+/** The frame every box sits in: what it is, the box, its source of truth, and the line that sells the full agent. */
 export function TryShell({ title, intro, children, sell, live = false }: { title: string; intro: string; children: React.ReactNode; sell: string; live?: boolean }) {
+  const slug = useContext(AgentSlug);
   return (
     <section aria-label={title} className="mt-16 rounded-3xl border-2 border-ink bg-lime-soft p-5 sm:p-8">
       <div className="flex flex-wrap items-center gap-3">
@@ -58,6 +93,7 @@ export function TryShell({ title, intro, children, sell, live = false }: { title
       <h2 className="mt-2 font-display text-3xl font-bold tracking-tight">{title}</h2>
       <p className="mt-2 max-w-3xl text-ink-soft">{intro}</p>
       <div className="mt-6">{children}</div>
+      {slug && <SourceOfTruth slug={slug} />}
       <div className="mt-8 flex flex-col gap-3 rounded-2xl border-2 border-ink bg-ink p-5 text-paper sm:flex-row sm:items-center sm:justify-between">
         <p className="max-w-2xl text-sm sm:text-base">{sell}</p>
         <a href="#demo" className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-lime px-5 font-semibold text-lime-ink hover:opacity-90">

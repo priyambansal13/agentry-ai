@@ -171,7 +171,8 @@ def show(kind: str, v: object) -> str:
     if v is None:
         return "not known yet"
     if kind == "amount":
-        return f"₹{float(v):,.0f}"  # type: ignore[arg-type]
+        from agentry.automations.ca.core import inr
+        return inr(float(v))  # type: ignore[arg-type]  # Indian grouping: ₹50,00,000
     if kind == "rate":
         return f"{float(v) * 100:g}%"  # type: ignore[arg-type]
     if kind in ("months", "days"):
@@ -181,7 +182,8 @@ def show(kind: str, v: object) -> str:
     if kind == "slabs":
         lo, parts = 0, []
         for up, rate in v:  # type: ignore[attr-defined]
-            parts.append(f"{'above ' + format(lo, ',') if up is None else format(lo, ',') + '–' + format(up, ',')}: {rate * 100:g}%")
+            from agentry.automations.ca.core import inr
+            parts.append(f"{'above ' + inr(lo) if up is None else inr(lo) + '–' + inr(up)}: {rate * 100:g}%")
             lo = up or lo
         return "; ".join(parts)
     return json.dumps(v)

@@ -122,6 +122,13 @@ class PlayIn(BaseModel):
     company_url: str | None = None  # honeypot
 
 
+@router.get("/sources/{slug}")
+async def play_sources(slug: str) -> dict:
+    """What an agent page's try-it box rests on: the official figures and dates (with links and the last official check), or its own input."""
+    from agentry import playground
+    return await playground.sources(slug[:80])
+
+
 @router.get("/playground/{kind}/sample")
 async def play_sample(kind: str) -> dict:
     from agentry import playground

@@ -69,7 +69,11 @@ Tests: `tests/test_playground.py`.
 | **In the browser** | Speed-to-lead (form, WhatsApp reply, booking), ops dispatcher (skill / area / capacity), filing tracker (board + WhatsApp status answer), recurring entries (EMI split, 80% budget alert), invoice follow-up reminders | The same rules as the portal, in the page |
 | **Leads to /try or /audit** | Website chat, WhatsApp, Telegram, receptionist, appointments, support desk, catalogue & quotes; AI visibility, local SEO, reviews, competitor watch | The instant demo or the free audit |
 
-Each box ends with what the full agent does in the portal and a "Set it up for my business" link to the demo form.
+Each box shows its **source of truth** (`/public/sources/{slug}`, `playground.sources`): for the tax boxes every figure with its value and
+official source (marked "updated" when a notification changed it) and when official sources were last checked; for the compliance calendar
+the laws behind the standard dates and any extension in force; for festivals the dates and where they come from; for the AI boxes what
+the answer rests on (the visitor's own input and the agent's checks). Then what the full agent does in the portal and a "Set it up for my
+business" link to the demo form.
 Samples on the website: `apps/web/public/samples/` (three bills; a generated kirana shelf photo).
 
 ## Limits and cost controls
