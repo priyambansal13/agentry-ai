@@ -118,6 +118,10 @@ async def billing_razorpay(request: Request) -> dict:
         raise HTTPException(401, "bad signature")
     ev = json.loads(raw)
     notes = (ev.get("payload", {}).get("payment_link", {}).get("entity", {}).get("notes")) or {}
+    if ev.get("event") == "payment_link.paid" and notes.get("signup_id"):  # a website sign-up's first payment
+        from agentry import signups
+        await signups.mark_paid(notes["signup_id"], f"razorpay:{ev['payload']['payment']['entity']['id']}")
+        return {"ok": True}
     if ev.get("event") != "payment_link.paid" or not notes.get("statement_id"):
         return {"ok": True, "ignored": True}
     from agentry.billing import mark_paid

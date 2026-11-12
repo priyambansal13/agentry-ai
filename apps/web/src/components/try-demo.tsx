@@ -117,7 +117,8 @@ export function TryChat({ id }: { id: string }) {
             <li>Books appointments into your calendar and takes leads</li>
             <li>Hands over to your team when it should; you approve replies at first</li>
           </ul>
-          <a href="#demo" className="mt-5 inline-flex h-12 items-center gap-2 rounded-xl bg-ink px-6 font-semibold text-paper hover:opacity-90">Switch it on for my business <ArrowRight aria-hidden="true" className="h-5 w-5" /></a>
+          <a href={`/start?plan=starter&site=${encodeURIComponent(d.domain)}`} className="mt-5 inline-flex h-12 items-center gap-2 rounded-xl bg-ink px-6 font-semibold text-paper hover:opacity-90">Switch it on for my business <ArrowRight aria-hidden="true" className="h-5 w-5" /></a>
+          <a href="#demo" className="ml-3 mt-5 inline-flex h-12 items-center font-semibold underline underline-offset-4">or talk to us first</a>
         </div>
       </div>
 

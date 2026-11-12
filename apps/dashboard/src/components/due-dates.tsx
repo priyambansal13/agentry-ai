@@ -4,7 +4,7 @@ import { Badge, Button, Input, Label, Select } from "@agentry/ui";
 import { CheckCircle2, ExternalLink, RefreshCw, ShieldAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { caCheckDueDates, hqDueDateAdd, hqDueDateDecide, hqDueDatesCheck, hqRuleAdd, hqRuleDecide } from "@/app/(app)/actions";
+import { caCheckDueDates, hqDueDateAdd, hqDueDateDecide, hqDueDatesCheck, hqResendSignup, hqRuleAdd, hqRuleDecide } from "@/app/(app)/actions";
 import { day } from "@/lib/ca";
 
 /** Official due-date changes (backend automations/ca/due_dates.py): where a firm's dates come from, and HQ's review. */
@@ -213,6 +213,14 @@ export function FiguresTable({ figures }: { figures: Figure[] }) {
         </tbody></table></div>
       </div>))}</div>
   );
+}
+
+/** HQ: send a paid sign-up's account link again. */
+export function ResendSignup({ id }: { id: string }) {
+  const { err, pending, go } = useGo();
+  const [done, setDone] = useState(false);
+  return <span className="inline-flex items-center gap-2"><Button size="sm" variant="secondary" disabled={pending || done} onClick={() => go(() => hqResendSignup(id), () => setDone(true))}>
+    {done ? "Sent" : "Resend link"}</Button>{err && <span role="alert" className="text-xs text-danger">{err}</span>}</span>;
 }
 
 export { day };

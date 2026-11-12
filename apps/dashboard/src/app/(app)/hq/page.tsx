@@ -1,6 +1,7 @@
 import { Badge, Card } from "@agentry/ui";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ResendSignup } from "@/components/due-dates";
 import { DEMO_STATUS, statusLabels } from "@/lib/format";
 import { api, getMe } from "@/lib/session";
 
@@ -10,14 +11,19 @@ type OrgRow = {
   id: string; name: string; slug: string; status: string | null; industry_pack: string | null; country: string | null;
   members: number; automations: number; steps_done: number; steps_total: number; blockers: string | null;
 };
+type Signup = { id: string; pack: string; business: string; name: string; email: string; phone: string | null; currency: string; amount: string;
+  status: string; org_id: string | null; error: string | null; created_at: string };
+const SIGNUP: Record<string, string> = { pending_payment: "Not paid yet", paid: "Paid: account not opened", claimed: "Opening…", provisioned: "Set up",
+  cancelled: "Handed to sales", failed: "Needs help" };
 type Demo = { id: string; name: string; email: string; company: string | null; niche: string | null; status: string; created_at: string };
 
 export default async function HqPage() {
   const me = await getMe();
   if (!me.is_staff) redirect("/home");
-  const [orgs, demos] = await Promise.all([
+  const [orgs, demos, signups] = await Promise.all([
     api<{ items: OrgRow[] }>("/hq/orgs"),
     api<{ items: Demo[] }>("/hq/demo-requests"),
+    api<{ items: Signup[] }>("/hq/signups"),
   ]);
   return (
     <div className="space-y-8">
@@ -57,6 +63,18 @@ export default async function HqPage() {
           </tbody>
         </table>
       </Card>
+      {signups.items.length > 0 && <section className="space-y-3">
+        <h2 className="font-display text-xl font-semibold">Website sign-ups</h2>
+        <Card className="overflow-x-auto"><table className="w-full text-left text-sm">
+          <thead className="border-b border-line text-muted"><tr><th className="px-5 py-3 font-medium">Business</th><th className="px-5 py-3 font-medium">Plan</th>
+            <th className="px-5 py-3 text-right font-medium">Paid</th><th className="px-5 py-3 font-medium">Status</th><th className="px-5 py-3" /></tr></thead>
+          <tbody className="divide-y divide-line">{signups.items.map((s) => (
+            <tr key={s.id}><td className="px-5 py-3"><span className="font-medium">{s.business}</span><div className="text-xs text-muted">{s.name} · {s.email} {s.phone ?? ""}</div></td>
+              <td className="px-5 py-3">{s.pack}</td><td className="px-5 py-3 text-right tabular-nums">{s.currency} {Number(s.amount).toLocaleString("en-IN")}</td>
+              <td className="px-5 py-3">{s.org_id && s.status === "provisioned" ? <Link href={`/hq/${s.org_id}`} className="underline">{SIGNUP[s.status]}</Link> : SIGNUP[s.status] ?? s.status}
+                {s.error && <div className="text-xs text-danger">{s.error}</div>}</td>
+              <td className="px-5 py-3 text-right">{s.status === "paid" && <ResendSignup id={s.id} />}</td></tr>))}</tbody></table></Card>
+      </section>}
       <section className="space-y-3">
         <h2 className="font-display text-xl font-semibold">Demo requests</h2>
         <Card className="overflow-x-auto">

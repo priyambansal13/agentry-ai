@@ -96,8 +96,10 @@ export function TryShell({ title, intro, children, sell, live = false }: { title
       {slug && <SourceOfTruth slug={slug} />}
       <div className="mt-8 flex flex-col gap-3 rounded-2xl border-2 border-ink bg-ink p-5 text-paper sm:flex-row sm:items-center sm:justify-between">
         <p className="max-w-2xl text-sm sm:text-base">{sell}</p>
-        <a href="#demo" className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-lime px-5 font-semibold text-lime-ink hover:opacity-90">
-          Set it up for my business <ArrowRight aria-hidden="true" className="h-4 w-4" /></a>
+        <span className="flex shrink-0 flex-wrap items-center gap-3">
+          <a href={slug?.startsWith("ca-") ? "/start?plan=ca-firm" : "/start"} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-lime px-5 font-semibold text-lime-ink hover:opacity-90">
+            Start now <ArrowRight aria-hidden="true" className="h-4 w-4" /></a>
+          <a href="#demo" className="text-sm font-semibold underline underline-offset-4">or get a demo</a></span>
       </div>
     </section>
   );

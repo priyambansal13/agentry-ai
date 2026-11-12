@@ -61,3 +61,17 @@ async def audit_release_step() -> int:
 @DBOS.workflow()
 async def release_waiting_audits(scheduled_time, context) -> None:
     await audit_release_step()
+
+
+# ---------- self-serve sign-ups (agentry/signups.py) ----------
+
+@DBOS.step()
+async def signup_website_step(org_id: str, website: str | None) -> int:
+    from agentry import signups
+    return await signups.learn_website(org_id, website)
+
+
+@on("signup.provisioned")
+@DBOS.workflow()
+async def on_signup_provisioned(event: dict) -> None:
+    await signup_website_step(event["org_id"], event["payload"].get("website"))

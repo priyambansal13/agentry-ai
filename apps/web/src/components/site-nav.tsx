@@ -15,7 +15,7 @@ export function SiteNav() {
           <Link href="/for/ca-firms" className="hover:text-ink">CA firms</Link>
           <Link href="/for/clinics" className="hover:text-ink">Clinics</Link>
           <Link href="/#for-you" className="hover:text-ink">Industries</Link>
-          <Link href="/#pricing" className="hover:text-ink">Pricing</Link>
+          <Link href="/start" className="hover:text-ink">Pricing</Link>
         </nav>
         <div className="flex items-center gap-2">
           <a href={`${DASHBOARD}/sign-in`} className="hidden text-sm font-medium text-ink-soft hover:text-ink sm:inline">Client login</a>

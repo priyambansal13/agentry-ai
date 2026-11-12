@@ -25,7 +25,7 @@ export function Footer() {
           <nav aria-label="Company">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Agentry</h2>
             <ul className="mt-3 space-y-2 text-sm">
-              <li><Link href="/#pricing" className="hover:underline">Pricing</Link></li>
+              <li><Link href="/start" className="hover:underline">Pricing</Link></li>
               <li><Link href="/#calculator" className="hover:underline">What it&apos;s worth</Link></li>
               <li><Link href="/#demo" className="hover:underline">Free demo</Link></li>
               <li><Link href="/privacy" className="hover:underline">Privacy</Link></li>
