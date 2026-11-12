@@ -2,7 +2,7 @@
 # Update the live server (agentry-ai-oci) from this Mac: build arm64 images, copy them over, restart.
 #   infra/deploy-oracle.sh            # everything
 #   infra/deploy-oracle.sh backend    # only api / worker / migrations (most backend changes)
-# Needs: Docker on the Mac, ~/.ssh/agentry-oci.key, and infra/.env.server (git-ignored) for the build's public URLs.
+# Needs: Docker and rsync on the Mac, ~/.ssh/agentry-oci.key, and infra/.env.server (git-ignored) for the build's public URLs.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 HOST=${AGENTRY_HOST:-ubuntu@137.23.54.225}
@@ -20,9 +20,22 @@ if [ "$WHAT" = backend ]; then SERVICES="api"; IMAGES="agentry-backend"; else SE
 echo "building $IMAGES at $TAG"
 $BUILD --env-file infra/.env.server build $SERVICES
 for img in $IMAGES; do docker image inspect "$img:$TAG" >/dev/null || { echo "missing $img:$TAG after the build"; exit 1; }; done
+# each image is saved to a file and uploaded with rsync, which resumes after a dropped connection (a 2 GB stream
+# over a flaky link kept failing part-way), then loaded on the server
+OUT=$(mktemp -d)
+trap 'rm -rf "$OUT"' EXIT
+ssh $SSH_OPTS -i "$KEY" "$HOST" 'mkdir -p ~/agentry/images'
 for img in $IMAGES; do
+  f="$OUT/$img-$TAG.tar.gz"
   echo "copying $img"
-  docker save "$img:$TAG" | gzip -1 | ssh $SSH_OPTS -i "$KEY" "$HOST" 'gunzip | sudo docker load'
+  docker save "$img:$TAG" | gzip -1 > "$f"
+  for try in 1 2 3 4 5 6 7 8 9 10; do
+    rsync -a --partial --inplace --timeout=60 -e "ssh $SSH_OPTS -i $KEY" "$f" "$HOST:agentry/images/" && break
+    echo "upload interrupted, resuming ($try)"; sleep 5
+    [ "$try" = 10 ] && { echo "upload of $img failed"; exit 1; }
+  done
+  ssh $SSH_OPTS -i "$KEY" "$HOST" "gunzip -c ~/agentry/images/$(basename "$f") | sudo docker load && rm ~/agentry/images/$(basename "$f")"
+  rm -f "$f"
 done
 if [ "$WHAT" = backend ]; then
   # one version number for every service: the unchanged portal and website images get the new tag too
