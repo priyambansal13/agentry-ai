@@ -2,6 +2,7 @@ import { Check } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AgentStory } from "@/components/agent-story";
 import { Cta } from "@/components/cta";
 import { DemoForm } from "@/components/demo-form";
 import { Footer } from "@/components/footer";
@@ -56,6 +57,7 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
               {a.note && <p className="mt-5 rounded-2xl bg-lime-soft p-4 text-sm"><span className="font-semibold">Good to know:</span> {a.note}</p>}
             </div>
           </div>
+          <AgentStory slug={a.slug} name={a.name} />
           <Playground slug={a.slug} />
           <section className="mt-16 grid gap-6 rounded-3xl border-2 border-line p-6 sm:grid-cols-3 sm:p-8" aria-label="How we run it">
             <div><h2 className="font-display text-lg font-bold">Done for you</h2><p className="mt-1 text-ink-soft">We set it up with your business, connect your accounts and test it with you.</p></div>

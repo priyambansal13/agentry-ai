@@ -58,7 +58,8 @@ export function SketchFlow(props: FlowProps) {
 function FlowSvg({ steps, highlight, seed = 1, className, label, direction }: FlowProps & { direction: "row" | "column" }) {
   const { ref, drawn } = useDrawOnView<SVGSVGElement>();
   const row = direction === "row";
-  const boxW = row ? 150 : 300, boxH = row ? 78 : 62, gap = row ? 46 : 36, pad = 6;
+  const tall = row && steps.some((t) => t.length > 16); // longer labels get a taller box and smaller writing
+  const boxW = row ? 150 : 300, boxH = row ? (tall ? 100 : 78) : 62, gap = row ? 46 : 36, pad = 6;
   const width = row ? steps.length * boxW + (steps.length - 1) * gap + pad * 2 : boxW + pad * 2;
   const height = row ? boxH + pad * 2 : steps.length * boxH + (steps.length - 1) * gap + pad * 2;
   const shapes = useMemo(() => steps.map((_, i) => {
@@ -92,7 +93,7 @@ function FlowSvg({ steps, highlight, seed = 1, className, label, direction }: Fl
           {s.arrow.map((d, j) => <Stroke key={`a${j}`} d={d} i={i * 2 + 1} />)}
           <foreignObject x={s.x + 8} y={s.y + 6} width={boxW - 16} height={boxH - 12}>
             <div className={cn("flex h-full items-center justify-center text-center font-hand leading-[0.95]",
-              row ? "text-[27px]" : "text-[26px]", i === highlight ? "text-lime-ink" : "text-ink")}>{steps[i]}</div>
+              row ? (steps[i]!.length > 16 ? "text-[22px]" : "text-[27px]") : "text-[26px]", i === highlight ? "text-lime-ink" : "text-ink")}>{steps[i]}</div>
           </foreignObject>
         </g>
       ))}

@@ -49,6 +49,12 @@ flowchart TD
 - 30 messages per demo, 40 messages per visitor per hour, 24 hours, removed after 2 days. Nothing is sent to anyone.
 - It's a preview. The real website chat agent adds the knowledge base, bookings, lead capture and handoff.
 
+## Agent pages: how it works
+
+Every agent page explains the agent in plain words before its try-it box (`apps/web/src/lib/agent-story.ts`, rendered by
+`components/agent-story.tsx`): a short hand-drawn flow, the steps with who does each one (customer, agent, you, your team), and
+"your week, before and after" (what it takes off your hands, without invented numbers). Edit the wording in `agent-story.ts`.
+
 ## Agent page try-it boxes (every agent)
 
 Every one of the 39 agent pages has a box that runs the agent's **real engine** on a sample or the visitor's own input. Nothing is
