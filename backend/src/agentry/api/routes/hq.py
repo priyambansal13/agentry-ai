@@ -433,3 +433,22 @@ async def change_mailbox(org_id: str, mailbox_id: str, body: MailboxChange, staf
         await audit.record(conn, org_id=org_id, actor_type="agentry_staff", actor_user_id=staff.user_id, action="cold_email.mailbox_changed",
                            target_type="mailbox", target_id=mailbox_id, metadata=body.model_dump(exclude_none=True))
     return {"id": mailbox_id}
+
+
+# ---------- what's running (for Agentry staff: a small line in the portal's sidebar) ----------
+
+_STARTED = datetime.now(UTC)
+
+
+@router.get("/version")
+async def version(p: Annotated[Principal, Depends(require_staff)]) -> dict:
+    """The version running, when it was deployed (AGENTRY_DEPLOYED_AT, written by infra/deploy-oracle.sh; else when this API
+    started) and the database revision."""
+    import os
+    try:
+        async with system_session() as conn:
+            rev = (await conn.execute(text("select version_num from app.alembic_version"))).scalar_one_or_none()
+    except Exception:  # noqa: BLE001 - the version line still shows without it
+        rev = None
+    return {"version": os.environ.get("AGENTRY_TAG", "local"), "deployed_at": os.environ.get("AGENTRY_DEPLOYED_AT") or _STARTED.isoformat(),
+            "api_started_at": _STARTED.isoformat(), "database": rev}

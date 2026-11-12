@@ -31,7 +31,9 @@ fi
 scp -i "$KEY" -q docker-compose.prod.yml docker-compose.server.yml "$HOST:agentry/"
 scp -i "$KEY" -q infra/caddy/Caddyfile "$HOST:agentry/infra/caddy/"
 # keep only this version and the one before it (for a rollback): each version is ~5 GB and the server disk is 45 GB
+# AGENTRY_DEPLOYED_AT: shown to Agentry staff in the portal's sidebar (GET /hq/version)
 ssh $SSH_OPTS -i "$KEY" "$HOST" "cd ~/agentry && PREV=\$(grep '^AGENTRY_TAG=' infra/.env.prod | cut -d= -f2) && sed -i 's/^AGENTRY_TAG=.*/AGENTRY_TAG=$TAG/' infra/.env.prod && \
+  sed -i '/^AGENTRY_DEPLOYED_AT=/d' infra/.env.prod && echo AGENTRY_DEPLOYED_AT=\$(date -u +%Y-%m-%dT%H:%M:%SZ) >> infra/.env.prod && \
   sudo docker compose -p agentry -f docker-compose.prod.yml -f docker-compose.server.yml --env-file infra/.env.prod up -d && \
   for t in \$(sudo docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '^agentry-(backend|dashboard|dashboard-tools|web):' | grep -vE \":($TAG|\$PREV)\$\"); do sudo docker rmi \$t >/dev/null 2>&1 || true; done && \
   sudo docker image prune -f >/dev/null && df -h / | tail -1 && sudo docker compose -p agentry -f docker-compose.prod.yml -f docker-compose.server.yml --env-file infra/.env.prod ps"

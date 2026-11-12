@@ -216,3 +216,12 @@ async def test_staff_set_a_figure_by_hand(client, team_org, clean_rules):
     assert (await client.post("/hq/due-dates/rules", headers=staff, json={"key": "itr.std_new", "new_value": "100000",
                                                                          "source": "Finance Act, 2026"})).status_code == 422  # already in force
     assert (await client.post("/hq/due-dates/rules", headers=staff, json={"key": "nope", "new_value": "1", "source": "xxxx"})).status_code == 422
+
+
+async def test_version_is_for_staff_only(client, team_org, monkeypatch):
+    _oid, h = await team_org(["ca_compliance_calendar"])
+    monkeypatch.setenv("AGENTRY_TAG", "abc1234")
+    monkeypatch.setenv("AGENTRY_DEPLOYED_AT", "2026-11-12T10:57:11Z")
+    v = (await client.get("/hq/version", headers={"Authorization": "Bearer admin@agentry.dev"})).json()
+    assert v["version"] == "abc1234" and v["deployed_at"] == "2026-11-12T10:57:11Z" and v["database"]
+    assert (await client.get("/hq/version", headers=h["owner"])).status_code == 403

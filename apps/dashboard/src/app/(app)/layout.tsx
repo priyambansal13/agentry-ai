@@ -18,6 +18,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     ? await api<{ pending_by_kind: Record<string, number> }>("/org/approvals?limit=1", { orgId: active.id })
         .then((r) => Object.values(r.pending_by_kind).reduce((a, b) => a + b, 0)).catch(() => 0)
     : 0;
+  // what's deployed: a small line for Agentry staff only (GET /hq/version); clients never see it
+  const build = me.is_staff
+    ? await api<{ version: string; deployed_at: string; api_started_at: string; database: string | null }>("/hq/version").catch(() => null)
+    : null;
   const showOnboarding = !!active && ["onboarding", "pending_setup"].includes(active.status) && (me.is_staff || can(role, "automation", "configure"));
   const navProps = { hasOrg: !!active, isStaff: me.is_staff, canAudit: me.is_staff || can(role, "audit", "read"), canTeam: !!role,
                      canConverse, canWork, showOnboarding, needsYou, canInvoices: me.is_staff || can(role, "invoice", "read"),
@@ -48,6 +52,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </span>
           <SignOut />
         </div>
+        {build && <p className="hidden px-2 pt-2 text-[10px] leading-tight text-muted/70 lg:block"
+          title={`Portal ${process.env.AGENTRY_TAG ?? "local"} · API ${build.version} · database ${build.database ?? "?"} · API started ${new Date(build.api_started_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`}>
+          v{build.version} · deployed {new Date(build.deployed_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</p>}
       </aside>
       <div className="lg:hidden overflow-x-auto border-b border-line bg-card px-4 py-2">
         <Nav compact {...navProps} />
