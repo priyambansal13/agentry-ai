@@ -145,6 +145,7 @@ class Settings(BaseSettings):
     # public website audit (apps/web /audit): spend cap across all visitors, captcha (Cloudflare Turnstile; unset = off)
     audit_daily_budget_usd: float = 5.0
     audit_questions: int = 5
+    due_dates_auto_apply: bool = False  # apply a found due-date change without staff approval when it's verified on the official page
     turnstile_secret: str | None = None
     model_embed: str | None = None
     embed_dimensions: int = 768  # must match app.kb_chunks.embedding

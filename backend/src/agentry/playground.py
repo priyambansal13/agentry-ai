@@ -9,6 +9,7 @@ visitor's input (or a sample), with nothing saved and nothing sent.
            website's daily budget (site_audit.spent_today, shared with the free audit and the instant demo).
 Inputs are capped (rows, characters, photo size); websites are read with the knowledge crawler (public addresses only).
 """
+import asyncio
 import base64
 import csv
 import io
@@ -161,16 +162,18 @@ async def bank(p: dict) -> dict:
 KINDS = ("individual", "huf", "firm", "llp", "company")
 
 
-def calendar(p: dict) -> dict:
+async def calendar(p: dict) -> dict:
     from agentry.automations.ca import calendar as m
     from agentry.automations.ca import core
     kind = p.get("client_kind") if p.get("client_kind") in KINDS else "individual"
-    prof = _flag(p.get("profile") or {}, "gst", "gst_qrmp", "tds", "pf_esi", "advance_tax", "business", "audit")
+    prof = _flag(p.get("profile") or {}, *core.PROFILE_FLAGS)
     start = today()
-    dues = m.deadlines(kind, prof, start, start + timedelta(days=120))
+    async with system_session() as conn:
+        updates = await m.active_updates(conn)
+    dues = m.deadlines(kind, prof, start, start + timedelta(days=120), gstin=_s(p.get("gstin"), 15) or None, updates=updates)
     firm, name = _s(p.get("firm"), 80) or "Sharma & Associates", _s(p.get("name"), 80) or "Ramesh Gupta"
-    return {"deadlines": [{**d, "due_on": d["due_on"].isoformat(), "days_left": (d["due_on"] - start).days, "kind_label": core.KINDS.get(d["kind"], d["kind"]),
-                           "reminder": m.reminder(d["title"], d["due_on"], d["kind"], firm, name)} for d in dues], "from": start.isoformat()}
+    return _jsonable({"deadlines": [{**d, "days_left": (d["due_on"] - start).days, "kind_label": core.KINDS.get(d["kind"], d["kind"]),
+                                     "reminder": m.reminder(d["title"], d["due_on"], d["kind"], firm, name)} for d in dues], "from": start})
 
 
 def chaser(p: dict) -> dict:
@@ -612,7 +615,8 @@ async def run(kind: str, payload: dict, *, ip: str | None, token: str | None) ->
             if not await site_audit.hit(conn, f"pgc:{site_audit.ip_hash(ip)}", CALC_PER_HOUR, "1 hour"):
                 raise TryRefused(429, "that's a lot of tries: give it a few minutes")
         try:
-            return CALC[kind](payload)
+            out = CALC[kind](payload)
+            return await out if asyncio.iscoroutine(out) else out
         except TryRefused:
             raise
         except Exception as e:  # CaError (a column missing, a bad date) and friends: say what's wrong with the input

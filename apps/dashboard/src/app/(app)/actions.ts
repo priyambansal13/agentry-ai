@@ -826,6 +826,24 @@ export async function caRefreshCalendar() {
   return run<{ created: number }>("/org/ca/compliance/refresh", { method: "POST" }, CA);
 }
 
+/** Check the official sources for due-date changes now (a check from the last hour is reused). */
+export async function caCheckDueDates() {
+  return run<{ id: string; status: string; reused: boolean }>("/org/ca/compliance/updates/check", { method: "POST" }, ["/compliance"]);
+}
+
+/** Agentry HQ → Due dates. */
+export async function hqDueDatesCheck() {
+  return run<{ id: string; status: string; reused: boolean }>("/hq/due-dates/check", { method: "POST" }, ["/hq/due-dates"]);
+}
+
+export async function hqDueDateDecide(id: string, action: "approve" | "reject" | "withdraw") {
+  return run<{ status: string; cards: number }>(`/hq/due-dates/${id}/${action}`, { method: "POST" }, ["/hq/due-dates", "/compliance"]);
+}
+
+export async function hqDueDateAdd(body: Record<string, string>) {
+  return run<{ status: string; cards: number }>("/hq/due-dates", { method: "POST", body }, ["/hq/due-dates", "/compliance"]);
+}
+
 export async function caTool(path: string, form: FormData | null, cid?: string) {
   // path: "/org/ca/clients/{cid}/gst", ".../bank/sample", "/org/ca/excel/table"…
   if (!/^\/org\/ca\/(clients\/[0-9a-f-]{36}\/(gst|capital-gains|bank|notices|tds|audit)(\/sample)?|excel\/(table|reconcile|ask))$/.test(path)) {

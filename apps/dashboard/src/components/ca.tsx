@@ -15,7 +15,7 @@ export type CaMeta = { enabled: string[]; statuses: { key: string; label: string
   profile_flags: Record<string, string>; items: Record<string, string>; team: { id: string; name: string; email: string; role: string }[];
   me: string; can_work: boolean };
 export type CaClient = { id: string; name: string; kind: string; pan: string | null; gstin: string | null; phone: string | null; email: string | null;
-  profile: Record<string, boolean>; assignee: string | null; notes?: string | null; open_filings?: number; files?: number };
+  profile: Record<string, boolean | string>; assignee: string | null; notes?: string | null; open_filings?: number; files?: number };
 export type Filing = { id: string; client_id: string; client: string; pan: string | null; kind: string; period: string; title: string; due_on: string | null;
   status: string; assignee: string | null; ack_no: string | null; filed_on: string | null; notes: string | null; source: string; missing: string[];
   overdue: boolean; files: number; checklist?: { key: string; label: string; status: string; file_ids: string[] }[]; chase?: { sent?: number; last_at?: string; paused?: boolean } };
@@ -42,7 +42,7 @@ const box = "h-4 w-4 accent-[var(--ink)]";
 export function ClientForm({ meta, client, onDone }: { meta: CaMeta; client?: CaClient; onDone?: () => void }) {
   const [f, setF] = useState({ name: client?.name ?? "", kind: client?.kind ?? "individual", pan: client?.pan ?? "", gstin: client?.gstin ?? "",
     phone: client?.phone ?? "", email: client?.email ?? "", assignee: client?.assignee ?? "", notes: client?.notes ?? "" });
-  const [profile, setProfile] = useState<Record<string, boolean>>(client?.profile ?? {});
+  const [profile, setProfile] = useState<Record<string, boolean | string>>(client?.profile ?? {});
   const { err, pending, go } = useRun();
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
   return (
@@ -65,6 +65,9 @@ export function ClientForm({ meta, client, onDone }: { meta: CaMeta; client?: Ca
             <label key={k} className="flex items-center gap-2 text-sm"><input type="checkbox" className={box} checked={!!profile[k]}
               onChange={(e) => setProfile({ ...profile, [k]: e.target.checked })} />{label}</label>))}
         </div></fieldset>
+      {f.kind === "company" && <div className="max-w-xs space-y-1"><Label htmlFor="cagm">Last AGM date</Label>
+        <Input id="cagm" type="date" value={typeof profile.agm_on === "string" ? profile.agm_on : ""} onChange={(e) => setProfile({ ...profile, agm_on: e.target.value })} />
+        <p className="text-xs text-muted">AOC-4 is due 30 days and MGT-7 60 days after it. Without it the calendar assumes 30 Sep.</p></div>}
       <Err e={err} />
       <Button type="submit" disabled={pending}>{pending ? "Saving…" : client ? "Save client" : "Add client"}</Button>
     </form>

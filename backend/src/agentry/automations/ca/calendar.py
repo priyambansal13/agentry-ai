@@ -6,7 +6,10 @@
     ahead      a daily run puts each due date that's within N days on the filing board (a card with its due date; never
                twice), whether or not the board is switched on, so the calendar page can show it
     reminders  clients are reminded N days before (settings: 7 and 2) of what they need to do or send
-Statutory dates move when the government extends them: the firm edits a card's due date and that's what counts.
+    sources    every date says where it comes from: the standard date in the law, or an official extension
+Statutory dates move when the government extends them: an extension is recorded once (due_date_updates, approved by Agentry
+staff after the daily check of official sources in due_dates.py) and every firm's calendar, cards and reminders follow it.
+A firm can still edit a card's due date by hand.
 """
 import json
 from calendar import monthrange
@@ -51,6 +54,11 @@ ASK = {
     "roc_aoc4": "Please make sure the financials are signed and the AGM date is fixed.",
     "roc_mgt7": "We'll need the shareholding and director details confirmed.",
     "dir3_kyc": "We'll need the OTP sent to your mobile and email to complete the KYC.",
+    "tcs_27eq": "Please send the quarter's sales where TCS was collected, if you haven't already.",
+    "gst_cmp08": "Please send the quarter's sales so we can work out the composition tax.",
+    "gstr4": "We'll prepare the annual composition return; we'll ask if anything is missing.",
+    "gstr7": "Please send the month's payments where GST TDS was deducted.", "gstr8": "Please send the month's marketplace sales report.",
+    "form_3ceb": "Please share the details of transactions with related parties for the transfer pricing report.",
 }
 
 
@@ -72,30 +80,71 @@ def _day(y: int, m: int, d: int) -> date:
     return date(y, m, min(d, monthrange(y, m)[1]))
 
 
-def deadlines(client_kind: str, profile: dict, start: date, end: date) -> list[dict]:
-    """Every due date in [start, end] that applies to this client: {kind, period, due_on, title}."""
-    p, out = profile or {}, []
+# GSTR-3B for quarterly (QRMP) filers is due on the 22nd in these states / UTs (by GSTIN state code), the 24th everywhere else
+QRMP_22 = {"22", "23", "24", "25", "26", "27", "29", "30", "31", "32", "33", "34", "35", "36", "37"}
+GST_LAW = ("CGST Act and Rules", "https://www.gst.gov.in/")
+IT_LAW = ("Income-tax law and rules", "https://www.incometax.gov.in/iec/foportal/")
+CO_LAW = ("Companies Act / LLP Act and rules", "https://www.mca.gov.in/")
+STANDARD = {  # kind -> (what fixes the date, the official site): shown next to every date that isn't an extension
+    "gstr1": GST_LAW, "gstr3b": GST_LAW, "gstr9": GST_LAW, "gst_cmp08": GST_LAW, "gstr4": GST_LAW, "gstr7": GST_LAW, "gstr8": GST_LAW,
+    "tds_payment": IT_LAW, "tds_24q": IT_LAW, "tds_26q": IT_LAW, "tcs_27eq": IT_LAW, "advance_tax": IT_LAW, "itr": IT_LAW,
+    "tax_audit": IT_LAW, "form_3ceb": IT_LAW, "roc_aoc4": CO_LAW, "roc_mgt7": CO_LAW, "dir3_kyc": CO_LAW,
+    "pf_esi": ("EPF and ESI schemes", "https://www.epfindia.gov.in/"),
+}
 
-    def add(kind: str, period: str, due: date, title: str | None = None) -> None:
-        if start <= due <= end:
-            out.append({"kind": kind, "period": period, "due_on": due, "title": title or f"{core.KINDS[kind]} {period}"})
+
+def _agm(profile: dict, fy: int) -> date | None:
+    """The AGM date the firm entered for this financial year's accounts (profile agm_on: {"2025-26": "2026-09-24"} or one date)."""
+    v = profile.get("agm_on")
+    raw = v.get(_fyl(fy)) if isinstance(v, dict) else v
+    d = core.parse_date(raw) if raw else None
+    return d if d and date(fy + 1, 4, 1) <= d <= date(fy + 2, 3, 31) else None
+
+
+def deadlines(client_kind: str, profile: dict, start: date, end: date, *, gstin: str | None = None,
+              updates: list[dict] | None = None) -> list[dict]:
+    """Every due date in [start, end] that applies to this client: {kind, period, due_on, title, standard_on, source, note}.
+    `updates` are the active official changes (due_date_updates): a matching one moves the date and becomes its source."""
+    p, out = profile or {}, []
+    state = (gstin or p.get("gstin") or "")[:2]
+
+    def add(kind: str, period: str, due: date, title: str | None = None, note: str | None = None) -> None:
+        law, url = STANDARD.get(kind, ("Statutory due date", None))
+        row = {"kind": kind, "period": period, "due_on": due, "standard_on": due, "title": title or f"{core.KINDS[kind]} {period}",
+               "source": {"type": "standard", "label": f"Standard due date: {law}", "url": url}, "note": note}
+        for u in updates or []:
+            if u["kind"] == kind and u["period"] == period and (u.get("original_on") in (None, due)):
+                row["due_on"] = u["due_on"]
+                row["source"] = {"type": "extension", "label": u["source"], "url": u.get("source_url"), "update_id": str(u["id"]), "was": due}
+                break
+        if start <= row["due_on"] <= end:
+            out.append(row)
 
     # month by month (the period is the month before the due date)
-    y, m = _add_month(start.year, start.month, -2)
+    y, m = _add_month(start.year, start.month, -3)
     while date(y, m, 1) <= end:
         ny, nm = _add_month(y, m)
         label = f"{y}-{m:02d}"
         human = f"{MONTHS[m - 1]} {y}"
-        if p.get("gst") and not p.get("gst_qrmp"):
+        quarter_end = m in (6, 9, 12, 3)
+        q = {6: 1, 9: 2, 12: 3, 3: 4}.get(m)
+        fy = _fyl(y if m >= 4 else y - 1)
+        if p.get("gst") and not p.get("gst_qrmp") and not p.get("gst_composition"):
             add("gstr1", label, _day(ny, nm, 11), f"GSTR-1 {human}")
             add("gstr3b", label, _day(ny, nm, 20), f"GSTR-3B {human}")
-        if p.get("gst") and p.get("gst_qrmp") and m in (6, 9, 12, 3):
-            q = {6: 1, 9: 2, 12: 3, 3: 4}[m]
-            fy = _fyl(y if m >= 4 else y - 1)
+        if p.get("gst") and p.get("gst_qrmp") and not p.get("gst_composition") and quarter_end:
             add("gstr1", f"Q{q} FY {fy}", _day(ny, nm, 13), f"GSTR-1 Q{q} FY {fy}")
-            add("gstr3b", f"Q{q} FY {fy}", _day(ny, nm, 22), f"GSTR-3B Q{q} FY {fy}")
-        if p.get("tds"):
-            add("tds_payment", label, _day(ny, nm, 30 if m == 3 else 7), f"TDS payment {human}")
+            day3b = 24 if state and state not in QRMP_22 else 22
+            add("gstr3b", f"Q{q} FY {fy}", _day(ny, nm, day3b), f"GSTR-3B Q{q} FY {fy}",
+                None if state else "22nd or 24th depending on the state: add the client's GSTIN to be sure")
+        if p.get("gst_composition") and quarter_end:
+            add("gst_cmp08", f"Q{q} FY {fy}", _day(ny, nm, 18), f"CMP-08 Q{q} FY {fy}")
+        if p.get("gst_tds"):
+            add("gstr7", label, _day(ny, nm, 10), f"GSTR-7 {human}")
+        if p.get("gst_ecommerce"):
+            add("gstr8", label, _day(ny, nm, 10), f"GSTR-8 {human}")
+        if p.get("tds") or p.get("tcs"):
+            add("tds_payment", label, _day(ny, nm, 30 if m == 3 else 7), f"TDS / TCS payment {human}" if p.get("tcs") else f"TDS payment {human}")
         if p.get("pf_esi"):
             add("pf_esi", label, _day(ny, nm, 15), f"PF / ESI {human}")
         y, m = ny, nm
@@ -106,34 +155,59 @@ def deadlines(client_kind: str, profile: dict, start: date, end: date) -> list[d
                 add("tds_26q", f"Q{q} FY {_fyl(fy)}", date(yy, mm, dd))
                 if p.get("pf_esi") or client_kind in ("company", "llp", "firm"):
                     add("tds_24q", f"Q{q} FY {_fyl(fy)}", date(yy, mm, dd))
+        if p.get("tcs"):
+            for q, (yy, mm, dd) in enumerate([(fy, 7, 15), (fy, 10, 15), (fy + 1, 1, 15), (fy + 1, 5, 15)], start=1):
+                add("tcs_27eq", f"Q{q} FY {_fyl(fy)}", date(yy, mm, dd))
         if p.get("advance_tax") or p.get("business"):
             for n, (mm, pct) in enumerate([(6, 15), (9, 45), (12, 75), (3, 100)], start=1):
                 add("advance_tax", f"FY {_fyl(fy)} #{n}", date(fy + (mm == 3), mm, 15), f"Advance tax FY {_fyl(fy)}: instalment {n} ({pct}%)")
         ay = _fyl(fy + 1)
         audit = p.get("audit") or client_kind in ("company",)
-        add("itr", f"AY {ay}", date(fy + 1, 10, 31) if audit else date(fy + 1, 7, 31))
+        itr_due = date(fy + 1, 11, 30) if p.get("transfer_pricing") else date(fy + 1, 10, 31) if audit else date(fy + 1, 7, 31)
+        add("itr", f"AY {ay}", itr_due)
         if p.get("audit"):
             add("tax_audit", f"AY {ay}", date(fy + 1, 9, 30))
-        if p.get("gst"):
+        if p.get("transfer_pricing"):
+            add("form_3ceb", f"AY {ay}", date(fy + 1, 10, 31))
+        if p.get("gst") and not p.get("gst_composition"):
             add("gstr9", f"FY {_fyl(fy)}", date(fy + 1, 12, 31))
+        if p.get("gst_composition"):
+            add("gstr4", f"FY {_fyl(fy)}", date(fy + 1, 4, 30), f"GSTR-4 FY {_fyl(fy)}")
         if client_kind in ("company", "llp") or p.get("company_roc"):
-            add("roc_aoc4", f"FY {_fyl(fy)}", date(fy + 1, 10, 30),
-                f"{'ROC AOC-4' if client_kind == 'company' else 'LLP Form 8'} FY {_fyl(fy)}")
-            add("roc_mgt7", f"FY {_fyl(fy)}", date(fy + 1, 11, 29) if client_kind == "company" else date(fy + 1, 5, 30),
-                f"{'ROC MGT-7' if client_kind == 'company' else 'LLP Form 11'} FY {_fyl(fy)}")
+            agm = _agm(p, fy) if client_kind == "company" else None
             if client_kind == "company":
+                aoc = agm + timedelta(days=30) if agm else date(fy + 1, 10, 30)
+                mgt = agm + timedelta(days=60) if agm else date(fy + 1, 11, 29)
+                note = None if agm else "Assumes the AGM is on 30 Sep: add the AGM date on the client to get the exact dates"
+                add("roc_aoc4", f"FY {_fyl(fy)}", aoc, f"ROC AOC-4 FY {_fyl(fy)}", note)
+                add("roc_mgt7", f"FY {_fyl(fy)}", mgt, f"ROC MGT-7 FY {_fyl(fy)}", note)
                 add("dir3_kyc", f"FY {_fyl(fy + 1)}", date(fy + 1, 9, 30))
+            else:
+                add("roc_aoc4", f"FY {_fyl(fy)}", date(fy + 1, 10, 30), f"LLP Form 8 FY {_fyl(fy)}")
+                add("roc_mgt7", f"FY {_fyl(fy)}", date(fy + 1, 5, 30), f"LLP Form 11 FY {_fyl(fy)}")
     return sorted(out, key=lambda d: d["due_on"])
+
+
+async def active_updates(conn: AsyncConnection) -> list[dict]:
+    """The official changes in force (Agentry staff approved them; see due_dates.py)."""
+    rows = (await conn.execute(text("""select id, kind, period, original_on, due_on, source, source_url from app.due_date_updates
+        where status = 'active'"""))).mappings().all()
+    return [dict(r) for r in rows]
 
 
 async def put_on_board(conn: AsyncConnection, org_id: str, today: date, days_ahead: int) -> int:
     from agentry.automations.ca.tracker import create_filing
-    clients = (await conn.execute(text("select id::text, kind, profile from app.ca_clients"))).mappings().all()
+    clients = (await conn.execute(text("select id::text, kind, profile, gstin from app.ca_clients"))).mappings().all()
+    updates = await active_updates(conn)
     made = 0
     for c in clients:
-        for d in deadlines(c["kind"], c["profile"], today, today + timedelta(days=days_ahead)):
-            if await create_filing(conn, org_id, c["id"], kind=d["kind"], period=d["period"], due_on=d["due_on"], source="calendar", title=d["title"]):
+        for d in deadlines(c["kind"], c["profile"], today, today + timedelta(days=days_ahead), gstin=c["gstin"], updates=updates):
+            fid = await create_filing(conn, org_id, c["id"], kind=d["kind"], period=d["period"], due_on=d["due_on"], source="calendar", title=d["title"])
+            if fid:
                 made += 1
+                if d["source"]["type"] == "extension":
+                    await conn.execute(text("update app.ca_filings set data = data || cast(:x as jsonb) where id = cast(:i as uuid)"),
+                                       {"x": json.dumps({"extension": {**d["source"], "was": d["standard_on"].isoformat()}}), "i": fid})
     return made
 
 
@@ -177,7 +251,7 @@ async def daily(org_id: str, today: date | None = None) -> int:
 
 async def upcoming(conn: AsyncConnection, today: date, days: int = 60) -> list[dict]:
     rows = (await conn.execute(text("""select f.id::text, f.client_id::text, c.name as client, f.kind, f.period, f.title, f.due_on, f.status,
-        f.data->'reminded' as reminded from app.ca_filings f join app.ca_clients c on c.id = f.client_id
+        f.data->'reminded' as reminded, f.data->'extension' as extension from app.ca_filings f join app.ca_clients c on c.id = f.client_id
         where f.due_on is not null and f.due_on <= :u and (f.status not in ('filed','verified') or f.due_on >= :t)
         order by f.due_on, c.name limit 500"""), {"t": today, "u": today + timedelta(days=days)})).mappings().all()
     return [dict(r) | {"overdue": r["due_on"] < today and r["status"] not in ("filed", "verified")} for r in rows]

@@ -69,6 +69,7 @@ def load_all() -> None:
     from agentry.worker import (
         audit_jobs,  # noqa: F401 - the free website audit
         delivery,  # noqa: F401 - outbound delivery + Gmail sync workflows
+        due_date_jobs,  # noqa: F401 - official due-date changes: daily check and check now
         inbox_jobs,  # noqa: F401 - writing style from sent mail
         notify_jobs,  # noqa: F401 - Notification Center: any event -> rules -> channels
         sales_jobs,  # noqa: F401 - Agentry's own demo requests and follow-ups

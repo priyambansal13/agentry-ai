@@ -26,7 +26,10 @@ export default async function HqPage() {
           <p className="font-hand text-xl text-muted">Agentry HQ</p>
           <h1 className="font-display text-3xl font-bold tracking-tight">All clients</h1>
         </div>
-        <Link href="/hq/new" className="inline-flex h-11 items-center rounded-xl border-2 border-ink bg-lime px-5 font-semibold text-lime-ink">+ New client</Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/hq/due-dates" className="inline-flex h-11 items-center rounded-xl border-2 border-ink px-5 font-semibold">Due dates</Link>
+          <Link href="/hq/new" className="inline-flex h-11 items-center rounded-xl border-2 border-ink bg-lime px-5 font-semibold text-lime-ink">+ New client</Link>
+        </div>
       </header>
       <Card className="overflow-x-auto">
         <table className="w-full text-left text-sm">

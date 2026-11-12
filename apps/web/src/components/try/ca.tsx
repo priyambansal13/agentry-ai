@@ -206,23 +206,30 @@ export function CalendarBox() {
   const [kind, setKind] = useState("company");
   const [prof, setProf] = useState<Record<string, boolean>>({ gst: true, tds: true, pf_esi: true, audit: true });
   const [name, setName] = useState("Ramesh Gupta");
+  const [gstin, setGstin] = useState("27AAPFM4321Q1Z5");
   const r = useRun("calendar", false);
   const x = r.result;
   return (
-    <TryShell title="Every due date for a client, from today"
-      intro="Pick what kind of client and what applies. Every GST, TDS, PF / ESI, advance tax, ITR, audit and ROC date for the next four months comes out, with the WhatsApp reminder the client would get."
-      sell="In the portal this runs for every client daily: dates go on the board 30 days ahead and clients are reminded 7 and 2 days before.">
+    <TryShell title="Every due date for a client, from today, with its source"
+      intro="Pick what kind of client and what applies. Every GST, TDS, TCS, PF / ESI, advance tax, ITR, audit and ROC date for the next four months comes out, with the WhatsApp reminder the client would get. Each date shows where it comes from: the standard date in the law, or the government's extension."
+      sell="In the portal official sources are checked every morning. When CBDT, CBIC or MCA extend a date, it's verified on the official page and every client's card, reminder and calendar moves with it.">
       <div className="grid gap-4 md:grid-cols-[14rem_1fr]">
         <div className="space-y-3"><Select id="cal-kind" label="Client type" value={kind} onChange={setKind} options={[["individual", "Individual"], ["firm", "Partnership firm"], ["llp", "LLP"], ["company", "Private limited company"]]} />
-          <Field id="cal-name" label="Client name" value={name} onChange={setName} /></div>
-        <Chips label="What applies" value={prof} onChange={setProf} options={[["gst", "GST (monthly)"], ["gst_qrmp", "GST quarterly (QRMP)"], ["tds", "TDS"], ["pf_esi", "PF / ESI"], ["advance_tax", "Advance tax"], ["business", "Business income"], ["audit", "Tax audit"]]} />
+          <Field id="cal-name" label="Client name" value={name} onChange={setName} />
+          <Field id="cal-gstin" label="GSTIN (sets the state)" value={gstin} onChange={(v) => setGstin(v.toUpperCase())} /></div>
+        <Chips label="What applies" value={prof} onChange={setProf} options={[["gst", "GST (monthly)"], ["gst_qrmp", "GST quarterly (QRMP)"], ["gst_composition", "GST composition"], ["tds", "TDS"], ["tcs", "TCS"], ["pf_esi", "PF / ESI"], ["advance_tax", "Advance tax"], ["business", "Business income"], ["audit", "Tax audit"], ["transfer_pricing", "Transfer pricing"]]} />
       </div>
-      <div className="mt-4"><RunButton r={r} label="Show the dates" input={() => ({ client_kind: kind, profile: prof, name })} /></div>
+      <div className="mt-4"><RunButton r={r} label="Show the dates" input={() => ({ client_kind: kind, profile: prof, name, gstin })} /></div>
       {x && (
         <div className="mt-6 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-          <Panel title={`${x.deadlines.length} due dates in the next 4 months`}><ol className="max-h-96 space-y-1 overflow-auto text-sm">{x.deadlines.map((d: Any, i: number) => (
-            <li key={i} className="flex items-center justify-between gap-3 border-b border-line py-1.5 last:border-0"><span>{d.title}</span>
-              <span className={`shrink-0 tabular-nums ${d.days_left <= 7 ? "font-bold text-danger" : "text-ink-soft"}`}>{fmtDate(d.due_on)} · {d.days_left}d</span></li>))}</ol></Panel>
+          <Panel title={`${x.deadlines.length} due dates in the next 4 months`}><ol className="max-h-[28rem] space-y-1 overflow-auto text-sm">{x.deadlines.map((d: Any, i: number) => (
+            <li key={i} className="border-b border-line py-1.5 last:border-0">
+              <div className="flex items-center justify-between gap-3"><span>{d.title}</span>
+                <span className={`shrink-0 tabular-nums ${d.days_left <= 7 ? "font-bold text-danger" : "text-ink-soft"}`}>{fmtDate(d.due_on)} · {d.days_left}d</span></div>
+              <p className="text-xs text-muted">{d.source.type === "extension"
+                ? <><span className="font-semibold text-success">Extended</span> from {fmtDate(d.source.was)}: {d.source.url ? <a href={d.source.url} target="_blank" rel="noreferrer" className="underline">{d.source.label}</a> : d.source.label}</>
+                : d.source.label}{d.note ? ` · ${d.note}` : ""}</p>
+            </li>))}</ol></Panel>
           {x.deadlines[0] && <Panel title="What the client gets on WhatsApp"><Bubble meta="7 days before">{x.deadlines[0].reminder}</Bubble></Panel>}
         </div>)}
     </TryShell>

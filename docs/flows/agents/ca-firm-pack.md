@@ -54,6 +54,49 @@ flowchart TD
 
 A daily job at 9:30 IST puts due dates on the board, sends due-date cards, sends document reminders and books recurring entries.
 
+## Due dates: where they come from, and official extensions
+
+Code: `backend/src/agentry/automations/ca/calendar.py` (the rules), `due_dates.py` (extensions), `worker/due_date_jobs.py`, API
+`/org/ca/compliance/updates` (firms) and `/hq/due-dates` (Agentry staff), migration 0055. Tests: `tests/test_due_dates.py`.
+
+```mermaid
+flowchart TD
+    R["Rules: the standard due date for each filing<br/>(GST, TDS / TCS, advance tax, ITR, audit, 3CEB, ROC, PF / ESI)"] --> CAL["Each client's calendar, cards and reminders<br/>(every date shows its source)"]
+    D["Every morning 07:30 IST, or 'Check for updates now'<br/>(firm: reuses a check from the last hour; HQ)"] --> P["Read official pages that allow it<br/>(Income Tax latest news, GST portal)"]
+    D --> S["AI web search of official sites<br/>(CBIC, MCA, Income Tax circulars, e-Gazette, PIB, EPFO / ESIC)"]
+    P & S --> V{"Verified?<br/>old date = the calendar's date · later · words name the filing<br/>government site · new date and quoted words on the page"}
+    V -- no --> X[Dropped]
+    V -- yes --> Q["HQ → Due dates: to review<br/>+ email to the ops inbox"]
+    Q -- "Approve" --> A["In force: every firm's open cards for that filing and period move,<br/>reminders restart, the calendar shows 'extended' with the circular"]
+    Q -- "Reject" --> X
+    H["Staff enter one from a notification"] --> A
+    A -- "Withdraw" --> R
+```
+
+| Filing | Standard date used | Notes |
+|---|---|---|
+| GSTR-1 / 3B monthly | 11th / 20th | |
+| GSTR-1 / 3B quarterly (QRMP) | 13th / 22nd or 24th | 22nd or 24th from the GSTIN's state (22nd if no GSTIN) |
+| CMP-08 / GSTR-4 (composition) | 18th after the quarter / 30 Apr | Composition dealers get no GSTR-1 / 3B / 9 |
+| GSTR-7 / GSTR-8 | 10th | GST TDS deductors / e-commerce operators |
+| GSTR-9 | 31 Dec | |
+| TDS / TCS payment | 7th; March by 30 Apr | |
+| TDS 24Q / 26Q · TCS 27EQ | 31 Jul, 31 Oct, 31 Jan, 31 May · 15 Jul, 15 Oct, 15 Jan, 15 May | |
+| Advance tax | 15 Jun / Sep / Dec / Mar | |
+| ITR | 31 Jul; 31 Oct with audit; 30 Nov with transfer pricing | |
+| Tax audit report · Form 3CEB | 30 Sep · 31 Oct | |
+| AOC-4 / MGT-7 (company) | 30 / 60 days after the AGM | The client's AGM date; without it 30 Oct / 29 Nov (AGM assumed 30 Sep) |
+| LLP Form 8 / 11 | 30 Oct / 30 May | |
+| DIR-3 KYC | 30 Sep | |
+| PF / ESI | 15th | |
+
+Not on the calendar: professional tax (differs by state), 15CA/CB (per payment), Form 24G (government offices). An extension
+applies only to cards still on the date it replaces: a card a firm edited by hand keeps its own date.
+`AGENTRY_DUE_DATES_AUTO_APPLY=true` applies changes verified on the official page without waiting for staff (off by default).
+
+**First real find (2026-11-12):** Circular No. 07/2026 (28 Sep 2026): ITR AY 2026-27 for audit cases 31 Oct → 21 Nov 2026, audit
+reports 30 Sep → 21 Oct 2026. Both verified on incometax.gov.in.
+
 ## Who can do what
 
 | | Owner | Manager | Front desk | Finance | Viewer | Agentry |

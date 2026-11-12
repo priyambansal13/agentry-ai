@@ -447,13 +447,29 @@ async def refresh(ctx: Cal) -> dict:
 
 @router.get("/compliance/client/{cid}")
 async def client_dates(cid: str, ctx: Cal) -> dict:
-    """What applies to this client over the next 12 months, from their profile."""
+    """What applies to this client over the next 12 months, from their profile, with where each date comes from."""
     today = datetime.now(UTC).date()
     async with tenant_session(ctx.org_id) as conn:
-        c = (await conn.execute(text("select kind, profile from app.ca_clients where id = cast(:i as uuid)"), {"i": cid})).mappings().first()
+        c = (await conn.execute(text("select kind, profile, gstin from app.ca_clients where id = cast(:i as uuid)"), {"i": cid})).mappings().first()
+        updates = await calendar.active_updates(conn)
     if not c:
         raise HTTPException(404, "client not found")
-    return {"items": calendar.deadlines(c["kind"], c["profile"], today, date(today.year + 1, today.month, 1))}
+    return {"items": calendar.deadlines(c["kind"], c["profile"], today, date(today.year + 1, today.month, 1), gstin=c["gstin"], updates=updates)}
+
+
+@router.get("/compliance/updates")
+async def due_date_updates(ctx: Cal) -> dict:
+    """Official due-date changes in force, ones being verified, the last check of official sources, and the sources read."""
+    from agentry.automations.ca import due_dates
+    return await due_dates.for_firm()
+
+
+@router.post("/compliance/updates/check")
+async def check_due_date_updates(ctx: Cal) -> dict:
+    """Check the official sources now (reuses a check from the last hour)."""
+    from agentry.automations.ca import due_dates
+    _work(ctx)
+    return await due_dates.request_sync("firm", ctx.org_id)
 
 
 # ---------- agents 5-13: work on a client's documents (results kept in ca_work) ----------

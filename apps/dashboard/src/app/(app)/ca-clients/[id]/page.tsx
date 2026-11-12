@@ -16,7 +16,8 @@ type Point = { severity: string; kind: string; message: string; sources: { file_
 type Tax = { documents: { file_id: string; filename: string; doc_type: string; assessment_year: string | null;
   items: { category: string; description: string; payer: string | null; amount: number; tds: number; traced: boolean; quote: string }[] }[];
   points: Point[]; summary: { from: string; income: Record<string, number>; tds: number } | null; years: string[] };
-type Due = { kind: string; period: string; due_on: string; title: string };
+type Due = { kind: string; period: string; due_on: string; title: string; note: string | null;
+  source: { type: "standard" | "extension"; label: string; url: string | null; was?: string } };
 
 const inr = (v: number) => `₹${Math.round(v).toLocaleString("en-IN")}`;
 const INCOME: Record<string, string> = { salary: "Salary", interest_savings: "Savings interest", interest_deposit: "Deposit interest", interest_other: "Other interest",
@@ -37,7 +38,7 @@ export default async function CaClientPage({ params, searchParams }: { params: P
   const tax = on("ca_tax_docs_reader") ? await api<Tax>(`/org/ca/clients/${id}/tax${sp.ay ? `?ay=${encodeURIComponent(sp.ay)}` : ""}`, { orgId: active.id }) : null;
   const dates = on("ca_compliance_calendar") ? (await api<{ items: Due[] }>(`/org/ca/compliance/client/${id}`, { orgId: active.id })).items : null;
   const c = d.client;
-  const flags = Object.entries(c.profile ?? {}).filter(([, v]) => v).map(([k]) => meta.profile_flags[k] ?? k);
+  const flags = Object.entries(c.profile ?? {}).filter(([k, v]) => v === true && meta.profile_flags[k]).map(([k]) => meta.profile_flags[k]!);
   const open = d.filings.filter((f) => !["filed", "verified"].includes(f.status));
   const filingTitle = Object.fromEntries(d.filings.map((f) => [f.id, f.title]));
   return (
@@ -126,7 +127,10 @@ export default async function CaClientPage({ params, searchParams }: { params: P
         <Card>
           <CardHeader><CardTitle>Due dates in the next 12 months</CardTitle><span className="text-sm text-muted">from their profile</span></CardHeader>
           <CardBody>{dates.length === 0 ? <p className="text-sm text-muted">Nothing applies yet: tick GST, TDS, audit… when editing the client.</p> : (
-            <ul className="grid gap-1 text-sm sm:grid-cols-2">{dates.slice(0, 40).map((x) => <li key={`${x.kind}${x.period}`}>{day(x.due_on)} · {x.title}</li>)}</ul>)}</CardBody>
+            <ul className="grid gap-1.5 text-sm sm:grid-cols-2">{dates.slice(0, 40).map((x) => (
+              <li key={`${x.kind}${x.period}`}>{day(x.due_on)} · {x.title}
+                {x.source.type === "extension" && <> <Badge tone="success">extended</Badge> <span className="text-xs text-muted">from {x.source.was ? day(x.source.was) : "the standard date"}, {x.source.url ? <a href={x.source.url} target="_blank" rel="noreferrer" className="underline">{x.source.label}</a> : x.source.label}</span></>}
+                {x.note && <span className="block text-xs text-warning">{x.note}</span>}</li>))}</ul>)}</CardBody>
         </Card>
       )}
     </div>

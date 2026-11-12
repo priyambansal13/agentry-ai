@@ -35,11 +35,15 @@ PROFILE_FLAGS = {
     "house_property": "Owns a let-out or home-loan property", "rent_paid": "Pays rent (HRA)", "foreign": "Foreign income or assets",
     "deductions": "Claims 80C / 80D deductions", "audit": "Tax audit (44AB)", "gst": "GST registered", "gst_qrmp": "GST quarterly (QRMP)",
     "tds": "Deducts TDS", "pf_esi": "PF / ESI employer", "company_roc": "Company or LLP (ROC filings)", "advance_tax": "Pays advance tax",
+    "tcs": "Collects TCS", "gst_composition": "GST composition scheme", "gst_tds": "Deducts GST TDS (government / PSU)",
+    "gst_ecommerce": "E-commerce operator collecting GST TCS", "transfer_pricing": "International / specified domestic transactions (3CEB)",
 }
 KINDS = {  # filing kind -> label
     "itr": "ITR", "gstr1": "GSTR-1", "gstr3b": "GSTR-3B", "gstr9": "GSTR-9 annual", "tds_24q": "TDS 24Q (salary)",
     "tds_26q": "TDS 26Q (non-salary)", "tds_payment": "TDS payment", "advance_tax": "Advance tax", "tax_audit": "Tax audit (3CA/3CD)",
     "roc_aoc4": "ROC AOC-4", "roc_mgt7": "ROC MGT-7", "dir3_kyc": "DIR-3 KYC", "pf_esi": "PF / ESI", "notice_reply": "Notice reply",
+    "tcs_27eq": "TCS 27EQ", "gst_cmp08": "CMP-08 (composition)", "gstr4": "GSTR-4 annual (composition)", "gstr7": "GSTR-7 (GST TDS)",
+    "gstr8": "GSTR-8 (e-commerce TCS)", "form_3ceb": "Form 3CEB (transfer pricing)",
     "other": "Other",
 }
 FILE_TYPES = {"application/pdf", "image/jpeg", "image/png", "image/webp", "text/csv", "text/plain", "application/json",
@@ -80,7 +84,10 @@ async def save_client(conn: AsyncConnection, org_id: str, data: dict, client_id:
     gstin = (data.get("gstin") or "").strip().upper() or None
     if data.get("kind", "individual") not in CLIENT_KINDS:
         raise CaError("unknown client type")
-    profile = {k: bool(v) for k, v in (data.get("profile") or {}).items() if k in PROFILE_FLAGS}
+    raw = data.get("profile") or {}
+    profile: dict = {k: bool(v) for k, v in raw.items() if k in PROFILE_FLAGS}
+    if (agm := parse_date(raw.get("agm_on"))) is not None:  # the last AGM: ROC dates are counted from it
+        profile["agm_on"] = agm.isoformat()
     contact = None
     if data.get("phone") or data.get("email"):
         contact = await resolve_contact(conn, org_id, name=data["name"], email=data.get("email"), phone=data.get("phone"), source="ca_client")
