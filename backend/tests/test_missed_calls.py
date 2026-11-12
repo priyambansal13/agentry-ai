@@ -59,14 +59,14 @@ async def test_a_missed_call_gets_one_whatsapp(client, team_org, monkeypatch):
 
 
 async def test_nothing_goes_until_callers_are_told(client, team_org, monkeypatch):
-    oid, h, key, sent = await _org(client, team_org, monkeypatch, informed=False)
+    oid, _h, key, sent = await _org(client, team_org, monkeypatch, informed=False)
     r = (await client.post(f"/hooks/calls/{key}", json={"From": "+919810000022", "Status": "no-answer"})).json()
     assert (await mc.missed_call_send_step(oid, r["id"])).startswith("callers aren't told") and not sent
 
 
 async def test_opted_out_callers_are_left_alone(client, team_org, monkeypatch):
     from agentry.leads import opt_out
-    oid, h, key, sent = await _org(client, team_org, monkeypatch)
+    oid, _h, key, sent = await _org(client, team_org, monkeypatch)
     r = (await client.post(f"/hooks/calls/{key}", json={"From": "+919810000033", "Status": "no-answer"})).json()
     async with tenant_session(oid) as conn:
         cid = (await conn.execute(text("select contact_id::text from app.missed_calls where id = cast(:i as uuid)"), {"i": r["id"]})).scalar_one()
