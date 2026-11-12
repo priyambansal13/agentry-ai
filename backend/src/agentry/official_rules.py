@@ -78,6 +78,11 @@ RULES: dict[str, Rule] = {
     "msme.bank_rate": Rule("Invoice follow-up", "RBI bank rate (MSME interest is three times this)", "rate", 0.0575, RBI, r"bank rate"),
     "msme.max_days": Rule("Invoice follow-up", "Longest credit a buyer can agree with a micro / small supplier (days)", "days", 45, MSMED,
                           r"45 days|forty.five days|msme|micro"),
+    "msme.tax_section_2025": Rule("Invoice follow-up", "Buyer's deduction only when paid: Income-tax Act, 2025 (tax year 2026-27 on)", "text",
+                                  "section 37(2)(g) of the Income-tax Act, 2025", ("Income-tax Act, 2025: section 37",
+                                  "https://wm.incometaxindia.gov.in/w/section-37-176"), r"micro|small enterprise|msme"),
+    "msme.tax_section_1961": Rule("Invoice follow-up", "Buyer's deduction only when paid: Income-tax Act, 1961 (up to FY 2025-26)", "text",
+                                  "section 43B(h) of the Income-tax Act, 1961", IT, r"43b|micro|small enterprise|msme"),
     "msme.default_days": Rule("Invoice follow-up", "Payment due without a written agreement (days)", "days", 15, MSMED, r"15 days|fifteen days|msme|micro"),
     # ---------- bank statements ----------
     "bank.sft_cash": Rule("Bank statement classifier", "Cash deposits reported to the department (SFT) above, a year", "amount", 1000000, IT, r"sft|cash deposit|specified financial"),
@@ -186,6 +191,8 @@ def show(kind: str, v: object) -> str:
         return f"{v} {kind}"
     if kind == "date":
         return date.fromisoformat(str(v)).strftime("%d %b %Y")
+    if kind == "text":
+        return str(v)
     if kind == "slabs":
         lo, parts = 0, []
         for up, rate in v:  # type: ignore[attr-defined]

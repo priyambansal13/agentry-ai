@@ -11,7 +11,12 @@ or small enterprise (Udyam).
     cards      a Needs-you card when an invoice crosses its legal due date
     claim      a MSME Samadhaan claim draft per customer: the facts, every invoice with its legal due date and interest, the
                total, to file at samadhaan.msme.gov.in
-Medium enterprises aren't covered by sections 15-16, so only micro and small can switch it on.
+    tax note   to a business buyer, the reminder also says the expense is deductible only in the year it's actually paid:
+               section 43B(h) of the Income-tax Act, 1961 for invoices up to FY 2025-26, section 37(2)(g) of the Income-tax
+               Act, 2025 from 1 April 2026 (both official figures). A customer is a business buyer when the firm says so,
+               else when it has a company name or GSTIN.
+Sections 15-16 cover micro and small manufacturers and service providers: not medium enterprises, and not traders (who can
+register on Udyam but aren't "suppliers" under the Act), so only those can switch it on.
 """
 import json
 from datetime import UTC, date, datetime, timedelta
@@ -22,6 +27,7 @@ from sqlalchemy import text
 from agentry import official_rules as rules
 
 CATEGORIES = ("micro", "small")
+ACTIVITIES = ("manufacturing", "services")  # traders aren't covered by sections 15-16
 
 
 def _q(v: Decimal | float) -> Decimal:
@@ -30,7 +36,20 @@ def _q(v: Decimal | float) -> Decimal:
 
 def settings_of(raw: dict | None) -> dict:
     s = raw or {}
-    return {"enabled": bool(s.get("enabled")) and s.get("category") in CATEGORIES, "udyam": s.get("udyam"), "category": s.get("category")}
+    return {"enabled": bool(s.get("enabled")) and s.get("category") in CATEGORIES and s.get("activity") in ACTIVITIES,
+            "udyam": s.get("udyam"), "category": s.get("category"), "activity": s.get("activity")}
+
+
+def business_buyer(attrs: dict | None, company: str | None = None) -> bool:
+    a = attrs or {}
+    if isinstance(a.get("business_buyer"), bool):
+        return a["business_buyer"]
+    return bool(company or a.get("gstin"))
+
+
+def tax_section(invoice_day: date) -> str:
+    """Which law's "deductible only when paid" rule applies: the 2025 Act from 1 April 2026."""
+    return str(rules.get("msme.tax_section_2025" if invoice_day >= date(2026, 4, 1) else "msme.tax_section_1961"))
 
 
 def credit_days(attrs: dict | None) -> tuple[int, bool]:
@@ -75,16 +94,20 @@ def paragraph(s: dict, inv: dict, as_of: date) -> str | None:
     acc = interest(outstanding, due, as_of)
     sym = "₹" if inv.get("currency", "INR") == "INR" else f"{inv.get('currency')} "
     udyam = f" (Udyam {s['udyam']})" if s.get("udyam") else ""
-    return (f"As a {s['category']} enterprise registered under the MSMED Act, 2006{udyam}, "
-            f"payment for this invoice was due by {due:%d %b %Y} (section 15). Interest at three times the RBI bank rate "
-            f"({annual_rate() * 100:.2f}% a year, compounded monthly) applies after that date (section 16): {sym}{acc:,.2f} so far.")
+    text_ = (f"As a {s['category']} enterprise registered under the MSMED Act, 2006{udyam}, "
+             f"payment for this invoice was due by {due:%d %b %Y} (section 15). Interest at three times the RBI bank rate "
+             f"({annual_rate() * 100:.2f}% a year, compounded monthly) applies after that date (section 16): {sym}{acc:,.2f} so far.")
+    if business_buyer(inv.get("contact_attributes"), inv.get("company")):
+        text_ += (" For your business, a payment made after that date can be claimed as an expense only in the year it's actually paid "
+                  f"({tax_section(inv.get('issued_on') or inv['due_on'])}).")
+    return text_
 
 
 async def overview(conn, as_of: date | None = None) -> dict:
     as_of = as_of or datetime.now(UTC).date()
     s = settings_of((await conn.execute(text("select msme from app.org_settings"))).scalar_one_or_none())
     rows = (await conn.execute(text("""select i.id::text, i.number, i.currency, i.amount, i.amount_paid, i.issued_on, i.due_on, i.status,
-        k.id::text as contact_id, coalesce(k.company, k.name) as customer, k.attributes as contact_attributes
+        k.id::text as contact_id, coalesce(k.company, k.name) as customer, k.company, k.attributes as contact_attributes
         from app.invoices i left join app.contacts k on k.id = i.contact_id where i.status in ('open','partially_paid','disputed')"""))).mappings().all()
     by: dict[str, dict] = {}
     for r in rows:
@@ -93,6 +116,7 @@ async def overview(conn, as_of: date | None = None) -> dict:
         acc = interest(outstanding, due, as_of)
         days, written = credit_days(r["contact_attributes"])
         c = by.setdefault(r["contact_id"] or "none", {"contact_id": r["contact_id"], "customer": r["customer"] or "Unknown", "credit_days": days,
+                                                       "business_buyer": business_buyer(r["contact_attributes"], r["company"]),
                                                        "written": written, "invoices": [], "outstanding": Decimal(0), "late": Decimal(0), "interest": Decimal(0)})
         c["invoices"].append({"id": r["id"], "number": r["number"], "issued_on": r["issued_on"], "legal_due": due, "days_late": max(0, (as_of - due).days),
                               "outstanding": _q(outstanding), "interest": acc})
@@ -139,7 +163,7 @@ To file at https://samadhaan.msme.gov.in (Delayed Payment Monitoring System). Ch
 - Credit agreed in writing: {f"{c['credit_days']} days" if c['written'] else "none (15 days applies)"}
 
 ## Facts
-Goods / services were supplied against the invoices below. Under section 15 of the MSMED Act, 2006, payment was due by the
+{"Goods were manufactured and" if s.get("activity") == "manufacturing" else "Services were"} supplied against the invoices below. Under section 15 of the MSMED Act, 2006, payment was due by the
 dates shown. The amounts remain unpaid as on {as_of:%d %b %Y}. Under section 16, compound interest with monthly rests at three
 times the RBI bank rate ({o['rate'] * 100:.2f}% a year; bank rate {o['bank_rate'] * 100:.2f}%) is payable from those dates.
 

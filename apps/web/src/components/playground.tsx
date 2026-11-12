@@ -101,9 +101,9 @@ function MsmeCalc() {
   const inr = (x: string | number) => `₹${Number(x).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
   return (
     <div className="mt-8 rounded-2xl border-2 border-ink bg-card p-5">
-      <h3 className="font-display text-xl font-bold">Registered as a micro or small enterprise? What a late buyer owes you</h3>
+      <h3 className="font-display text-xl font-bold">A micro or small manufacturer or service provider? What a late buyer owes you</h3>
       <p className="mt-1 text-sm text-ink-soft">Under the MSMED Act, 2006 a buyer must pay within the days agreed in writing (at most 45), or 15 days without an agreement. After that they owe
-        compound interest at three times the RBI bank rate.</p>
+        compound interest at three times the RBI bank rate, and a business buyer can claim the expense only in the year it&apos;s paid. (Traders aren&apos;t covered.)</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
         <div><label htmlFor="ms-a" className="mb-1 block text-sm font-semibold">Unpaid (₹)</label><input id="ms-a" type="number" min={0} className={input} value={v.amount} onChange={(e) => setV({ ...v, amount: Number(e.target.value) || 0 })} /></div>
         <div><label htmlFor="ms-d" className="mb-1 block text-sm font-semibold">Invoice date</label><input id="ms-d" type="date" className={input} value={v.invoice_date} onChange={(e) => setV({ ...v, invoice_date: e.target.value })} /></div>

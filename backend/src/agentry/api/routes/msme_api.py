@@ -29,12 +29,15 @@ class MsmeIn(BaseModel):
     enabled: bool
     udyam: Annotated[str | None, Field(pattern=r"^UDYAM-[A-Z]{2}-\d{2}-\d{7}$")] = None
     category: Literal["micro", "small", "medium"] | None = None
+    activity: Literal["manufacturing", "services", "trading"] | None = None
 
 
 @router.put("")
 async def save(body: MsmeIn, ctx: Actor) -> dict:
     if body.enabled and body.category not in msme.CATEGORIES:
         raise HTTPException(422, "the MSMED Act's payment rules cover micro and small enterprises (not medium)")
+    if body.enabled and body.activity not in msme.ACTIVITIES:
+        raise HTTPException(422, "the MSMED Act's payment rules cover manufacturers and service providers: traders can't claim this interest")
     if body.enabled and not body.udyam:
         raise HTTPException(422, "add your Udyam registration number (UDYAM-XX-00-0000000)")
     async with tenant_session(ctx.org_id) as conn:
@@ -46,18 +49,25 @@ async def save(body: MsmeIn, ctx: Actor) -> dict:
 
 class CreditIn(BaseModel):
     credit_days: Annotated[int | None, Field(ge=1, le=365)] = None  # None: no written agreement
+    business_buyer: bool | None = None  # None: decided from the company name / GSTIN
 
 
 @router.put("/customers/{contact_id}")
-async def credit_days(contact_id: str, body: CreditIn, ctx: Actor) -> dict:
+async def customer_terms(contact_id: str, body: CreditIn, ctx: Actor) -> dict:
+    """A customer's written credit days and whether they're a business buyer; only the fields sent change (null clears one)."""
     async with tenant_session(ctx.org_id) as conn:
-        n = (await conn.execute(text("""update app.contacts set attributes = case when cast(:d as int) is null then attributes - 'credit_days'
-            else attributes || jsonb_build_object('credit_days', cast(:d as int)) end where id = cast(:c as uuid)"""),
-            {"d": body.credit_days, "c": contact_id})).rowcount
-    if not n:
-        raise HTTPException(404, "customer not found")
-    days, written = msme.credit_days({"credit_days": body.credit_days} if body.credit_days else {})
-    return {"credit_days": days, "written": written}
+        row = (await conn.execute(text("select attributes, company from app.contacts where id = cast(:c as uuid)"), {"c": contact_id})).first()
+        if not row:
+            raise HTTPException(404, "customer not found")
+        attrs = dict(row.attributes or {})
+        for k in body.model_fields_set:
+            if getattr(body, k) is None:
+                attrs.pop(k, None)
+            else:
+                attrs[k] = getattr(body, k)
+        await conn.execute(text("update app.contacts set attributes = cast(:a as jsonb) where id = cast(:c as uuid)"), {"a": json.dumps(attrs), "c": contact_id})
+    days, written = msme.credit_days(attrs)
+    return {"credit_days": days, "written": written, "business_buyer": msme.business_buyer(attrs, row.company)}
 
 
 @router.get("/claim/{contact_id}", response_class=PlainTextResponse)

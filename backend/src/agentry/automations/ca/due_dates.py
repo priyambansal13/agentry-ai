@@ -488,6 +488,8 @@ def _as_value(kind: str, v: object) -> object:
     if kind == "date":
         d = core.parse_date(v)
         return d.isoformat() if d else None
+    if kind == "text":
+        return str(v).strip()[:200] or None
     if kind == "slabs":
         try:
             return [[None if u is None else float(u), float(r) / 100] for u, r in v]  # type: ignore[union-attr, misc]
@@ -531,6 +533,9 @@ def value_forms(kind: str, v: object) -> list[str]:
         return [f"{n:,}", str(n), core.inr(n).replace("₹", ""), f"{lakh:g} lakh", f"{n / 10**7:g} crore"]
     if kind in ("months", "days"):
         return [f"{int(float(v))} {kind}", f"{int(float(v))}"]  # type: ignore[arg-type]
+    if kind == "text":
+        m = re.search(r"section\s+[\w()]+", str(v), re.IGNORECASE)
+        return [m.group(0)] if m else [str(v)]
     return []
 
 
