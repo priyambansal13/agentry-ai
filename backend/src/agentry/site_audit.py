@@ -76,12 +76,14 @@ async def hit(conn, key: str, limit: int, window: str) -> bool:
 
 
 async def spent_today(conn) -> float:
-    """Spend over the last 24 hours: finished audits' real cost, an estimate for the ones running or about to, and instant demo chats."""
+    """Spend over the last 24 hours: finished audits' real cost, an estimate for the ones running or about to, instant demo chats
+    and the agent pages' try-it boxes."""
     row = (await conn.execute(text("""select coalesce(sum(cost_usd) filter (where status = 'done' and finished_at > now() - interval '24 hours'), 0)
         + :est * count(*) filter (where status in ('queued','running') and error is distinct from 'waiting for budget')
         from app.site_audits where created_at > now() - interval '3 days'"""), {"est": EST_COST_USD})).scalar_one()
     chats = (await conn.execute(text("select coalesce(sum(cost_usd), 0) from app.instant_demos where created_at > now() - interval '24 hours'"))).scalar_one()
-    return float(row) + float(chats)
+    tries = (await conn.execute(text("select coalesce(sum(cost_usd), 0) from app.public_tries where created_at > now() - interval '24 hours'"))).scalar_one()
+    return float(row) + float(chats) + float(tries)
 
 
 async def request(url: str, city: str, service: str, *, ip: str | None, source: str | None = None) -> dict:

@@ -49,12 +49,22 @@ flowchart TD
 - 30 messages per demo, 40 messages per visitor per hour, 24 hours, removed after 2 days. Nothing is sent to anyone.
 - It's a preview. The real website chat agent adds the knowledge base, bookings, lead capture and handoff.
 
-## Agent page playgrounds
+## Agent page try-it boxes (every agent)
 
-- **Talk-to-customers agents** have a "Try it on your own website" box that leads to `/try`.
-- **AI visibility, Local SEO, Reviews and Competitor watch** have a "Does ChatGPT recommend you?" box that leads to `/audit`.
-- **Invoice follow-up:** the visitor types a customer, an invoice number and an amount, and sees the day 7/14/21/28 WhatsApp
-  reminders (sample wording, in the browser, no server).
+Every one of the 39 agent pages has a box that runs the agent's **real engine** on a sample or the visitor's own input. Nothing is
+saved or sent. Code: `backend/src/agentry/playground.py`, API `/public/playground/{kind}` (+ `/{kind}/sample`), website
+`apps/web/src/components/try/` (`kit.tsx` shared UI, `ca.tsx`, `ai.tsx`, `sims.tsx`), mapped by slug in `components/playground.tsx`.
+Tests: `tests/test_playground.py`.
+
+| Kind | Agents | What runs |
+|---|---|---|
+| **Calculation** (no AI, no human check, 120 an hour per visitor) | ITR (old vs new regime), capital gains, TDS returns, tax audit 3CD, GST 2B reconciliation, tax documents reader (Form 16 vs AIS), compliance calendar, document chaser, renewals | The same CA pack / renewals functions the portal uses, on an editable table or form (samples in `backend/samples/ca`) |
+| **AI** (human check, 8 a day per visitor, daily budget) | Lead research, cold email first line, inbox triage, SOP / proposal / checklist (with flowchart), festival campaign, content repurposing, video script, CV scoring, tax notice, bill reading, shelf photo count, Excel questions, old-lead emails, bank statement tagging | The portal's prompts and checks: grounding, fact check, quote check, risky-wording check, GST / GSTIN / totals checks, personal details hidden from CV scoring |
+| **In the browser** | Speed-to-lead (form, WhatsApp reply, booking), ops dispatcher (skill / area / capacity), filing tracker (board + WhatsApp status answer), recurring entries (EMI split, 80% budget alert), invoice follow-up reminders | The same rules as the portal, in the page |
+| **Leads to /try or /audit** | Website chat, WhatsApp, Telegram, receptionist, appointments, support desk, catalogue & quotes; AI visibility, local SEO, reviews, competitor watch | The instant demo or the free audit |
+
+Each box ends with what the full agent does in the portal and a "Set it up for my business" link to the demo form.
+Samples on the website: `apps/web/public/samples/` (three bills; a generated kirana shelf photo).
 
 ## Limits and cost controls
 
@@ -63,11 +73,11 @@ flowchart TD
 | Human check | Cloudflare Turnstile: `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (website build) + `AGENTRY_TURNSTILE_SECRET` (API). Unset = off (local, tests) |
 | Per visitor | 3 audits a day, 2 instant demos a day, 10 report unlocks an hour, 40 chat messages an hour (Postgres `app.public_hits`, shared by every API process; visitor = salted hash of the IP, never the IP) |
 | Same website | One audit per website, city and service a day; the earlier report is shown |
-| Daily budget | `AGENTRY_AUDIT_DAILY_BUDGET_USD` (default $5) across audits and instant-demo chats over 24 hours. Over it, audits wait (hourly job) and instant demos say "come back tomorrow" |
+| Daily budget | `AGENTRY_AUDIT_DAILY_BUDGET_USD` (default $5) across audits, instant-demo chats and the agent pages' AI boxes (`app.public_tries`, migration 0054) over 24 hours. Over it, audits wait (hourly job) and instant demos say "come back tomorrow" |
 | Websites | Public addresses only (the crawler refuses private and local ones), page caps, timeouts |
 | Honeypot | A hidden field; bots that fill it get nothing |
 
-**Measured costs (2026-11-10, live):** an audit costs about $0.08 with ChatGPT only (5 questions) and takes about 30 seconds. An instant-demo
+**Measured costs (live):** an AI try-it box costs $0.001-0.01 (all 14 together about $0.05); an audit costs about $0.08 with ChatGPT only (5 questions) and takes about 30 seconds. An instant-demo
 reply costs well under a cent.
 
 ## Tracking

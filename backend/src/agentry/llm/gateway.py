@@ -15,6 +15,7 @@ import math
 import os
 import re
 import time
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -24,6 +25,9 @@ from sqlalchemy import text
 from agentry.config import settings
 from agentry.db import system_session
 from agentry.runs import current_run
+
+# set by a caller that must add up what its model calls cost (the website playground's daily budget): a list each call's cost is appended to
+spend: ContextVar[list[float] | None] = ContextVar("llm_spend", default=None)
 
 Tier = Literal["fast", "writer", "conversation", "voice", "vision", "embed"]
 TIERS: tuple[Tier, ...] = ("fast", "writer", "conversation", "voice", "vision", "embed")
@@ -242,6 +246,8 @@ def _loads(s: str | None) -> Any:
 
 
 async def _record(org_id, tier, model, prompt_key, prompt_version, in_tok, out_tok, cost, latency, status, error) -> None:
+    if (bucket := spend.get()) is not None and cost:
+        bucket.append(float(cost))
     async with system_session() as conn:
         await conn.execute(
             text("""insert into app.llm_calls (org_id, tier, model, prompt_key, prompt_version, input_tokens,

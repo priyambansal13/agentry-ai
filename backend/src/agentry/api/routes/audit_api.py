@@ -112,3 +112,31 @@ async def try_chat(demo_id: str, body: ChatIn, request: Request) -> dict:
         return await instant_demo.reply(demo_id, [m.model_dump() for m in body.messages], ip=client_ip(request))
     except site_audit.AuditRefused as e:
         raise HTTPException(e.status, str(e)) from e
+
+
+# ---------- try-it boxes on the agent pages (agentry/playground.py) ----------
+
+class PlayIn(BaseModel):
+    input: dict = Field(default_factory=dict)
+    token: Annotated[str | None, Field(max_length=4000)] = None  # Turnstile, for the AI-backed boxes
+    company_url: str | None = None  # honeypot
+
+
+@router.get("/playground/{kind}/sample")
+async def play_sample(kind: str) -> dict:
+    from agentry import playground
+    try:
+        return playground.sample(kind)
+    except playground.TryRefused as e:
+        raise HTTPException(e.status, str(e)) from e
+
+
+@router.post("/playground/{kind}")
+async def play(kind: str, body: PlayIn, request: Request) -> dict:
+    from agentry import playground
+    if body.company_url:
+        raise HTTPException(422, "please try again")
+    try:
+        return await playground.run(kind, body.input, ip=client_ip(request), token=body.token)
+    except site_audit.AuditRefused as e:
+        raise HTTPException(e.status, str(e)) from e

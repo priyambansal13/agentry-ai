@@ -2,12 +2,28 @@
 
 import { ArrowRight } from "lucide-react";
 import { useState } from "react";
+import { BillBox, ColdEmailBox, ContentBox, DocBox, FestivalBox, HiringBox, InboxBox, LeadResearchBox, ReactivationBox, ShelfBox, VideoBox } from "./try/ai";
+import { Audit3cdBox, BankBox, CalendarBox, CapitalGainsBox, ChaserBox, ExcelBox, FilingTrackerBox, GstBox, ItrBox, NoticeBox, RecurringBooksBox, TaxDocsBox, TdsBox } from "./try/ca";
+import { DispatcherBox, RenewalsBox, SpeedToLeadBox } from "./try/sims";
 
 const TALK = ["website-chat-agent", "whatsapp-ai-assistant", "telegram-assistant", "ai-receptionist", "appointment-concierge", "support-desk", "catalogue-and-quotes"];
 const FOUND = ["ai-visibility", "local-seo", "review-management", "competitor-watch"];
 
-/** "Try it" on an agent's page, where there's something to try without signing up. */
+/** Agent page -> its try-it box: the agent's real engine on a sample or the visitor's own input (components/try/). */
+const BOXES: Record<string, () => React.ReactNode> = {
+  "ai-video-studio": VideoBox, "bookkeeping-assistant": BillBox, "content-repurposing": ContentBox, "excel-desk": ExcelBox,
+  "festival-campaigns": FestivalBox, "hiring-assistant": HiringBox, "inbox-triage": InboxBox, "lead-reactivation": ReactivationBox,
+  "lead-research": LeadResearchBox, "ops-dispatcher": DispatcherBox, "personal-cold-email": ColdEmailBox, "recurring-books": RecurringBooksBox,
+  renewals: RenewalsBox, "sop-and-proposal-drafter": DocBox, "speed-to-lead": SpeedToLeadBox, "stock-shelf-scanner": ShelfBox,
+  "ca-bank-classifier": BankBox, "ca-capital-gains": CapitalGainsBox, "ca-compliance-calendar": CalendarBox, "ca-document-chaser": ChaserBox,
+  "ca-filing-tracker": FilingTrackerBox, "ca-gst-reconciliation": GstBox, "ca-itr-preparation": ItrBox, "ca-notice-handler": NoticeBox,
+  "ca-tax-audit-3cd": Audit3cdBox, "ca-tax-documents-reader": TaxDocsBox, "ca-tds-returns": TdsBox,
+};
+
+/** "Try it" on an agent's page: every agent has something to try without signing up. */
 export function Playground({ slug }: { slug: string }) {
+  const Box = BOXES[slug];
+  if (Box) return <Box />;
   if (slug === "invoice-follow-up") return <ReminderPreview />;
   if (TALK.includes(slug)) return <Card title="Try it on your own website" body="Type your website and chat with an assistant that answers from your own pages. 30 seconds, no sign-up." href="/try" cta="Build my assistant" field="site" />;
   if (FOUND.includes(slug)) return <Card title="Does ChatGPT recommend you?" body="A free 60-second check: who AI assistants name for your service in your city, and what visitors find on your website." href="/audit" cta="Run the free audit" field="site" />;
