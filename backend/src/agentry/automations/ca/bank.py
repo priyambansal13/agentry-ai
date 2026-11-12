@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from agentry import official_rules as rules
 from agentry.automations import AutomationTemplate, register
 from agentry.automations.ca import core
 from agentry.llm.gateway import AllModelsFailed, complete
@@ -143,16 +144,18 @@ def totals(lines: list[dict]) -> dict:
     digital_in = sum(ln["in"] for ln in receipts) - cash_in
     cash_out = sum(ln["out"] for ln in lines if ln["category"] == "Cash withdrawal")
     flags = []
-    if cash_in > 1000000:
-        flags.append(f"Cash deposits of {core.inr(cash_in)}: over ₹10 lakh in a year is reported to the department (SFT).")
-    big_cash = [ln for ln in lines if ln["category"] == "Cash deposit" and ln["in"] >= 200000]
+    sft = rules.num("bank.sft_cash")
+    if cash_in > sft:
+        flags.append(f"Cash deposits of {core.inr(cash_in)}: over {core.inr(sft)} in a year is reported to the department (SFT).")
+    big_cash = [ln for ln in lines if ln["category"] == "Cash deposit" and ln["in"] >= rules.num("audit.cash_receipt")]
     if big_cash:
         flags.append(f"{len(big_cash)} cash deposit(s) of ₹2 lakh or more: check 269ST (cash receipts from one person).")
     unsure = sum(1 for ln in lines if ln["by"] in ("ai", "default"))
     return {"by_category": {k: {kk: round(vv, 2) if isinstance(vv, float) else vv for kk, vv in v.items()} for k, v in sorted(by.items())},
             "receipts": round(digital_in + cash_in, 2), "digital_receipts": round(digital_in, 2), "cash_receipts": round(cash_in, 2),
             "cash_withdrawn": round(cash_out, 2), "total_in": round(sum(ln["in"] for ln in lines), 2), "total_out": round(sum(ln["out"] for ln in lines), 2),
-            "presumptive_44ad": round(digital_in * 0.06 + cash_in * 0.08, 2), "presumptive_44ada": round((digital_in + cash_in) * 0.5, 2),
+            "presumptive_44ad": round(digital_in * rules.num("bank.44ad_digital") + cash_in * rules.num("bank.44ad_cash"), 2),
+            "presumptive_44ada": round((digital_in + cash_in) * rules.num("bank.44ada"), 2),
             "lines": len(lines), "to_glance": unsure, "flags": flags,
             "period": [min(ln["date"] for ln in lines), max(ln["date"] for ln in lines)]}
 

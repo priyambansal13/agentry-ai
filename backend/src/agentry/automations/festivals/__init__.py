@@ -76,20 +76,34 @@ async def settings_of(conn: AsyncConnection) -> tuple[str | None, dict]:
     return (row.status, FestivalConfig(**(row.config or {})).model_dump()) if row else (None, FestivalConfig().model_dump())
 
 
+FIXED = ("new_year", "republic_day", "valentines", "independence_day", "christmas", "year_end_sale")
+
+
+def festival_on(key: str, year: int) -> date | None:
+    """A festival's date: the same day every year for fixed ones; for lunar ones the date in force (official_rules:
+    festival.<key>.<year>, so next year's dates arrive through the daily check of official sources once announced)."""
+    from agentry import official_rules
+    dates = FESTIVALS[key][1]
+    if key in FIXED:
+        mmdd = next(iter(dates.values()))
+        return date.fromisoformat(f"{year}-{mmdd}")
+    return official_rules.festival_date(key, year)
+
+
 def upcoming(cfg: dict, today: date, days: int) -> list[dict]:
     out = []
     for key in cfg["festivals"]:
         if key not in FESTIVALS:
             continue
-        name, dates, _tags = FESTIVALS[key]
+        name = FESTIVALS[key][0]
         for y in (today.year, today.year + 1):
             override = cfg["festival_dates"].get(key)
             try:
-                d = date.fromisoformat(override) if override and override.startswith(str(y)) else (date.fromisoformat(f"{y}-{dates[y]}") if y in dates else None)
+                d = date.fromisoformat(override) if override and override.startswith(str(y)) else festival_on(key, y)
             except ValueError:
                 d = None
             if d and today <= d <= today + timedelta(days=days):
-                out.append({"key": key, "name": name, "date": d, "lunar": key not in ("new_year", "republic_day", "valentines", "independence_day", "christmas", "year_end_sale")})
+                out.append({"key": key, "name": name, "date": d, "lunar": key not in FIXED})
     return sorted(out, key=lambda f: f["date"])
 
 
@@ -165,6 +179,8 @@ async def daily(org_id: str, today: date | None = None) -> int:
 
 
 async def festival_jobs() -> int:
+    from agentry import official_rules
+    await official_rules.fresh()  # next year's festival dates, once approved
     async with system_session() as conn:
         orgs = list((await conn.execute(text("""select org_id from app.automation_instances where template_key = 'festival_campaigns'
             and status in ('live','approval_mode')"""))).scalars())

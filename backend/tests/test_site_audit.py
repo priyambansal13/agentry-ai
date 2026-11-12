@@ -21,6 +21,7 @@ def stand_in_site(monkeypatch):
         return [local_seo.page_facts(HOME, url, 300)], {"https": True, "broken": [], "robots.txt": True, "sitemap.xml": False}
     monkeypatch.setattr(local_seo, "crawl", crawl)
     monkeypatch.setattr("agentry.knowledge._check_public", lambda url: None)
+    monkeypatch.setattr(settings, "audit_daily_budget_usd", 1000.0)  # earlier runs' queued audits share the database: tests set their own budget
 
 
 def visitor() -> dict:

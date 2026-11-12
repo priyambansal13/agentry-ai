@@ -4,7 +4,7 @@ import { Badge, Button, Input, Label, Select } from "@agentry/ui";
 import { CheckCircle2, ExternalLink, RefreshCw, ShieldAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { caCheckDueDates, hqDueDateAdd, hqDueDateDecide, hqDueDatesCheck } from "@/app/(app)/actions";
+import { caCheckDueDates, hqDueDateAdd, hqDueDateDecide, hqDueDatesCheck, hqRuleAdd, hqRuleDecide } from "@/app/(app)/actions";
 import { day } from "@/lib/ca";
 
 /** Official due-date changes (backend automations/ca/due_dates.py): where a firm's dates come from, and HQ's review. */
@@ -138,6 +138,80 @@ export function Checks({ c }: { c: Update["checks"] }) {
       {item(c.official, "government site")}{item(c.opened, "page opened")}{item(c.date_on_page, "new date on the page")}{item(c.quote_on_page, "quoted words on the page")}
       {c.note && <li className="basis-full text-warning">{c.note}</li>}
     </ul>
+  );
+}
+
+/* ---------- official figures: rates, thresholds, limits, festival dates ---------- */
+
+export type Figure = { key: string; agent: string; label: string; kind: string; shown: string; changed: boolean; source: string; url: string;
+  update?: { source: string; source_url: string | null; applies_from: string | null } };
+export type RuleUpdate = { id: string; key: string; title: string; applies_from: string | null; source: string; source_url: string | null; quote: string | null;
+  status: Update["status"]; found_by: Update["found_by"]; decided_by: string | null; created_at: string;
+  checks: { official?: boolean; opened?: boolean; value_on_page?: boolean; quote_on_page?: boolean; applies_from?: boolean; note?: string | null } };
+
+export function RuleDecide({ u }: { u: RuleUpdate }) {
+  const { err, pending, go } = useGo();
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      {u.status === "proposed" && <>
+        <Button size="sm" disabled={pending} onClick={() => go(() => hqRuleDecide(u.id, "approve"))}>Approve: agents use it now</Button>
+        <Button size="sm" variant="secondary" disabled={pending} onClick={() => go(() => hqRuleDecide(u.id, "reject"))}>Reject</Button></>}
+      {u.status === "active" && <Button size="sm" variant="secondary" disabled={pending}
+        onClick={() => { if (confirm("Withdraw this change? The agents go back to the previous value.")) go(() => hqRuleDecide(u.id, "withdraw")); }}>Withdraw</Button>}
+      {err && <span role="alert" className="text-xs text-danger">{err}</span>}
+    </span>
+  );
+}
+
+export function RuleChecks({ c }: { c: RuleUpdate["checks"] }) {
+  const item = (ok: boolean | undefined, label: string) => <li className={ok ? "text-success" : "text-muted"}>{ok ? "✓" : "✗"} {label}</li>;
+  return (
+    <ul className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
+      {item(c.official, "government site")}{item(c.opened, "page opened")}{item(c.value_on_page, "new value on the page")}{item(c.quote_on_page, "quoted words on the page")}
+      {item(c.applies_from, "says when it applies")}{c.note && <li className="basis-full text-warning">{c.note}</li>}
+    </ul>
+  );
+}
+
+const HINT: Record<string, string> = { amount: "rupees, e.g. 60000", rate: "percent, e.g. 12.5", months: "months", days: "days", date: "YYYY-MM-DD",
+  slabs: "JSON: [[400000, 0], [800000, 5], …, [null, 30]]" };
+
+export function AddRule({ figures }: { figures: Figure[] }) {
+  const { err, pending, go } = useGo();
+  const [f, setF] = useState({ key: figures[0]?.key ?? "", new_value: "", applies_from: "", source: "", source_url: "" });
+  const fig = figures.find((x) => x.key === f.key);
+  const agents = [...new Set(figures.map((x) => x.agent))];
+  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
+  return (
+    <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" onSubmit={(e) => { e.preventDefault();
+      go(() => hqRuleAdd({ ...f, new_value: fig?.kind === "slabs" ? JSON.parse(f.new_value) : f.new_value }), () => setF({ ...f, new_value: "", source: "", source_url: "" })); }}>
+      <div className="space-y-1 lg:col-span-2"><Label htmlFor="ru-k">Figure</Label><Select id="ru-k" value={f.key} onChange={set("key")}>
+        {agents.map((a) => <optgroup key={a} label={a}>{figures.filter((x) => x.agent === a).map((x) => <option key={x.key} value={x.key}>{x.label} (now {x.shown})</option>)}</optgroup>)}</Select></div>
+      <div className="space-y-1"><Label htmlFor="ru-v">New value</Label><Input id="ru-v" required value={f.new_value} onChange={set("new_value")} placeholder={HINT[fig?.kind ?? "amount"]} /></div>
+      <div className="space-y-1"><Label htmlFor="ru-a">Applies from</Label><Input id="ru-a" value={f.applies_from} onChange={set("applies_from")} placeholder="FY 2026-27" /></div>
+      <div className="space-y-1 lg:col-span-2"><Label htmlFor="ru-s">Notification / Finance Act</Label><Input id="ru-s" required minLength={4} value={f.source} onChange={set("source")} placeholder="Finance Act, 2026, section …" /></div>
+      <div className="space-y-1 lg:col-span-2"><Label htmlFor="ru-u">Link (official site)</Label><Input id="ru-u" type="url" value={f.source_url} onChange={set("source_url")} /></div>
+      <div className="flex items-center gap-3 lg:col-span-4"><Button type="submit" disabled={pending}>{pending ? "Saving…" : "Change it for every firm"}</Button>
+        {err && <span role="alert" className="text-sm text-danger">{err}</span>}</div>
+    </form>
+  );
+}
+
+/** Every official figure, grouped by agent, with where it comes from. */
+export function FiguresTable({ figures }: { figures: Figure[] }) {
+  const agents = [...new Set(figures.map((x) => x.agent))];
+  return (
+    <div className="space-y-4">{agents.map((a) => (
+      <div key={a}>
+        <p className="mb-1 text-sm font-semibold">{a}</p>
+        <div className="overflow-x-auto rounded-xl border-2 border-line"><table className="w-full text-sm"><tbody className="divide-y divide-line">
+          {figures.filter((x) => x.agent === a).map((x) => (
+            <tr key={x.key}><td className="px-3 py-1.5">{x.label}</td><td className="px-3 py-1.5 font-semibold tabular-nums">{x.shown}</td>
+              <td className="px-3 py-1.5 text-xs text-muted">{x.update ? <><Badge tone="success">updated</Badge> {x.update.source_url
+                ? <a href={x.update.source_url} target="_blank" rel="noreferrer" className="underline">{x.update.source}</a> : x.update.source}{x.update.applies_from ? `, from ${x.update.applies_from}` : ""}</>
+                : <a href={x.url} target="_blank" rel="noreferrer" className="underline">{x.source}</a>}</td></tr>))}
+        </tbody></table></div>
+      </div>))}</div>
   );
 }
 

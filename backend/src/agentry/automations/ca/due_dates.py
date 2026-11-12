@@ -34,7 +34,8 @@ from agentry.llm import gateway
 from agentry.llm.gateway import AllModelsFailed, complete
 
 OFFICIAL = ("incometax.gov.in", "incometaxindia.gov.in", "cbic.gov.in", "cbic-gst.gov.in", "gst.gov.in", "mca.gov.in", "egazette.gov.in",
-            "egazette.nic.in", "pib.gov.in", "epfindia.gov.in", "esic.gov.in", "esic.nic.in", "finmin.gov.in", "dor.gov.in")
+            "egazette.nic.in", "pib.gov.in", "epfindia.gov.in", "esic.gov.in", "esic.nic.in", "finmin.gov.in", "dor.gov.in", "indiabudget.gov.in",
+            "dopt.gov.in", "persmin.gov.in", "india.gov.in")
 LIVE_SOURCES = [  # official update pages that allow automated reading: read directly on every check
     ("Income Tax Department: latest news", "https://www.incometax.gov.in/iec/foportal/latest-news"),
     ("GST portal: news and updates", "https://www.gst.gov.in/newsandupdates"),
@@ -137,8 +138,8 @@ async def _ask(material: str, cands: list[dict], today: date) -> list[dict]:
     return [c for c in ch or [] if isinstance(c, dict)]
 
 
-async def from_pages(cands: list[dict], today: date) -> tuple[list[dict], list[dict]]:
-    """(changes, sources checked) from the official update pages."""
+async def read_sources() -> tuple[list[dict], list[tuple[dict, str]]]:
+    """(sources checked, [(source, text)] for the pages that could be read)."""
     async def one(name: str, url: str) -> tuple[dict, str | None]:
         try:
             body = await read_page(url)
@@ -147,8 +148,12 @@ async def from_pages(cands: list[dict], today: date) -> tuple[list[dict], list[d
         except Exception as e:  # noqa: BLE001 - one site being down never stops the check
             return {"name": name, "url": url, "ok": False, "note": f"couldn't open: {type(e).__name__}"}, None
     got = await asyncio.gather(*(one(n, u) for n, u in LIVE_SOURCES))
-    sources = [s for s, _ in got]
-    texts = [(s, b) for s, b in got if b]
+    return [s for s, _ in got], [(s, b) for s, b in got if b]
+
+
+async def from_pages(cands: list[dict], today: date, read: tuple[list[dict], list[tuple[dict, str]]] | None = None) -> tuple[list[dict], list[dict]]:
+    """(changes, sources checked) from the official update pages."""
+    sources, texts = read or await read_sources()
     changes: list[dict] = []
     for s, body in texts:
         for c in await _ask(f"Material: the official page \"{s['name']}\" ({s['url']}), as it reads today:\n{body[:18000]}", cands, today):
@@ -269,29 +274,41 @@ async def run_sync(sync_id: str | None = None, trigger: str = "daily", today: da
             sync_id = str((await conn.execute(text("insert into app.due_date_syncs (trigger) values (:t) returning id"), {"t": trigger})).scalar_one())
     bucket: list[float] = []
     tok = gateway.spend.set(bucket)
+    rule_new: list[dict] = []
     try:
         cands = candidates(today)
         by_id = {c["id"]: c for c in cands}
-        (page_changes, sources), (search_changes, search_src) = await asyncio.gather(from_pages(cands, today), from_search(cands, today))
+        rcands = rule_candidates()
+        rby_id = {c["id"]: c for c in rcands}
+        read = await read_sources()
+        (page_changes, sources), (search_changes, search_src), rule_page, (rule_search, rule_src) = await asyncio.gather(
+            from_pages(cands, today, read), from_search(cands, today), rules_from_pages(rcands, today, read[1]), rules_from_search(rcands, today))
         found = [v for v in await asyncio.gather(*(verify(c, by_id) for c in page_changes + search_changes)) if v]
+        rule_found = [v for v in await asyncio.gather(*(verify_rule(c, rby_id) for c in rule_page + rule_search)) if v]
         new = await _propose(found)
-        if new and settings.due_dates_auto_apply:
+        rule_new = await propose_rules(rule_found)
+        found = found + rule_found
+        search_src = [search_src, rule_src]
+        if settings.due_dates_auto_apply:
             for u in new:
                 if u["checks"]["official"] and u["checks"]["date_on_page"] and u["checks"]["quote_on_page"]:
                     await approve(u["id"], "auto (verified on the official page)")
+            for u in rule_new:
+                if u["checks"]["official"] and u["checks"]["value_on_page"] and u["checks"]["quote_on_page"] and u["checks"]["applies_from"]:
+                    await decide_rule(u["id"], "approve", "auto (verified on the official page)")
         status, err = "done", None
     except Exception as e:  # noqa: BLE001 - recorded on the sync row, retried tomorrow
-        found, new, sources, search_src, status, err = [], [], [], {}, "failed", f"{type(e).__name__}: {e}"[:500]
+        found, new, sources, search_src, status, err = [], [], [], [], "failed", f"{type(e).__name__}: {e}"[:500]
     finally:
         gateway.spend.reset(tok)
     async with system_session() as conn:
         await conn.execute(text("""update app.due_date_syncs set status = :s, found = :f, proposed = :p, sources = cast(:src as jsonb), error = :e,
             cost_usd = :c, finished_at = now() where id = cast(:i as uuid)"""),
-            {"s": status, "f": len(found), "p": len(new), "src": json.dumps([*sources, *([search_src] if search_src else [])]), "e": err,
+            {"s": status, "f": len(found), "p": len(new) + len(rule_new), "src": json.dumps([*sources, *search_src]), "e": err,
              "c": round(sum(bucket), 4), "i": sync_id})
-    if new:
-        await _tell_ops(new)
-    return {"id": sync_id, "status": status, "found": len(found), "proposed": len(new), "error": err}
+    if new or rule_new:
+        await _tell_ops(new + rule_new)
+    return {"id": sync_id, "status": status, "found": len(found), "proposed": len(new) + len(rule_new), "error": err}
 
 
 async def _propose(found: list[dict]) -> list[dict]:
@@ -313,11 +330,12 @@ async def _propose(found: list[dict]) -> list[dict]:
 async def _tell_ops(new: list[dict]) -> None:
     from agentry.notify.email import send_email
     lines = "\n\n".join(f"• {u['title']}\n  Source: {u['source']} {u['source_url'] or ''}\n  "
-                        + ("Verified on the official page." if u["checks"]["date_on_page"] and u["checks"]["quote_on_page"] else (u["checks"]["note"] or "")) for u in new)
-    body = (f"The daily check of official sources found {len(new)} possible change(s) to statutory due dates:\n\n{lines}\n\n"
-            "Approve or reject them in HQ → Due dates. Nothing changes on any firm's calendar until you approve.")
+                        + ("Verified on the official page." if (u["checks"].get("date_on_page") or u["checks"].get("value_on_page")) and u["checks"]["quote_on_page"]
+                           else (u["checks"]["note"] or "")) for u in new)
+    body = (f"The daily check of official sources found {len(new)} possible change(s) to due dates, rates or limits:\n\n{lines}\n\n"
+            "Approve or reject them in HQ → Official updates. Nothing changes for any firm until you approve.")
     try:
-        await asyncio.to_thread(send_email, settings.ops_email, f"{len(new)} due date change(s) to review", body)
+        await asyncio.to_thread(send_email, settings.ops_email, f"{len(new)} official update(s) to review", body)
     except Exception as e:  # noqa: BLE001 - the proposals are in HQ either way
         log.warning("couldn't email the due date changes: %s", e)
 
@@ -425,3 +443,270 @@ async def for_firm() -> dict:
         pending = (await conn.execute(text("select count(*) from app.due_date_updates where status = 'proposed'"))).scalar_one()
     return {"active": [dict(a) for a in active], "pending": pending, "last_check": await last_sync(),
             "sources": [{"name": n, "url": u} for n, u in LIVE_SOURCES], "searched": SEARCHED}
+
+
+# ---------- official figures (official_rules.py): rates, thresholds, limits, festival dates ----------
+
+RULES_FIND = """You keep the figures an Indian CA firm's software uses up to date. Today is {today}.
+
+These are the figures (id | what | value in force | standard):
+{rules}
+
+{material}
+
+The tax figures are the law for FY 2025-26 (AY 2026-27). Report every NEW VALUE of one of these figures that the material
+clearly states as law or official announcement (Finance Act or Budget as passed, notification, circular, government holiday
+list) and that applies from FY 2026-27 or later, or a date for a festival marked "not known yet". Do not report a figure
+that is the same as the value in force, or one that applied to an earlier year. Ignore proposals not yet in force unless the material gives the date they apply from, and anything you are not
+sure of. Return only JSON:
+{{"changes": [{{"id": <id>, "old_value": <the value in force as listed, or null when "not known yet">,
+"new_value": <rupees as a plain number / a rate in percent as a number, e.g. 12.5 / months or days as a number /
+a date as YYYY-MM-DD / slabs as [[upper limit or null, rate in percent], ...]>, "applies_from": <e.g. "FY 2026-27" or
+"1 April 2026", as stated>, "source": <the document with its number and date>, "source_url": <the official URL>,
+"quote": <the exact words that give the new value, copied, at most 300 characters>}}]}}
+Return {{"changes": []}} when there are none."""
+
+
+def rule_candidates() -> list[dict]:
+    from agentry import official_rules as R
+    R._ensure()
+    out = []
+    for i, (k, r) in enumerate(R.RULES.items(), start=1):
+        out.append({"id": i, "key": k, "label": r.label, "kind": r.kind, "value": R.get(k), "shown": R.show(r.kind, R.get(k)),
+                    "standard": R.show(r.kind, r.default)})
+    return out
+
+
+def _rule_listing(cands: list[dict]) -> str:
+    return "\n".join(f"{c['id']} | {c['label']} | {c['shown']} | {c['standard']}" for c in cands)
+
+
+def _as_value(kind: str, v: object) -> object:
+    """The source's number in the registry's unit (rates as fractions)."""
+    if v is None:
+        return None
+    if kind == "date":
+        d = core.parse_date(v)
+        return d.isoformat() if d else None
+    if kind == "slabs":
+        try:
+            return [[None if u is None else float(u), float(r) / 100] for u, r in v]  # type: ignore[union-attr, misc]
+        except (TypeError, ValueError):
+            return None
+    try:
+        n = float(str(v).replace(",", "").replace("%", "").replace("₹", ""))
+    except ValueError:
+        return None
+    return n / 100 if kind == "rate" else n
+
+
+def from_fy(t: str | None) -> int | None:
+    """The financial year a change applies from, as a source states it ("AY 2026-27", "FY 2026-27", "1 April 2026")."""
+    t = t or ""
+    if m := re.search(r"\b(?:AY|A\.Y\.|assessment year)\s*(20\d\d)", t, re.IGNORECASE):
+        return int(m.group(1)) - 1
+    if m := re.search(r"\b(?:FY|F\.Y\.|financial year|tax year|previous year)\s*(20\d\d)", t, re.IGNORECASE):
+        return int(m.group(1))
+    if m := re.search(r"1(?:st)?\s*(?:day of\s*)?april,?\s*(20\d\d)", t, re.IGNORECASE):
+        return int(m.group(1))
+    return None
+
+
+def _same(a: object, b: object) -> bool:
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return abs(float(a) - float(b)) < 1e-6
+    return json.dumps(a) == json.dumps(b)
+
+
+def value_forms(kind: str, v: object) -> list[str]:
+    """How a source might print the value (for "is the new value on the page")."""
+    if kind == "date":
+        return date_forms(date.fromisoformat(str(v)))
+    if kind == "rate":
+        p = f"{float(v) * 100:g}"  # type: ignore[arg-type]
+        return [f"{p}%", f"{p} %", f"{p} per cent", f"{p} percent"]
+    if kind == "amount":
+        n = round(float(v))  # type: ignore[arg-type]
+        lakh = n / 100000
+        return [f"{n:,}", str(n), core.inr(n).replace("₹", ""), f"{lakh:g} lakh", f"{n / 10**7:g} crore"]
+    if kind in ("months", "days"):
+        return [f"{int(float(v))} {kind}", f"{int(float(v))}"]  # type: ignore[arg-type]
+    return []
+
+
+def _on(text_: str, forms: list[str]) -> bool:
+    low = re.sub(r"\s+", " ", text_.lower())
+    return any(f.lower() in low for f in forms)
+
+
+async def verify_rule(c: dict, by_id: dict[int, dict]) -> dict | None:
+    from agentry import official_rules as R
+    try:
+        cand = by_id[int(c.get("id"))]
+    except (TypeError, ValueError, KeyError):
+        return None
+    rule = R.RULES[cand["key"]]
+    new, old = _as_value(rule.kind, c.get("new_value")), _as_value(rule.kind, c.get("old_value"))
+    if new is None or _same(new, cand["value"]) or not _same(old, cand["value"]):
+        return None  # nothing new, or not a change to the value in force
+    if rule.kind == "rate" and not 0 <= new <= 1 or rule.kind in ("amount", "months", "days") and new <= 0:  # type: ignore[operator]
+        return None
+    if rule.kind == "date" and not cand["key"].endswith(str(new)[:4]):
+        return None  # a festival date for another year
+    quote = str(c.get("quote") or "")[:400] or None
+    if not quote or (rule.words and not re.search(rule.words, quote, re.IGNORECASE)):
+        return None  # the words given aren't about this figure
+    applies = from_fy(str(c.get("applies_from") or "")) or from_fy(quote)
+    if rule.kind != "date" and applies is not None and applies <= R.BASE_FY:
+        return None  # it applied to the year the figures already follow, or earlier: an old page, not a change
+    url = str(c.get("source_url") or "")
+    if official(url):
+        url = url.split("?")[0].split("#")[0]
+    url = url if url.startswith("http") and len(url) <= 300 else None
+    checks = {"official": official(url), "opened": False, "value_on_page": False, "quote_on_page": False,
+              "applies_from": applies is not None or rule.kind == "date", "note": None}
+    if checks["official"]:
+        try:
+            page = await read_page(url)
+            checks["opened"] = True
+            checks["value_on_page"] = rule.kind == "slabs" or _on(page, value_forms(rule.kind, new))
+            checks["quote_on_page"] = _norm(quote)[:120] in _norm(page)
+            if not (checks["value_on_page"] and checks["quote_on_page"]):
+                checks["note"] = "the new value or the quoted words aren't on the source page: read it before approving"
+        except Exception as e:  # noqa: BLE001
+            checks["note"] = f"couldn't open the source ({type(e).__name__}): open it yourself before approving"
+    else:
+        checks["note"] = ("no usable link to the source" if not url else "the source isn't a government site") + ": check it before approving"
+    if not checks["applies_from"]:
+        checks["note"] = "the source doesn't say from which year it applies: check before approving" + (f"; {checks['note']}" if checks["note"] else "")
+    return {"key": cand["key"], "old_value": cand["value"], "new_value": new, "applies_from": str(c.get("applies_from") or "")[:60] or None,
+            "title": f"{rule.label}: {R.show(rule.kind, cand['value'])} → {R.show(rule.kind, new)}", "source": str(c.get("source") or "unnamed source")[:300],
+            "source_url": url, "quote": quote, "checks": checks}
+
+
+async def rules_from_pages(cands: list[dict], today: date, pages: list[tuple[dict, str]]) -> list[dict]:
+    out = []
+    for s, body in pages:
+        prompt = RULES_FIND.format(today=f"{today:%d %b %Y}", rules=_rule_listing(cands),
+                                   material=f"Material: the official page \"{s['name']}\" ({s['url']}), as it reads today:\n{body[:18000]}")
+        try:
+            r = await complete("fast", [{"role": "user", "content": prompt}], prompt_key="rule_find", prompt_version="v1", json_output=True,
+                               mock_response=json.dumps({"changes": []}), temperature=0)
+        except AllModelsFailed:
+            continue
+        for c in ((r.data or {}).get("changes") or []) if isinstance(r.data, dict) else []:
+            if isinstance(c, dict):
+                c["source_url"] = s["url"]
+                out.append(c)
+    return out
+
+
+async def rules_from_search(cands: list[dict], today: date) -> tuple[list[dict], dict]:
+    from agentry import ai_search
+    model = next((m for m in ai_search.engines().values() if m.startswith("openai/")), None)
+    name = "Web search: Budget, Finance Act, CBDT notifications, holiday lists"
+    if not model:
+        return [], {"name": name, "url": None, "ok": False, "note": "no search engine configured"}
+    import litellm
+    ask = RULES_FIND.format(today=f"{today:%d %b %Y}", rules=_rule_listing(cands), material=(
+        "Material: search the official sites (" + ", ".join(OFFICIAL) + ", indiabudget.gov.in, dopt.gov.in) for the Finance Act / Budget "
+        "changes in force, CBDT notifications and circulars from the last 12 months, and the central government holiday list for "
+        f"{today.year + 1}. Use only official sources for source_url."))
+    try:
+        r = await litellm.aresponses(model=model, input=ask, timeout=180,
+                                     tools=[{"type": "web_search", "search_context_size": "medium", "user_location": {"type": "approximate", "country": "IN"}}])
+        msgs = [o for o in r.output if getattr(o, "type", "") == "message"]
+        txt = "\n".join(getattr(p, "text", "") or "" for p in (msgs[-1].content if msgs else []))
+        try:
+            cost = float(litellm.completion_cost(completion_response=r)) or settings.ai_search_cost_usd * 3
+        except Exception:  # noqa: BLE001
+            cost = settings.ai_search_cost_usd * 3
+        if (bucket := gateway.spend.get()) is not None:
+            bucket.append(cost)
+    except Exception as e:  # noqa: BLE001
+        return [], {"name": name, "url": None, "ok": False, "note": f"search failed: {type(e).__name__}"}
+    m = re.search(r"\{.*\}", txt, re.DOTALL)
+    try:
+        data = json.loads(m.group(0)) if m else {}
+    except ValueError:
+        data = {}
+    ch = [c for c in data.get("changes") or [] if isinstance(c, dict)]
+    return ch, {"name": name, "url": None, "ok": True, "note": f"{len(ch)} possible change(s)"}
+
+
+async def propose_rules(found: list[dict]) -> list[dict]:
+    out = []
+    async with system_session() as conn:
+        for f in found:
+            dup = (await conn.execute(text("select 1 from app.rule_updates where key = :k and new_value = cast(:v as jsonb)"),
+                                      {"k": f["key"], "v": json.dumps(f["new_value"])})).first()
+            if dup:
+                continue
+            uid = str((await conn.execute(text("""insert into app.rule_updates (key, old_value, new_value, applies_from, title, source, source_url,
+                quote, found_by, checks) values (:k, cast(:o as jsonb), cast(:n as jsonb), :a, :t, :s, :u, :q, 'sync', cast(:c as jsonb)) returning id"""),
+                {"k": f["key"], "o": json.dumps(f["old_value"]), "n": json.dumps(f["new_value"]), "a": f["applies_from"], "t": f["title"],
+                 "s": f["source"], "u": f["source_url"], "q": f["quote"], "c": json.dumps(f["checks"])})).scalar_one())
+            out.append(f | {"id": uid})
+    return out
+
+
+async def get_rule_update(uid: str) -> dict:
+    async with system_session() as conn:
+        u = (await conn.execute(text("select * from app.rule_updates where id = cast(:i as uuid)"), {"i": uid})).mappings().first()
+    if not u:
+        raise core.CaError("update not found")
+    return dict(u)
+
+
+async def decide_rule(uid: str, action: str, by: str) -> dict:
+    """approve (replaces any change in force for that figure) / reject / withdraw; the values in force reload at once."""
+    from agentry import official_rules as R
+    u = await get_rule_update(uid)
+    async with system_session() as conn:
+        if action == "approve":
+            await conn.execute(text("""update app.rule_updates set status = 'withdrawn', decided_by = :b, decided_at = now()
+                where key = :k and status = 'active' and id <> cast(:i as uuid)"""), {"b": f"{by} (replaced)"[:120], "k": u["key"], "i": uid})
+            await conn.execute(text("update app.rule_updates set status = 'active', decided_by = :b, decided_at = now() where id = cast(:i as uuid)"),
+                               {"b": by[:120], "i": uid})
+        elif action == "reject":
+            await conn.execute(text("""update app.rule_updates set status = 'rejected', decided_by = :b, decided_at = now()
+                where id = cast(:i as uuid) and status = 'proposed'"""), {"b": by[:120], "i": uid})
+        elif action == "withdraw":
+            await conn.execute(text("""update app.rule_updates set status = 'withdrawn', decided_by = :b, decided_at = now()
+                where id = cast(:i as uuid) and status = 'active'"""), {"b": by[:120], "i": uid})
+        else:
+            raise core.CaError("unknown action")
+    await R.refresh()
+    return await get_rule_update(uid)
+
+
+async def add_rule(key: str, new_value: object, applies_from: str | None, source: str, source_url: str | None, by: str) -> dict:
+    from agentry import official_rules as R
+    R._ensure()
+    rule = R.RULES.get(key)
+    if not rule:
+        raise core.CaError("unknown figure")
+    new = _as_value(rule.kind, new_value)
+    if new is None:
+        raise core.CaError("enter the new value (rupees, a rate in %, a number, or a date)")
+    cur = R.get(key)
+    if _same(new, cur):
+        raise core.CaError("that's already the value in force")
+    async with system_session() as conn:
+        uid = str((await conn.execute(text("""insert into app.rule_updates (key, old_value, new_value, applies_from, title, source, source_url,
+            found_by, checks) values (:k, cast(:o as jsonb), cast(:n as jsonb), :a, :t, :s, :u, 'staff', cast(:c as jsonb)) returning id"""),
+            {"k": key, "o": json.dumps(cur), "n": json.dumps(new), "a": applies_from, "t": f"{rule.label}: {R.show(rule.kind, cur)} → {R.show(rule.kind, new)}",
+             "s": source.strip()[:300], "u": source_url, "c": json.dumps({"official": official(source_url), "note": "entered by Agentry staff"})})).scalar_one())
+    return await decide_rule(uid, "approve", by)
+
+
+async def rules_listing() -> dict:
+    from agentry import official_rules as R
+    await R.refresh()
+    async with system_session() as conn:
+        rows = (await conn.execute(text("""select id::text, key, old_value, new_value, applies_from, title, source, source_url, quote, status, found_by,
+            checks, decided_by, decided_at, created_at from app.rule_updates order by (status = 'proposed') desc, created_at desc limit 300"""))).mappings().all()
+    active = {r["key"]: r for r in rows if r["status"] == "active"}
+    figures = [f | ({"update": {"source": active[f["key"]]["source"], "source_url": active[f["key"]]["source_url"], "applies_from": active[f["key"]]["applies_from"]}}
+                    if f["key"] in active else {}) for f in R.listing()]
+    return {"updates": [dict(r) for r in rows], "figures": figures}

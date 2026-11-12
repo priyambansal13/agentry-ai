@@ -15,18 +15,14 @@ from datetime import date
 
 from pydantic import BaseModel
 
+from agentry import official_rules as rules
 from agentry.automations import AutomationTemplate, register
 from agentry.automations.ca import core
 
-# section -> (rate for individuals / HUF, rate for others, threshold, label); None = no rate check
-RATES: dict[str, tuple[float | None, float | None, float, str]] = {
-    "192": (None, None, 0, "Salary"), "194A": (0.10, 0.10, 10000, "Interest (other than on securities)"),
-    "194C": (0.01, 0.02, 30000, "Contractors"), "194H": (0.02, 0.02, 20000, "Commission / brokerage"),
-    "194I(a)": (0.02, 0.02, 50000, "Rent: plant & machinery (₹50,000 a month)"), "194I(b)": (0.10, 0.10, 50000, "Rent: land & building (₹50,000 a month)"),
-    "194J(a)": (0.02, 0.02, 50000, "Fees for technical services"), "194J(b)": (0.10, 0.10, 50000, "Professional fees"),
-    "194Q": (0.001, 0.001, 5000000, "Purchase of goods (above ₹50 lakh from a seller)"), "194-IA": (0.01, 0.01, 5000000, "Purchase of immovable property"),
-    "194T": (0.10, 0.10, 20000, "Partners' salary, commission, interest"), "194D": (0.02, 0.02, 20000, "Insurance commission"),
-}
+
+def rates() -> dict[str, tuple[float | None, float | None, float, str]]:
+    """Section -> (rate for individuals / HUF, rate for others, threshold, label), as in force (official_rules)."""
+    return rules.tds_rates()
 
 
 class TdsConfig(BaseModel):
@@ -43,9 +39,9 @@ register(AutomationTemplate(
 def norm_section(s: str, nature: str = "") -> str:
     s = re.sub(r"\s+", "", str(s or "").upper()).replace("SECTION", "").replace("U/S", "")
     n = (nature or "").lower()
-    if s.startswith("194I") and s not in RATES:
+    if s.startswith("194I") and s not in rates():
         return "194I(a)" if re.search(r"plant|machin|equipment|vehicle", n) else "194I(b)"
-    if s.startswith("194J") and s not in RATES:
+    if s.startswith("194J") and s not in rates():
         return "194J(a)" if re.search(r"technical|call cent|royalty", n) else "194J(b)"
     if s in ("194IA", "194-IA"):
         return "194-IA"
@@ -105,23 +101,24 @@ def check(rows: list[dict]) -> dict:
     for r in rows:
         yearly[(r["pan"] or r["name"], r["section"])] += r["amount"]
     issues, interest = [], 0.0
+    table = rates()
     for r in rows:
-        sec = RATES.get(r["section"])
+        sec = table.get(r["section"])
         problems = []
         pan_valid = core.pan_ok(r["pan"])
         if not pan_valid:
-            problems.append("no valid PAN: TDS at 20% (206AA)")
+            problems.append(f"no valid PAN: TDS at {rules.num('tds.no_pan_rate') * 100:g}% (206AA)")
         rate = None
         if sec and sec[0] is not None:
             individual = pan_valid and r["pan"][3] in "PH"
             rate = sec[0] if individual else sec[1]
             if not pan_valid:
-                rate = max(rate or 0, 0.20)
-            over = r["amount"] > sec[2] or (r["section"] == "194C" and yearly[(r["pan"] or r["name"], "194C")] > 100000)
+                rate = max(rate or 0, rules.num("tds.no_pan_rate"))
+            over = r["amount"] > sec[2] or (r["section"] == "194C" and yearly[(r["pan"] or r["name"], "194C")] > rules.num("tds.194C.yearly"))
             expected = round(r["amount"] * rate, 0) if over else 0.0
             if over and r["tds"] + 1 < expected:
                 problems.append(f"TDS {core.inr(r['tds'])}, should be {core.inr(expected)} ({rate * 100:g}% under {r['section']}); "
-                                "interest at 1% a month runs from the payment date until the shortfall is deducted")
+                                f"interest at {rules.num('tds.late_deduction') * 100:g}% a month runs from the payment date until the shortfall is deducted")
                 r["short"] = round(expected - r["tds"], 2)
         elif not sec:
             problems.append(f"section {r['section'] or '(blank)'} not recognised: check it")
@@ -129,16 +126,18 @@ def check(rows: list[dict]) -> dict:
         r["interest"] = 0.0
         if r["tds"] and deducted and deducted > r["paid_on"]:
             m = months_part(r["paid_on"], deducted)
-            r["interest"] += round(r["tds"] * 0.01 * m, 2)
-            problems.append(f"deducted {m} month(s) late: interest {core.inr(r['tds'] * 0.01 * m)} at 1%")
+            late = rules.num("tds.late_deduction")
+            r["interest"] += round(r["tds"] * late * m, 2)
+            problems.append(f"deducted {m} month(s) late: interest {core.inr(r['tds'] * late * m)} at {late * 100:g}%")
         if r["tds"] and deducted:
             due = due_date(deducted)
             if not r["deposited_on"]:
                 problems.append(f"no deposit date: due by {due:%d %b %Y}")
             elif r["deposited_on"] > due:
                 m = months_part(deducted, r["deposited_on"])
-                r["interest"] += round(r["tds"] * 0.015 * m, 2)
-                problems.append(f"deposited after {due:%d %b}: interest {core.inr(r['tds'] * 0.015 * m)} at 1.5% for {m} month(s)")
+                late = rules.num("tds.late_deposit")
+                r["interest"] += round(r["tds"] * late * m, 2)
+                problems.append(f"deposited after {due:%d %b}: interest {core.inr(r['tds'] * late * m)} at {late * 100:g}% for {m} month(s)")
         interest += r["interest"]
         r["form"] = "24Q" if r["section"] == "192" else "26Q"
         r["quarter"] = quarter(r["paid_on"])
@@ -154,7 +153,7 @@ def check(rows: list[dict]) -> dict:
         s["interest"] += r["interest"]
     return {"rows": [{**r, "paid_on": str(r["paid_on"]), "deducted_on": str(r["deducted_on"] or ""), "deposited_on": str(r["deposited_on"] or "")} for r in rows],
             "issues": issues, "interest": round(interest, 2),
-            "summary": [{"form": f, "quarter": q, "section": s, "label": RATES.get(s, (0, 0, 0, s))[3], "deductees": len(v["deductees"]),
+            "summary": [{"form": f, "quarter": q, "section": s, "label": table.get(s, (0, 0, 0, s))[3], "deductees": len(v["deductees"]),
                          "amount": round(v["amount"], 2), "tds": round(v["tds"], 2), "interest": round(v["interest"], 2)}
                         for (f, q, s), v in sorted(summary.items())]}
 

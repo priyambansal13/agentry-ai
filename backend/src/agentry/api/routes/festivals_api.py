@@ -6,12 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import text
 
+from agentry import official_rules
 from agentry.auth import OrgContext, require
 from agentry.automations import festivals as fv
 from agentry.db import tenant_session
 from agentry.features import require_page
 
-router = APIRouter(prefix="/org/festivals", dependencies=[Depends(require_page("festivals"))])
+router = APIRouter(prefix="/org/festivals", dependencies=[Depends(require_page("festivals")), Depends(official_rules.fresh)])
 Reader = Annotated[OrgContext, Depends(require("dashboard", "read"))]
 Editor = Annotated[OrgContext, Depends(require("automation", "configure"))]
 

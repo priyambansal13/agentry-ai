@@ -212,7 +212,9 @@ async def due_alerts(org_id: str, today: date | None = None) -> int:
 
 @DBOS.step()
 async def ca_daily_step() -> dict:
+    from agentry import official_rules
     from agentry.automations.ca import calendar, chaser, recurring
+    await official_rules.fresh()
     async with system_session() as conn:
         orgs = list((await conn.execute(text("""select distinct org_id from app.automation_instances
             where template_key = any(:k) and status in ('live','approval_mode')"""), {"k": list(core.CA_KEYS)})).scalars())

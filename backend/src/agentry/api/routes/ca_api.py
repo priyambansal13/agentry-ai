@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-from agentry import audit
+from agentry import audit, official_rules
 from agentry.auth import OrgContext, current_org
 from agentry.automations.ca import (
     audit3cd,
@@ -34,7 +34,7 @@ from agentry.automations.ca import (
 from agentry.db import tenant_session
 from agentry.features import enabled_automations
 
-router = APIRouter(prefix="/org/ca")
+router = APIRouter(prefix="/org/ca", dependencies=[Depends(official_rules.fresh)])  # the official figures in force
 
 
 async def _on(ctx: OrgContext, keys: tuple[str, ...]) -> list[str]:
@@ -462,6 +462,15 @@ async def due_date_updates(ctx: Cal) -> dict:
     """Official due-date changes in force, ones being verified, the last check of official sources, and the sources read."""
     from agentry.automations.ca import due_dates
     return await due_dates.for_firm()
+
+
+@router.get("/rules")
+async def rules_in_use(ctx: Cal) -> dict:
+    """The official figures the CA agents use (rates, thresholds, limits), with where each comes from and any change in force."""
+    from agentry.automations.ca import due_dates
+    data = await due_dates.rules_listing()
+    return {"figures": [f for f in data["figures"] if not f["key"].startswith("festival.")],
+            "pending": sum(1 for u in data["updates"] if u["status"] == "proposed" and not u["key"].startswith("festival."))}
 
 
 @router.post("/compliance/updates/check")

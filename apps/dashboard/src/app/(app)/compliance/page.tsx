@@ -1,7 +1,7 @@
 import { Badge, Card, CardBody } from "@agentry/ui";
 import Link from "next/link";
 import { type CaMeta, RefreshCalendar } from "@/components/ca";
-import { DueDateSources, type FirmUpdates } from "@/components/due-dates";
+import { DueDateSources, type Figure, FiguresTable, type FirmUpdates } from "@/components/due-dates";
 import { day } from "@/lib/ca";
 import { api, requirePage } from "@/lib/session";
 
@@ -13,8 +13,9 @@ type Due = { id: string; client_id: string; client: string; kind: string; period
 export default async function CompliancePage({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
   const active = await requirePage("compliance");
   const days = Number((await searchParams).days ?? 60) || 60;
-  const [meta, { items }, updates] = await Promise.all([api<CaMeta>("/org/ca/meta", { orgId: active.id }),
-    api<{ items: Due[] }>(`/org/ca/compliance?days=${days}`, { orgId: active.id }), api<FirmUpdates>("/org/ca/compliance/updates", { orgId: active.id })]);
+  const [meta, { items }, updates, rules] = await Promise.all([api<CaMeta>("/org/ca/meta", { orgId: active.id }),
+    api<{ items: Due[] }>(`/org/ca/compliance?days=${days}`, { orgId: active.id }), api<FirmUpdates>("/org/ca/compliance/updates", { orgId: active.id }),
+    api<{ figures: Figure[]; pending: number }>("/org/ca/rules", { orgId: active.id })]);
   const byDay = new Map<string, Due[]>();
   for (const i of items) byDay.set(i.due_on, [...(byDay.get(i.due_on) ?? []), i]);
   const label = Object.fromEntries(meta.statuses.map((s) => [s.key, s.label]));
@@ -32,6 +33,13 @@ export default async function CompliancePage({ searchParams }: { searchParams: P
         </div>
       </header>
       <DueDateSources data={updates} canWork={meta.can_work} />
+      <details className="rounded-2xl border-2 border-line bg-card p-5">
+        <summary className="cursor-pointer font-display text-lg font-bold">Tax rates and limits the agents use
+          <span className="ml-2 text-sm font-normal text-muted">ITR, TDS, capital gains, tax audit and bank statements · {rules.figures.filter((f) => f.update).length} updated by notification</span></summary>
+        <p className="mt-2 text-sm text-muted">The law for FY 2025-26 (AY 2026-27), with any change the government has made since, verified on the official source and approved by Agentry.
+          {rules.pending > 0 ? ` ${rules.pending} possible change(s) are being verified.` : ""}</p>
+        <div className="mt-4"><FiguresTable figures={rules.figures} /></div>
+      </details>
       {items.length === 0 ? <Card><CardBody className="text-muted">Nothing due in the next {days} days. Tick what applies to each client (GST, TDS, audit…) on their page.</CardBody></Card> : (
         <div className="space-y-4">{[...byDay.entries()].map(([d, list]) => (
           <section key={d}>

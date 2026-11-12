@@ -63,7 +63,7 @@ async def test_check_verify_approve_and_withdraw(client, team_org, monkeypatch):
         assert await calendar.put_on_board(conn, oid, date(2026, 7, 1), 45) >= 1
         await conn.execute(text("update app.ca_filings set data = jsonb_set(data, '{reminded}', '[7]') where kind = 'itr'"))
 
-    async def pages(cands, today):
+    async def pages(cands, today, read=None):
         itr = next(c for c in cands if c["kind"] == "itr" and c["standard_on"] == date(2026, 7, 31))
         return ([{"id": itr["id"], "old_date": "2026-07-31", "new_date": "2026-09-15", "source": "Circular No. 9/2026",
                   "source_url": "https://incometaxindia.gov.in/c9.pdf", "quote": "furnishing return of income for Assessment Year 2026-27, which is 31st July, 2026, is hereby extended to 15th September, 2026"},
@@ -81,6 +81,9 @@ async def test_check_verify_approve_and_withdraw(client, team_org, monkeypatch):
 
     async def read_page(url):
         return NOTICE
+    async def no_pages():
+        return [], []
+    monkeypatch.setattr(due_dates, "read_sources", no_pages)
     monkeypatch.setattr(due_dates, "from_pages", pages)
     monkeypatch.setattr(due_dates, "from_search", search)
     monkeypatch.setattr(due_dates, "read_page", read_page)
@@ -134,3 +137,82 @@ async def test_firm_check_reuses_a_recent_one(client, team_org):
     again = (await client.post("/org/ca/compliance/updates/check", headers=h["manager"])).json()
     assert again["reused"] and again["id"] == first["id"]
     assert (await client.post("/org/ca/compliance/updates/check", headers=h["viewer"])).status_code == 403
+
+
+# ---------- official figures (official_rules.py) ----------
+
+@pytest.fixture
+async def clean_rules():
+    from agentry import official_rules
+    async with system_session() as conn:
+        await conn.execute(text("delete from app.rule_updates"))
+    await official_rules.refresh()
+    yield
+    async with system_session() as conn:
+        await conn.execute(text("delete from app.rule_updates"))
+    await official_rules.refresh()
+
+
+async def test_a_figure_change_is_verified_approved_used_and_withdrawn(client, team_org, monkeypatch, clean_rules):
+    from agentry import official_rules
+    from agentry.automations.ca import tds
+    _oid, h = await team_org(["ca_tds_returns", "ca_compliance_calendar"])
+    staff = {"Authorization": "Bearer admin@agentry.dev"}
+    page = ("Standard deduction of Rs.50,000 is available from AY 2024-25. Notification No. 41/2026: with effect from 1 April 2026 the threshold for deduction under section 194J for fees for "
+            "professional services is increased to ₹60,000. Diwali (Deepavali) falls on 17 October 2028.")
+    cands = due_dates.rule_candidates()
+    cid = {c["key"]: c["id"] for c in cands}
+    raw = [{"id": cid["tds.194J(b).threshold"], "old_value": 50000, "new_value": 60000, "applies_from": "FY 2026-27", "source": "Notification No. 41/2026",
+            "source_url": "https://incometaxindia.gov.in/n41.pdf", "quote": "with effect from 1 April 2026 the threshold for deduction under section 194J for fees for professional services is increased to ₹60,000"},
+           {"id": cid["tds.194H.threshold"], "old_value": 20000, "new_value": 60000, "source": "x", "source_url": "https://incometaxindia.gov.in/n41.pdf",
+            "quote": "threshold under section 194J is increased to ₹60,000"},  # the words are about another section: dropped
+           {"id": cid["itr.std_new"], "old_value": 50000, "new_value": 100000, "source": "x", "source_url": "https://incometaxindia.gov.in/x",
+            "quote": "standard deduction of 1,00,000"},  # the old value isn't the one in force: dropped
+           {"id": cid["itr.std_new"], "old_value": 75000, "new_value": 50000, "source": "an old FAQ", "source_url": "https://incometax.gov.in/faq",
+            "quote": "Standard deduction of Rs.50,000 is available from AY 2024-25"},  # an old page: applies before the figures' year, dropped
+           {"id": cid["festival.diwali.2028"], "old_value": None, "new_value": "2028-10-17", "source": "Holiday list 2028",
+            "source_url": "https://dopt.gov.in/holidays-2028.pdf", "quote": "Diwali (Deepavali) falls on 17 October 2028"}]
+
+    async def read_page(url):
+        return page
+    monkeypatch.setattr(due_dates, "read_page", read_page)
+    found = [v for v in [await due_dates.verify_rule(c, {c["id"]: c for c in cands}) for c in raw] if v]
+    assert [f["key"] for f in found] == ["tds.194J(b).threshold", "festival.diwali.2028"]
+    assert all(f["checks"]["official"] and f["checks"]["value_on_page"] and f["checks"]["quote_on_page"] for f in found)
+    await due_dates.propose_rules(found)
+
+    hq = (await client.get("/hq/due-dates/rules", headers=staff)).json()
+    j = next(u for u in hq["updates"] if u["key"] == "tds.194J(b).threshold")
+    assert j["status"] == "proposed" and j["title"] == "194J(b) Professional fees: threshold: ₹50,000 → ₹60,000"
+    rows = [["Deductee Name", "PAN", "Section", "Date of payment", "Amount paid", "TDS deducted"], ["Ravi Kumar", "ABCPK9999Z", "194J", "12/07/2026", "55000", "0"]]
+    assert tds.check(tds.parse(rows))["issues"]  # nothing changes before approval: ₹55,000 is over ₹50,000
+    assert (await client.post(f"/hq/due-dates/rules/{j['id']}/approve", headers=staff)).json()["status"] == "active"
+    assert official_rules.get("tds.194J(b).threshold") == 60000
+    assert not tds.check(tds.parse(rows))["issues"]  # under the new threshold
+    fig = (await client.get("/org/ca/rules", headers=h["owner"])).json()["figures"]
+    row = next(f for f in fig if f["key"] == "tds.194J(b).threshold")
+    assert row["shown"] == "₹60,000" and row["update"]["source"] == "Notification No. 41/2026"
+
+    d = next(u for u in hq["updates"] if u["key"] == "festival.diwali.2028")
+    await client.post(f"/hq/due-dates/rules/{d['id']}/approve", headers=staff)
+    from agentry.automations.festivals import festival_on
+    assert str(festival_on("diwali", 2028)) == "2028-10-17"
+
+    await client.post(f"/hq/due-dates/rules/{j['id']}/withdraw", headers=staff)
+    assert official_rules.get("tds.194J(b).threshold") == 50000
+
+
+async def test_staff_set_a_figure_by_hand(client, team_org, clean_rules):
+    from agentry import official_rules
+    from agentry.automations.ca import itr
+    await team_org(["ca_itr_prep"])
+    staff = {"Authorization": "Bearer admin@agentry.dev"}
+    before = itr.compute({"salary_gross": 1500000}, "new")["tax_liability"]
+    r = await client.post("/hq/due-dates/rules", headers=staff, json={"key": "itr.std_new", "new_value": "100000", "applies_from": "FY 2026-27",
+                                                                     "source": "Finance Act, 2026", "source_url": "https://indiabudget.gov.in/fa.pdf"})
+    assert r.status_code == 200 and r.json()["status"] == "active"
+    assert official_rules.get("itr.std_new") == 100000
+    assert itr.compute({"salary_gross": 1500000}, "new")["tax_liability"] < before  # a bigger deduction, less tax
+    assert (await client.post("/hq/due-dates/rules", headers=staff, json={"key": "itr.std_new", "new_value": "100000",
+                                                                         "source": "Finance Act, 2026"})).status_code == 422  # already in force
+    assert (await client.post("/hq/due-dates/rules", headers=staff, json={"key": "nope", "new_value": "1", "source": "xxxx"})).status_code == 422

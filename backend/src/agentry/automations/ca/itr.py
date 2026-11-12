@@ -12,6 +12,7 @@ files: the department's ITR utility takes these figures; nothing is uploaded fro
 """
 from pydantic import BaseModel, Field
 
+from agentry import official_rules as rules
 from agentry.automations import AutomationTemplate, register
 from agentry.automations.ca import core
 
@@ -26,7 +27,11 @@ register(AutomationTemplate(
     config_model=ItrConfig, metrics=(),
 ))
 
-NEW_SLABS = [(400000, 0), (800000, 0.05), (1200000, 0.10), (1600000, 0.15), (2000000, 0.20), (2400000, 0.25), (None, 0.30)]
+def new_slabs() -> list[tuple[float | None, float]]:
+    """The new regime's slabs in force (official_rules: itr.new_slabs)."""
+    return [(u, r) for u, r in rules.get("itr.new_slabs")]  # type: ignore[union-attr]
+
+
 OLD_EXEMPT = {"below60": 250000, "60to80": 300000, "above80": 500000}
 
 FIELDS = {  # key -> label, in the order the form shows them
@@ -67,13 +72,13 @@ def compute(p: dict, regime: str) -> dict:
     age = p.get("age", "below60")
     new = regime == "new"
     lines: list[tuple[str, float]] = []
-    std = 75000 if new else 50000
+    std = rules.num("itr.std_new") if new else rules.num("itr.std_old")
     gross = _f(p, "salary_gross")
     salary = max(0.0, gross - (0 if new else _f(p, "exempt_allowances")) - (min(std, gross)) - (0 if new else _f(p, "professional_tax")))
     lines += [("Income from salary", salary)]
     let_out = max(0.0, _f(p, "let_out_rent") - _f(p, "let_out_municipal_tax"))
-    hp = let_out * 0.7 - _f(p, "let_out_interest") - (0 if new else min(200000, _f(p, "self_occupied_interest")))
-    hp = max(hp, 0.0) if new else max(hp, -200000.0)  # new regime: a house property loss can't reduce other income
+    hp = let_out * 0.7 - _f(p, "let_out_interest") - (0 if new else min(rules.num("itr.home_loan"), _f(p, "self_occupied_interest")))
+    hp = max(hp, 0.0) if new else max(hp, -rules.num("itr.home_loan"))  # new regime: a house property loss can't reduce other income
     lines += [("Income from house property", hp)]
     other = _f(p, "interest_savings") + _f(p, "interest_deposit") + _f(p, "dividend") + _f(p, "other_income")
     lines += [("Income from other sources", other), ("Business / profession", _f(p, "business_income"))]
@@ -86,11 +91,11 @@ def compute(p: dict, regime: str) -> dict:
     else:
         senior = age != "below60"
         interest_ded = min(50000, _f(p, "interest_savings") + _f(p, "interest_deposit")) if senior else min(10000, _f(p, "interest_savings"))
-        ded = {"80C": min(150000, _f(p, "d_80c")), "80CCD(1B)": min(50000, _f(p, "d_80ccd1b")), "80CCD(2)": _f(p, "employer_nps"),
+        ded = {"80C": min(rules.num("itr.ded_80c"), _f(p, "d_80c")), "80CCD(1B)": min(rules.num("itr.ded_80ccd1b"), _f(p, "d_80ccd1b")), "80CCD(2)": _f(p, "employer_nps"),
                "80D": min(100000, _f(p, "d_80d")), "80E": _f(p, "d_80e"), "80G": _f(p, "d_80g"), "80TTB" if senior else "80TTA": interest_ded}
     total_ded = min(sum(ded.values()), normal_gti)  # Chapter VI-A deductions don't reduce special-rate gains
     normal = max(0.0, normal_gti - total_ded)
-    slabs = NEW_SLABS if new else old_slabs(age)
+    slabs = new_slabs() if new else old_slabs(age)
     exemption = slabs[0][0] or 0
     # a resident's unused basic exemption is set against special-rate gains (111A first, then 112A, then 112)
     room = max(0.0, exemption - normal)
@@ -99,17 +104,19 @@ def compute(p: dict, regime: str) -> dict:
         use = min(room, taxed_special[k])
         taxed_special[k] -= use
         room -= use
-    ltcg_exempt = min(125000.0, taxed_special["112A"])
-    special_tax = taxed_special["111A"] * 0.20 + (taxed_special["112A"] - ltcg_exempt) * 0.125 + taxed_special["112"] * 0.125
+    ltcg_exempt = min(rules.num("itr.ltcg_exempt"), taxed_special["112A"])
+    r111a, r112a = rules.num("itr.rate_111a"), rules.num("itr.rate_112a")
+    special_tax = taxed_special["111A"] * r111a + (taxed_special["112A"] - ltcg_exempt) * r112a + taxed_special["112"] * r112a
     normal_tax = slab_tax(normal, slabs)
     total_income = normal + sum(special.values())
     rebate = 0.0
-    if new and total_income <= 1200000:
-        rebate = min(60000.0, normal_tax)
-    elif new and normal_tax > 0 and total_income - 1200000 < normal_tax and sum(special.values()) == 0:
-        rebate = normal_tax - (total_income - 1200000)  # marginal relief just above ₹12 lakh
-    elif not new and total_income <= 500000:
-        rebate = min(12500.0, normal_tax + taxed_special["111A"] * 0.20)
+    lim_new, lim_old = rules.num("itr.rebate_limit_new"), rules.num("itr.rebate_limit_old")
+    if new and total_income <= lim_new:
+        rebate = min(rules.num("itr.rebate_max_new"), normal_tax)
+    elif new and normal_tax > 0 and total_income - lim_new < normal_tax and sum(special.values()) == 0:
+        rebate = normal_tax - (total_income - lim_new)  # marginal relief just above the limit
+    elif not new and total_income <= lim_old:
+        rebate = min(rules.num("itr.rebate_max_old"), normal_tax + taxed_special["111A"] * r111a)
     tax = max(0.0, normal_tax + special_tax - rebate)
     rate = 0.0
     for limit, r in ((50000000, 0.37 if not new else 0.25), (20000000, 0.25), (10000000, 0.15), (5000000, 0.10)):
@@ -118,7 +125,7 @@ def compute(p: dict, regime: str) -> dict:
             break
     special_share = special_tax / (normal_tax + special_tax) if normal_tax + special_tax else 0
     surcharge = max(0.0, tax * (1 - special_share) * rate + tax * special_share * min(rate, 0.15))
-    cess = (tax + surcharge) * 0.04
+    cess = (tax + surcharge) * rules.num("itr.cess")
     liability = round(tax + surcharge + cess)
     paid = _f(p, "tds") + _f(p, "advance_tax") + _f(p, "self_assessment_tax")
     return {"regime": regime, "heads": [{"label": k, "amount": round(v)} for k, v in lines if v],
@@ -133,7 +140,7 @@ def compute(p: dict, regime: str) -> dict:
 def itr_form(p: dict) -> str:
     if _f(p, "business_income"):
         return "ITR-3 (ITR-4 if the business income is presumptive under 44AD / 44ADA / 44AE)"
-    if any(_f(p, k) for k in ("stcg_111a", "stcg_other", "ltcg_other")) or _f(p, "ltcg_112a") > 125000 or p.get("foreign"):
+    if any(_f(p, k) for k in ("stcg_111a", "stcg_other", "ltcg_other")) or _f(p, "ltcg_112a") > rules.num("itr.ltcg_exempt") or p.get("foreign"):
         return "ITR-2"
     total = _f(p, "salary_gross") + _f(p, "interest_savings") + _f(p, "interest_deposit") + _f(p, "dividend") + _f(p, "other_income")
     return "ITR-1 (Sahaj)" if total <= 5000000 else "ITR-2"

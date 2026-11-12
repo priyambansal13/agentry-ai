@@ -840,6 +840,14 @@ export async function hqDueDateDecide(id: string, action: "approve" | "reject" |
   return run<{ status: string; cards: number }>(`/hq/due-dates/${id}/${action}`, { method: "POST" }, ["/hq/due-dates", "/compliance"]);
 }
 
+export async function hqRuleDecide(id: string, action: "approve" | "reject" | "withdraw") {
+  return run<{ status: string }>(`/hq/due-dates/rules/${id}/${action}`, { method: "POST" }, ["/hq/due-dates", "/compliance"]);
+}
+
+export async function hqRuleAdd(body: Record<string, string>) {
+  return run<{ status: string }>("/hq/due-dates/rules", { method: "POST", body }, ["/hq/due-dates", "/compliance"]);
+}
+
 export async function hqDueDateAdd(body: Record<string, string>) {
   return run<{ status: string; cards: number }>("/hq/due-dates", { method: "POST", body }, ["/hq/due-dates", "/compliance"]);
 }

@@ -97,6 +97,31 @@ applies only to cards still on the date it replaces: a card a firm edited by han
 **First real find (2026-11-12):** Circular No. 07/2026 (28 Sep 2026): ITR AY 2026-27 for audit cases 31 Oct → 21 Nov 2026, audit
 reports 30 Sep → 21 Oct 2026. Both verified on incometax.gov.in.
 
+## Official figures: rates, thresholds, limits, festival dates
+
+Code: `backend/src/agentry/official_rules.py` (the registry), checked by the same daily run as due dates
+(`automations/ca/due_dates.py`: `rule_candidates`, `verify_rule`, `decide_rule`), migration 0056 (`app.rule_updates`).
+HQ → **Official updates** lists every figure with its source, changes to review, changes in force and a form to enter one;
+firms see the figures in use on the compliance calendar ("Tax rates and limits the agents use").
+
+| Agent | Figures (the law for FY 2025-26 / AY 2026-27 unless changed) |
+|---|---|
+| ITR preparation | New regime slabs, standard deduction (₹75,000 new / ₹50,000 old), 87A rebate (₹12 lakh / ₹60,000 new; ₹5 lakh / ₹12,500 old), 80C ₹1.5 lakh, 80CCD(1B) ₹50,000, home loan interest ₹2 lakh, 112A exemption ₹1.25 lakh, 111A 20%, 112A 12.5%, cess 4% |
+| Capital gains | Long-term after 12 months (listed equity) / 24 months (other), rates changed on 23 Jul 2024 |
+| TDS returns | Rate (individuals, others) and threshold for 194A, 194C, 194H, 194I, 194J, 194Q, 194-IA, 194T, 194D; no-PAN 20%; interest 1% / 1.5% a month; 194C yearly ₹1 lakh |
+| Tax audit (3CD) | 40A(3) ₹10,000 (₹35,000 transporters), 269SS/T ₹20,000, 269ST ₹2 lakh, 43B(h) 45 days, 40(a)(ia) 30% |
+| Bank statement classifier | SFT cash deposits ₹10 lakh, 44AD 6% / 8%, 44ADA 50% |
+| Festival campaigns | Each lunar festival's date per year; next year's dates are left open and filled when announced |
+
+A found change must: be a new value of a figure on the list (its old value is the one in force), have the quoted words about
+that figure, apply from FY 2026-27 or later (an old page restating an earlier year's figure is dropped), and come from a
+government site with the new value and the quoted words on the page. Approving it makes every agent use it within two
+minutes (API, try-it boxes, daily jobs); withdrawing goes back. The tax figures say which year's law they follow
+(`BASE_FY`): move it and the defaults when the code is updated to a new Finance Act.
+
+**Real check (2026-11-12):** the Income Tax site confirms the TDS rates and thresholds were kept unchanged under the
+Income-tax Act, 2025. An old FAQ page restating the ₹50,000 standard deduction (AY 2024-25) was dropped by the year check.
+
 ## Who can do what
 
 | | Owner | Manager | Front desk | Finance | Viewer | Agentry |

@@ -18,6 +18,7 @@ def visitor() -> dict:
 @pytest.fixture(autouse=True)
 def public_sites(monkeypatch):
     monkeypatch.setattr("agentry.knowledge._check_public", lambda url: None)  # the sample sites are *.example
+    monkeypatch.setattr(settings, "audit_daily_budget_usd", 1000.0)  # whatever else the shared database spent today
 
 
 @pytest.mark.parametrize("kind", ["itr", "capital-gains", "tds", "audit-3cd", "gst", "bank", "tax-docs"])

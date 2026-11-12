@@ -610,6 +610,8 @@ def sample(kind: str) -> dict:
 # ---------- running a try ----------
 
 async def run(kind: str, payload: dict, *, ip: str | None, token: str | None) -> dict:
+    from agentry import official_rules
+    await official_rules.fresh()
     if kind in CALC:
         async with system_session() as conn:
             if not await site_audit.hit(conn, f"pgc:{site_audit.ip_hash(ip)}", CALC_PER_HOUR, "1 hour"):

@@ -18,6 +18,7 @@ from datetime import date, timedelta
 
 from pydantic import BaseModel, Field
 
+from agentry import official_rules as rules
 from agentry.automations import AutomationTemplate, register
 from agentry.automations.ca import core
 
@@ -92,7 +93,7 @@ def test(entries: list[dict], fy_start: int, msme_default_days: int = 15) -> dic
         if e["cash"] and e["type"] == "expense":
             day_cash[(e["party"].lower(), e["date"])].append(e)
     for (_party, d), es in day_cash.items():
-        total, limit = sum(x["amount"] for x in es), 35000 if any(x["transporter"] for x in es) else 10000
+        total, limit = sum(x["amount"] for x in es), rules.num("audit.cash_limit_transport") if any(x["transporter"] for x in es) else rules.num("audit.cash_limit")
         if total > limit:
             found["40A(3)"].append({"party": es[0]["party"], "date": str(d), "amount": total, "disallow": total,
                                     "why": f"cash payments of {core.inr(total)} in a day (limit {core.inr(limit)})", "rows": [x["row"] for x in es]})
@@ -108,26 +109,26 @@ def test(entries: list[dict], fy_start: int, msme_default_days: int = 15) -> dic
                 found["36(1)(va)"].append({"party": e["party"], "date": str(e["date"]), "amount": e["amount"], "disallow": e["amount"],
                                            "why": f"employees' contribution due {due:%d %b %Y}, {'unpaid' if not paid else f'paid {paid:%d %b %Y}'}", "rows": [e["row"]]})
         if e["msme"] and e["type"] == "expense" and e["invoice_date"] <= fy_end:
-            days = min(45, e["agreement_days"] or msme_default_days)
+            days = min(int(rules.num("audit.msme_days")), e["agreement_days"] or msme_default_days)
             limit = e["invoice_date"] + timedelta(days=days)
             if (not paid or paid > fy_end) and (not paid or paid > limit):
                 found["43B(h)"].append({"party": e["party"], "date": str(e["invoice_date"]), "amount": e["amount"], "disallow": e["amount"],
                                         "why": f"MSME supplier: due within {days} days ({limit:%d %b %Y}), {'unpaid' if not paid else f'paid {paid:%d %b %Y}'} "
                                                "and outstanding on 31 March", "rows": [e["row"]]})
-        if e["cash"] and e["type"] in ("loan_taken", "loan_repaid") and e["amount"] >= 20000:
+        if e["cash"] and e["type"] in ("loan_taken", "loan_repaid") and e["amount"] >= rules.num("audit.loan_cash"):
             found["269SS/269T"].append({"party": e["party"], "date": str(e["date"]), "amount": e["amount"], "disallow": 0,
                                         "why": f"loan {'taken' if e['type'] == 'loan_taken' else 'repaid'} in cash ({'269SS' if e['type'] == 'loan_taken' else '269T'}); "
                                                "penalty equal to the amount", "rows": [e["row"]]})
         if e["tds_section"] and e["tds"] is not None and e["tds"] == 0 and e["type"] == "expense":
-            found["40(a)(ia)"].append({"party": e["party"], "date": str(e["date"]), "amount": e["amount"], "disallow": round(e["amount"] * 0.3, 2),
-                                       "why": f"TDS under {e['tds_section']} not deducted: 30% disallowed", "rows": [e["row"]]})
+            found["40(a)(ia)"].append({"party": e["party"], "date": str(e["date"]), "amount": e["amount"], "disallow": round(e["amount"] * rules.num("audit.tds_disallow"), 2),
+                                       "why": f"TDS under {e['tds_section']} not deducted: {rules.num('audit.tds_disallow') * 100:g}% disallowed", "rows": [e["row"]]})
     day_receipts: dict[tuple, list[dict]] = defaultdict(list)
     for e in entries:
         if e["cash"] and e["type"] == "receipt":
             day_receipts[(e["party"].lower(), e["date"])].append(e)
     for (_p, d), es in day_receipts.items():
         total = sum(x["amount"] for x in es)
-        if total >= 200000:
+        if total >= rules.num("audit.cash_receipt"):
             found["269ST"].append({"party": es[0]["party"], "date": str(d), "amount": total, "disallow": 0,
                                    "why": f"cash received {core.inr(total)} from one person in a day; penalty equal to the amount", "rows": [x["row"] for x in es]})
     clauses = [{"clause": k, "label": CLAUSES[k], "items": v, "amount": round(sum(i["amount"] for i in v), 2),

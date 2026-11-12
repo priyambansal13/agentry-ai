@@ -15,10 +15,15 @@ from datetime import date
 
 from pydantic import BaseModel
 
+from agentry import official_rules as rules
 from agentry.automations import AutomationTemplate, register
 from agentry.automations.ca import core
 
-CUTOFF = date(2024, 7, 23)
+CUTOFF = date(2024, 7, 23)  # the registry's default (official_rules: cg.rate_change)
+
+
+def cutoff() -> date:
+    return date.fromisoformat(str(rules.get("cg.rate_change")))
 GRANDFATHER = date(2018, 1, 31)
 DEBT_WORDS = ("debt", "liquid", "gilt", "bond", "overnight", "money market", "income fund", "corporate", "banking & psu", "banking and psu",
               "short duration", "ultra short", "credit risk", "dynamic bond", "floater", "treasury")
@@ -99,7 +104,8 @@ def classify(t: dict) -> dict:
     held = _months(t["buy_date"], t["sell_date"])
     cost = t["buy_value"]
     if t["type"] == "equity":
-        long = held >= 12 and (t["sell_date"] - t["buy_date"]).days > 365
+        months = int(rules.num("cg.equity_long_months"))
+        long = held >= months and (t["sell_date"] - t["buy_date"]).days > months * 365 // 12
         if long and t["buy_date"] <= GRANDFATHER:
             if t["fmv_2018"]:
                 cost = max(cost, min(t["fmv_2018"], t["sell_value"]))
@@ -110,15 +116,15 @@ def classify(t: dict) -> dict:
         if t["buy_date"] >= date(2023, 4, 1):
             long, section = False, "slab (50AA)"
         else:
-            long = held > 24 if t["sell_date"] >= CUTOFF else held > 36
+            long = held > rules.num("cg.other_long_months") if t["sell_date"] >= cutoff() else held > 36
             section = "112" if long else "slab"
     else:
-        long = held > 24
+        long = held > rules.num("cg.other_long_months")
         section = "112" if long else "slab"
         flags.append("not a listed equity share or equity fund: check the asset type")
     gain = round(t["sell_value"] - cost, 2)
     return t | {"term": "long" if long else "short", "section": section, "cost": round(cost, 2), "gain": gain, "held_months": held,
-                "after_cutoff": t["sell_date"] >= CUTOFF, "flags": flags}
+                "after_cutoff": t["sell_date"] >= cutoff(), "flags": flags}
 
 
 def summarise(rows: list[dict]) -> dict:
