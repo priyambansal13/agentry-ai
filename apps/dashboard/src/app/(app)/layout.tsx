@@ -22,6 +22,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const build = me.is_staff
     ? await api<{ version: string; deployed_at: string; api_started_at: string; database: string | null }>("/hq/version").catch(() => null)
     : null;
+  const website = me.is_staff
+    ? await fetch(`${process.env.AGENTRY_WEB_INTERNAL_URL ?? "http://localhost:3200"}/api/version`, { cache: "no-store", signal: AbortSignal.timeout(2000) })
+        .then((r) => (r.ok ? r.text() : null)).then((t) => t?.split(" ")[0] ?? null).catch(() => null)
+    : null;
   const showOnboarding = !!active && ["onboarding", "pending_setup"].includes(active.status) && (me.is_staff || can(role, "automation", "configure"));
   const navProps = { hasOrg: !!active, isStaff: me.is_staff, canAudit: me.is_staff || can(role, "audit", "read"), canTeam: !!role,
                      canConverse, canWork, showOnboarding, needsYou, canInvoices: me.is_staff || can(role, "invoice", "read"),
@@ -53,8 +57,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <SignOut />
         </div>
         {build && <p className="hidden px-2 pt-2 text-[10px] leading-tight text-muted/70 lg:block"
-          title={`Portal ${process.env.AGENTRY_TAG ?? "local"} · API ${build.version} · database ${build.database ?? "?"} · API started ${new Date(build.api_started_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`}>
-          v{build.version} · deployed {new Date(build.deployed_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</p>}
+          title={`Portal ${process.env.AGENTRY_TAG ?? "local"} · API ${build.version} · website ${website ?? "?"} · database ${build.database ?? "?"} · API started ${new Date(build.api_started_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`}>
+          v{build.version}{website && website !== build.version ? ` (website ${website})` : ""} · deployed {new Date(build.deployed_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</p>}
       </aside>
       <div className="lg:hidden overflow-x-auto border-b border-line bg-card px-4 py-2">
         <Nav compact {...navProps} />

@@ -71,6 +71,7 @@ services:
     env_file: infra/.env.prod
     environment:
       AGENTRY_API_URL: http://api:8801
+      AGENTRY_WEB_INTERNAL_URL: http://web:3000  # the website's version, in the staff line of the sidebar
       AUTH_DATABASE_URL: postgres://agentry_auth:${AGENTRY_DB_AUTH_PASSWORD}@postgres:5432/agentry
     ports: ["13201:3000"]
     restart: unless-stopped
@@ -87,7 +88,8 @@ services:
               NEXT_PUBLIC_GOOGLE_ADS_LABEL: "${NEXT_PUBLIC_GOOGLE_ADS_LABEL:-}", NEXT_PUBLIC_META_PIXEL_ID: "${NEXT_PUBLIC_META_PIXEL_ID:-}",
               NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: "${NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION:-}",
               NEXT_PUBLIC_TURNSTILE_SITE_KEY: "${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}" }
-    environment: { AGENTRY_API_URL: http://api:8801 }
+    # the version and deploy time behind the website's unlisted /api/version (for the dev team)
+    environment: { AGENTRY_API_URL: http://api:8801, AGENTRY_TAG: "${AGENTRY_TAG:-local}", AGENTRY_DEPLOYED_AT: "${AGENTRY_DEPLOYED_AT:-}" }
     ports: ["13200:3000"]
     restart: unless-stopped
 
