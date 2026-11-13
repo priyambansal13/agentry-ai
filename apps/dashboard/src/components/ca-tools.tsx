@@ -8,7 +8,7 @@ import { api } from "@/lib/session";
 const SHEET = ".csv,.xlsx";
 export const AGENT_LABEL: Record<string, string> = {
   ca_gst_reconciliation: "GST reconciliation", ca_itr_prep: "ITR computation", ca_capital_gains: "Capital gains", ca_bank_classifier: "Bank statement",
-  ca_notice_handler: "Notice", ca_tds_returns: "TDS returns", ca_tax_audit: "Tax audit (3CD)", excel_desk: "Excel desk", excel_cleaner: "Excel cleaner", ca_anomaly_finder: "Anomaly finder", ca_upload_hub: "Upload hub", ca_gstr1: "GSTR-1 preparation", ca_tax_docs_reader: "Tax documents reader",
+  ca_notice_handler: "Notice", ca_tds_returns: "TDS returns", ca_tax_audit: "Tax audit (3CD)", excel_desk: "Excel desk", excel_cleaner: "Excel cleaner", ca_anomaly_finder: "Anomaly finder", ca_upload_hub: "Upload hub", ca_gstr1: "GSTR-1 preparation", ca_financial_statements: "Financial statements", ca_tax_docs_reader: "Tax documents reader",
 };
 
 function specs(cid: string): (ToolSpec & { agent: string; title: string; needs?: string })[] {
@@ -22,6 +22,9 @@ function specs(cid: string): (ToolSpec & { agent: string; title: string; needs?:
     { agent: "ca_gstr1", needs: "ca_gst_reconciliation", title: "GSTR-1 preparation", key: "gstr1", path: p("gstr1"), extra: "period", sample: true, button: "Prepare GSTR-1",
       files: [{ name: "file", label: "Sales register for the month", accept: SHEET }],
       hint: "B2B, B2CL, B2CS, exports, credit / debit notes, HSN (B2B and B2C) and documents issued, in the GST offline tool's Excel layout; GSTINs, tax type for the place of supply, rates, values, invoice numbers and dates checked first." },
+    { agent: "ca_financial_statements", needs: "ca_filing_tracker", title: "Financial statements", key: "fin", path: p("financials"), sample: true, button: "Prepare statements",
+      files: [{ name: "file", label: "Trial balance (Tally export: this year and last)", accept: SHEET }],
+      hint: "Schedule III balance sheet and profit & loss, ratios with the 25% changes to explain, and questions for the client wherever a figure moved a lot. Ledgers are placed by rules; you fix the rest once and it's learned." },
     { agent: "ca_capital_gains", title: "Capital gains", key: "cg", path: p("capital-gains"), sample: true, button: "Work out the gains",
       files: [{ name: "file", label: "Broker tax P&L / CAMS statement", accept: SHEET }],
       hint: "STCG / LTCG by section, grandfathering for shares bought before Feb 2018, rates before and after 23 Jul 2024; feeds the ITR computation." },

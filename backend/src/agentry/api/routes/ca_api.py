@@ -25,6 +25,7 @@ from agentry.automations.ca import (
     cleaner,
     core,
     excel,
+    finstat,
     gst,
     gstr1,
     hub,
@@ -604,6 +605,8 @@ async def work_sheet(wid: str, ctx: Any) -> Response:
         body = hub.sheet(r)
     elif w["agent"] == "ca_gstr1":
         body = gstr1.sheet(r)
+    elif w["agent"] == "ca_financial_statements":
+        body = finstat.sheet(r)
     elif w["agent"] in SHEETS:
         body = SHEETS[w["agent"]](r)
     else:
@@ -672,6 +675,54 @@ async def gstr1_sample(cid: str, ctx: GstOn) -> dict:
     _work(ctx)
     p = SAMPLE / "sales_register_oct_sample.csv"
     return await _gstr1(ctx, cid, (p.read_bytes(), p.name, "text/csv"), "Oct 2026")
+
+
+# Financial statements from a trial balance (docs/PLAN-CA-DESK-2.md #5): any CA firm
+
+async def _finstat(ctx: OrgContext, cid: str, upload: tuple[bytes, str | None, str | None]) -> dict:
+    async with tenant_session(ctx.org_id) as conn:
+        c = await _client(conn, cid)
+
+    async def run(data: bytes, mime: str) -> dict:
+        async with tenant_session(ctx.org_id) as conn:
+            return await finstat.prepare(ctx.org_id, conn, data, mime, kind=c["kind"], client=c["name"])
+    return await _one(ctx, cid, "ca_financial_statements", upload, "trial_balance", f"Financial statements: {upload[1]}", run)
+
+
+@router.post("/clients/{cid}/financials", status_code=201)
+async def finstat_run(cid: str, ctx: Any, file: Annotated[UploadFile, File()]) -> dict:
+    _work(ctx)
+    return await _finstat(ctx, cid, (await file.read(), file.filename, file.content_type))
+
+
+@router.post("/clients/{cid}/financials/sample", status_code=201)
+async def finstat_sample(cid: str, ctx: Any) -> dict:
+    _work(ctx)
+    p = SAMPLE / "trial_balance_sample.csv"
+    return await _finstat(ctx, cid, (p.read_bytes(), p.name, "text/csv"))
+
+
+class LedgerLine(BaseModel):
+    ledger: str = Field(min_length=1, max_length=200)
+    line: str = Field(min_length=2, max_length=40)
+    learn: bool = True
+
+
+@router.post("/work/{wid}/ledger")
+async def finstat_correct(wid: str, body: LedgerLine, ctx: Any) -> dict:
+    """Place (or move) a ledger; learned for the firm's later trial balances when asked. The statements are rebuilt."""
+    _work(ctx)
+    async with tenant_session(ctx.org_id) as conn:
+        w = await _work_row(conn, wid)
+        if w["agent"] != "ca_financial_statements":
+            raise HTTPException(404, "not a financial statements result")
+        try:
+            r = await finstat.correct(conn, ctx.org_id, w["result"], body.ledger, body.line, body.learn, ctx.principal.user_id)
+        except core.CaError as e:
+            raise _err(e) from e
+        await conn.execute(text("update app.ca_work set result = cast(:r as jsonb), updated_at = now() where id = cast(:i as uuid)"),
+                           {"r": json.dumps(r, default=str), "i": wid})
+    return {"summary": r["summary"], "balanced": r["balance_sheet"]["balanced"]}
 
 
 # ITR preparation

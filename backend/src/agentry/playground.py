@@ -297,7 +297,15 @@ def gstr1(p: dict) -> dict:
     return _jsonable(m.prepare(_rows(p.get("rows")), client_gstin=_s(p.get("gstin"), 15) or "27AAKFM1234L1Z5", period=_s(p.get("period"), 20) or None))
 
 
-CALC = {"msme": msme_calc, "upload-hub": upload_hub, "gstr1": gstr1, "excel-clean": excel_clean, "anomalies": anomalies, "itr": itr, "capital-gains": capital_gains, "tds": tds, "audit-3cd": audit_3cd, "gst": gst, "calendar": calendar,
+async def financials(p: dict) -> dict:
+    from agentry.automations.ca import finstat
+    ledgers, used, has_py = finstat.read(_rows(p.get("rows")))
+    await finstat.map_ledgers(None, ledgers, {}, use_model=False)  # rules only on the website
+    kind = "company" if p.get("kind") not in ("firm", "individual", "llp") else p["kind"]
+    return _jsonable(finstat.build(ledgers, has_py=has_py, kind=kind) | {"columns": used})
+
+
+CALC = {"msme": msme_calc, "upload-hub": upload_hub, "gstr1": gstr1, "financials": financials, "excel-clean": excel_clean, "anomalies": anomalies, "itr": itr, "capital-gains": capital_gains, "tds": tds, "audit-3cd": audit_3cd, "gst": gst, "calendar": calendar,
         "chaser": chaser, "tax-docs": tax_docs, "renewals": renewals}
 
 
@@ -634,6 +642,8 @@ def sample(kind: str) -> dict:
     if kind == "excel":
         return {"rows": _csv(ca / "tds_register_sample.csv"),
                 "questions": ["Total TDS deducted by section", "Which payments were over ₹50,000?", "How many deductees are there?"]}
+    if kind == "financials":
+        return {"rows": _csv(ca / "trial_balance_sample.csv"), "kind": "company"}
     if kind == "gstr1":
         return {"rows": _csv(ca / "sales_register_oct_sample.csv"), "gstin": "27AAKFM1234L1Z5", "period": "Oct 2026"}
     if kind == "upload-hub":
@@ -718,6 +728,11 @@ _TEXT = {  # what the other boxes rest on: (basis, [(label, source, url)])
         ("Checklists", "Agentry's checklist per filing (ITR, GST, TDS, audit, ROC); each firm can edit its own", None)]),
     "ca-notice-handler": ("Only the notice's own text: the dates, demand and DIN read are checked against it before they're shown.", [
         ("The notice", "As issued by the Income Tax Department (verify it on the e-filing portal with its DIN)", "https://www.incometax.gov.in/iec/foportal/")]),
+    "ca-financial-statements": (("Your trial balance and the Companies Act's Schedule III format (Division I, Indian GAAP); ratios and the 25% "
+                                 "explanation rule from the 2021 amendment."), [
+        ("Schedule III", "Companies Act, 2013: format of the balance sheet and statement of profit and loss", "https://www.mca.gov.in/"),
+        ("Ratios", "Schedule III (amended 24 Mar 2021): ratios to disclose; explain a change over 25%", "https://www.mca.gov.in/"),
+        ("Placing ledgers", "Rules on the ledger name and its Tally group; the firm's corrections are learned; the AI only suggests for leftovers", None)]),
     "ca-gstr1": (("Your sales register and the GST law: tables as in the GST portal's offline tool; the B2CL limit is an official figure "
                   "checked daily."), [
         ("Place of supply", "IGST Act sections 10-12: inter-state (IGST) vs intra-state (CGST + SGST)", "https://cbic-gst.gov.in/"),

@@ -35,7 +35,8 @@ checklist it answers, and the right agent run on it, so the work is waiting when
 | Purchase register, ledger, day book (and sales registers when GST is off) | Anomaly finder (with the client's GSTIN) |
 | Form 16 / 16A / AIS / TIS / 26AS | Tax documents reader |
 | Tax notice | Notice handler (reply card on the board) |
-| Trial balance / GSTR-2B alone | kept for the financial statements agent / the next purchase register |
+| Trial balance | Financial statements |
+| GSTR-2B alone | kept for the next purchase register |
 
 A failed agent run is reported on its file and never stops the rest of the batch.
 

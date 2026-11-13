@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, CheckCircle2, FileText, MessageCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { type Any, Area, Bubble, Chips, Copyable, Field, fmtDate, inr, Panel, Presets, RunButton, Select, Severity, SheetEditor, Stat, TryShell, useRun, useSample } from "./kit";
 
 /* ---------- ITR preparation: old vs new regime ---------- */
@@ -352,6 +352,51 @@ export function ExcelBox() {
           <Panel title="How it was worked out"><dl className="space-y-1 text-xs"><dt className="font-semibold">Calculation</dt><dd>{x.spec.agg} {x.spec.measure ? `of "${x.spec.measure}"` : ""}</dd>
             {x.spec.group_by && <><dt className="font-semibold">Grouped by</dt><dd>{x.spec.group_by}</dd></>}
             {x.spec.filter?.length > 0 && <><dt className="font-semibold">Only rows where</dt><dd>{x.spec.filter.map((f: Any) => `${f.column} ${f.op} ${f.value}`).join(", ")}</dd></>}</dl></Panel>
+        </div>)}
+    </TryShell>
+  );
+}
+
+/* ---------- financial statements (rules only on the website) ---------- */
+
+const FS_PL: [string, string, boolean?][] = [["revenue", "Revenue from operations"], ["other_income", "Other income"], ["purchases", "Purchases"],
+  ["change_inventory", "Changes in inventories"], ["employee", "Employee benefits"], ["finance", "Finance costs"], ["depreciation", "Depreciation"],
+  ["other_expenses", "Other expenses"], ["pbt", "Profit before tax", true], ["tax", "Tax expense"], ["pat", "Profit for the year", true]];
+
+export function FinancialsBox() {
+  const s = useSample("financials");
+  const [rows, setRows] = useState<string[][]>([]);
+  useEffect(() => { if (s) setRows(s.rows); }, [s]);
+  const r = useRun("financials", false);
+  const x = r.result;
+  const two = (a: number, b: number, bold?: boolean) => <><td className={`py-1 text-right tabular-nums ${bold ? "font-semibold" : ""}`}>{inr(a)}</td><td className="py-1 text-right tabular-nums text-muted">{inr(b)}</td></>;
+  return (
+    <TryShell title="A trial balance, turned into Schedule III statements"
+      intro="Mehta Steel Pvt Ltd's Tally trial balance for FY 2025-26, with last year alongside: 45 ledgers under their Tally groups, a suspense balance, a ledger with no group and a customer in credit. Each ledger is placed by rules; edit any figure and prepare again."
+      sell="In the portal the AI suggests a line for ledgers no rule covers (marked for you to check), you fix any ledger once and it's learned for every client, and the statements, ratios and client questions download as Excel.">
+      <SheetEditor rows={rows} onChange={setRows} caption="Trial balance (Tally export)" maxRows={50} />
+      <div className="mt-4"><RunButton r={r} label="Prepare the statements" input={() => ({ rows, kind: s?.kind })} disabled={!s} /></div>
+      {x && (
+        <div className="mt-6 space-y-4">
+          <div className="grid gap-3 sm:grid-cols-3"><Stat label="Revenue" value={inr(x.profit_and_loss.cy.revenue)} note={x.has_py ? `last year ${inr(x.profit_and_loss.py.revenue)}` : undefined} />
+            <Stat label="Profit after tax" value={inr(x.profit_and_loss.cy.pat)} note={x.has_py ? `last year ${inr(x.profit_and_loss.py.pat)}` : undefined} />
+            <Stat label="Ledgers placed by rules" value={`${x.summary.rules} of ${x.summary.ledgers}`} note={x.summary.unmapped ? `${x.summary.unmapped} for you to place` : "all placed"} /></div>
+          {x.checks.length > 0 && <Panel title="Checks" tone="warn"><ul className="space-y-1.5 text-sm">{x.checks.map((c: Any, i: number) => <li key={i} className="flex gap-2"><Severity level={c.severity} /><span>{c.what}</span></li>)}</ul></Panel>}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Panel title="Balance sheet"><table className="w-full text-sm"><thead><tr className="text-xs text-muted"><th /><th className="text-right">This year</th><th className="text-right">Last year</th></tr></thead>
+              <tbody>{[["Equity and liabilities", x.balance_sheet.equity_liabilities, "el"], ["Assets", x.balance_sheet.assets, "a"]].map(([title, secs, k]: Any) => <Fragment key={k}>
+                <tr><td colSpan={3} className="pt-3 font-display font-bold">{title}</td></tr>
+                {secs.map((sec: Any) => <Fragment key={sec.section}><tr><td className="pt-1 text-xs font-semibold uppercase text-muted" colSpan={3}>{sec.section}</td></tr>
+                  {sec.lines.map((l: Any) => <tr key={l.key} className="border-t border-line"><td className="py-1 pl-2">{l.label}</td>{two(l.cy, l.py)}</tr>)}</Fragment>)}
+                <tr className="border-t-2 border-ink"><td className="py-1 font-semibold">Total</td>{two(x.balance_sheet.totals.cy[k], x.balance_sheet.totals.py[k], true)}</tr></Fragment>)}</tbody></table></Panel>
+            <Panel title="Statement of profit and loss"><table className="w-full text-sm"><thead><tr className="text-xs text-muted"><th /><th className="text-right">This year</th><th className="text-right">Last year</th></tr></thead>
+              <tbody>{FS_PL.map(([k, l, b]) => <tr key={k} className="border-t border-line"><td className={`py-1 ${b ? "font-semibold" : ""}`}>{l}</td>{two(x.profit_and_loss.cy[k], x.profit_and_loss.py[k], b)}</tr>)}</tbody></table>
+              <p className="mt-2 text-xs text-muted">Profit for the year goes to {x.profit_to.toLowerCase()}.</p></Panel>
+          </div>
+          {x.review.length > 0 && <Panel title="Questions for the client"><ol className="ml-5 list-decimal space-y-1.5 text-sm">{x.review.map((q: Any) => <li key={q.key}>{q.question}</li>)}</ol></Panel>}
+          <Panel title="Ratios (Schedule III)"><div className="grid gap-2 sm:grid-cols-3">{x.ratios.map((q: Any) => <div key={q.name} className="rounded-xl bg-paper p-2 text-sm">
+            <p className="text-xs text-muted">{q.name}</p><p className="font-semibold tabular-nums">{q.cy ?? "–"}{q.py !== null && q.py !== undefined && <span className="ml-1 text-xs font-normal text-muted">(was {q.py})</span>}</p>
+            {q.explain && <p className="text-xs text-danger">changed {q.change_pct}%: explain</p>}</div>)}</div></Panel>
         </div>)}
     </TryShell>
   );

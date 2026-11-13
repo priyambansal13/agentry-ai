@@ -403,6 +403,16 @@ export const stories: Record<string, Story> = {
     before: ["The same entries typed every month", "EMI splits worked out by hand", "Overspending noticed at year end"],
     after: ["Routine entries post themselves", "Correct interest and principal every month", "Budget alerts while there's still time"],
   },
+  "ca-financial-statements": {
+    flow: ["Trial balance", "Ledgers placed", "Schedule III", "Ratios + questions", "Review with client"], highlight: 2,
+    steps: [["customer", "Sends the year's trial balance from Tally (or it arrives through the upload hub)."],
+      ["agent", "Places every ledger by its name and Tally group; the AI only suggests for the few left, marked for you."],
+      ["agent", "Builds the balance sheet and profit & loss with last year, handles stock and tax, and checks the trial balance."],
+      ["agent", "Works out the Schedule III ratios and writes a question for every figure that moved a lot."],
+      ["you", "Place anything flagged (it's learned), send the questions, and finalise."]],
+    before: ["Hours regrouping ledgers in Excel", "Ratios worked out by hand at the last minute", "Big swings noticed by the auditor"],
+    after: ["Statements in minutes, last year alongside", "Ratios and 25% changes ready", "Client questions sent on day one"],
+  },
   "ca-gstr1": {
     flow: ["Sales register", "Checked", "Each line to its table", "HSN + docs", "Offline tool Excel"], highlight: 2,
     steps: [["customer", "Sends the month's sales register (or it arrives through the upload hub)."],

@@ -2,7 +2,7 @@ import { Badge, Card, CardBody, CardHeader, CardTitle } from "@agentry/ui";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AGENT_LABEL } from "@/components/ca-tools";
-import { BankLineCategory, CopyText, DeleteWork } from "@/components/ca-tool-forms";
+import { BankLineCategory, CopyText, DeleteWork, LedgerLine } from "@/components/ca-tool-forms";
 import { api, ApiError, getActiveOrg, getFeatures } from "@/lib/session";
 
 export const metadata = { title: "Result" };
@@ -239,6 +239,53 @@ function Gstr1({ r }: { r: any }) {
   </>);
 }
 
+const FS_LINES: [string, string][] = [["share_capital", "Share capital / capital"], ["reserves", "Reserves and surplus"], ["lt_borrowings", "Long-term borrowings"],
+  ["deferred_tax_liab", "Deferred tax liabilities"], ["lt_provisions", "Long-term provisions"], ["st_borrowings", "Short-term borrowings"], ["trade_payables", "Trade payables"],
+  ["other_cl", "Other current liabilities"], ["st_provisions", "Short-term provisions"], ["ppe", "Property, plant and equipment"], ["intangibles", "Intangible assets"],
+  ["cwip", "Capital work-in-progress"], ["nc_investments", "Non-current investments"], ["deferred_tax_asset", "Deferred tax assets"], ["lt_loans_adv", "Long-term loans and advances"],
+  ["other_nca", "Other non-current assets"], ["current_investments", "Current investments"], ["inventories", "Inventories"], ["trade_receivables", "Trade receivables"],
+  ["cash_bank", "Cash and cash equivalents"], ["st_loans_adv", "Short-term loans and advances"], ["other_ca", "Other current assets"], ["revenue", "Revenue from operations"],
+  ["other_income", "Other income"], ["purchases", "Purchases / materials"], ["opening_stock", "Opening stock"], ["employee", "Employee benefits"], ["finance", "Finance costs"],
+  ["depreciation", "Depreciation"], ["other_expenses", "Other expenses"], ["tax", "Tax expense"], ["suspense", "Suspense (to clear)"]];
+const PL_ROWS: [string, string, boolean?][] = [["revenue", "Revenue from operations"], ["other_income", "Other income"], ["total_income", "Total income", true],
+  ["purchases", "Purchases / materials"], ["change_inventory", "Changes in inventories"], ["employee", "Employee benefits expense"], ["finance", "Finance costs"],
+  ["depreciation", "Depreciation and amortisation"], ["other_expenses", "Other expenses"], ["total_expenses", "Total expenses", true], ["pbt", "Profit before tax", true],
+  ["tax", "Tax expense"], ["pat", "Profit for the year", true]];
+function Financials({ r, wid }: { r: any; wid: string }) {
+  const py = r.has_py;
+  const bs = r.balance_sheet;
+  const cols = (cy: number, p: number) => [inr(cy), ...(py ? [inr(p)] : [])];
+  const head = ["", "This year", ...(py ? ["Previous year"] : [])];
+  const side = (secs: any[], total: any) => [...secs.flatMap((s: any) => [[<b key="s">{s.section}</b>, ...cols(s.cy, s.py)],
+    ...s.lines.map((l: any) => [<span key="l" className="pl-4">{l.label}</span>, ...cols(l.cy, l.py)])]), [<b key="t">Total</b>, ...cols(total.cy, total.py)]];
+  const unplaced = r.ledgers.filter((x: any) => !x.line || x.how === "ai");
+  return (<>
+    {r.checks.length > 0 && <Card><CardHeader><CardTitle>Checks</CardTitle></CardHeader><CardBody><ul className="space-y-1.5 text-sm">{r.checks.map((c: any, i: number) =>
+      <li key={i} className="flex gap-2"><Badge tone={SEV[c.severity]}>{c.severity}</Badge>{c.what}</li>)}</ul></CardBody></Card>}
+    {unplaced.length > 0 && <Card><CardHeader><CardTitle>Ledgers to place or check ({unplaced.length})</CardTitle></CardHeader><CardBody className="p-0">
+      <Table head={["Ledger", "Group", "This year (Dr +)", "Line"]} rows={unplaced.map((x: any) => [x.name, x.group || "-", inr(x.cy),
+        <LedgerLine key="l" wid={wid} ledger={x.name} line={x.line} lines={FS_LINES} />])} /></CardBody></Card>}
+    <div className="grid gap-5 xl:grid-cols-2">
+      <Card><CardHeader><CardTitle>Balance sheet {bs.balanced ? "" : "(doesn't balance yet)"}</CardTitle></CardHeader><CardBody className="space-y-3 p-0">
+        <Table head={["Equity and liabilities", ...head.slice(1)]} rows={side(bs.equity_liabilities, { cy: bs.totals.cy.el, py: bs.totals.py.el })} />
+        <Table head={["Assets", ...head.slice(1)]} rows={side(bs.assets, { cy: bs.totals.cy.a, py: bs.totals.py.a })} /></CardBody></Card>
+      <Card><CardHeader><CardTitle>Statement of profit and loss</CardTitle></CardHeader><CardBody className="p-0">
+        <Table head={head} rows={PL_ROWS.map(([k, l, b]) => [b ? <b key="b">{l}</b> : l, ...cols(r.profit_and_loss.cy[k], r.profit_and_loss.py[k])])} />
+        <p className="px-4 pb-3 text-xs text-muted">Profit for the year is added to {r.profit_to.toLowerCase()}.</p></CardBody></Card>
+    </div>
+    {r.review.length > 0 && <Card><CardHeader><CardTitle>Questions for the client ({r.review.length})</CardTitle></CardHeader><CardBody>
+      <ol className="ml-5 list-decimal space-y-1.5 text-sm">{r.review.map((q: any) => <li key={q.key}>{q.question}</li>)}</ol>
+      <div className="mt-2"><CopyText text={r.review.map((q: any, i: number) => `${i + 1}. ${q.question}`).join("\n")} /></div></CardBody></Card>}
+    <Card><CardHeader><CardTitle>Ratios</CardTitle></CardHeader><CardBody className="p-0">
+      <Table head={["Ratio", "This year", ...(py ? ["Previous year", "Change"] : [])]} rows={r.ratios.map((x: any) => [x.name, x.cy ?? "-",
+        ...(py ? [x.py ?? "-", x.change_pct === null ? "-" : <span key="c" className={x.explain ? "font-semibold text-danger" : ""}>{x.change_pct}%{x.explain ? " (explain)" : ""}</span>] : [])])} />
+      <p className="px-4 pb-3 text-xs text-muted">Schedule III asks companies to explain any ratio that changed by more than 25%.</p></CardBody></Card>
+    <details className="rounded-xl border-2 border-line p-3"><summary className="cursor-pointer font-semibold">Every ledger and where it went ({r.ledgers.length})</summary>
+      <Table head={["Ledger", "Group", "This year", "Line", "By"]} rows={r.ledgers.map((x: any) => [x.name, x.group || "-", inr(x.cy),
+        <LedgerLine key="l" wid={wid} ledger={x.name} line={x.line} lines={FS_LINES} />, x.how ?? ""])} /></details>
+  </>);
+}
+
 export default async function WorkPage({ params }: { params: Promise<{ wid: string }> }) {
   const active = await getActiveOrg();
   if (!active) redirect("/home");
@@ -276,6 +323,7 @@ export default async function WorkPage({ params }: { params: Promise<{ wid: stri
       {w.agent === "ca_anomaly_finder" && <Anomalies r={r} />}
       {w.agent === "ca_upload_hub" && <Hub r={r} />}
       {w.agent === "ca_gstr1" && <Gstr1 r={r} />}
+      {w.agent === "ca_financial_statements" && <Financials r={r} wid={w.id} />}
     </div>
   );
 }

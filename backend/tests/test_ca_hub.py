@@ -60,6 +60,7 @@ async def test_sample_zip_routes_every_file(client, team_org):
     assert by["TDS payments Q2.csv"]["ran"]["agent"] == "ca_tds_returns"
     assert by["Day book Apr-Oct.csv"]["ran"]["agent"] == "ca_anomaly_finder"
     assert by["Sales Oct.csv"]["ran"]["agent"] == "ca_gstr1" and by["Sales Oct.csv"]["ticked"]
+    assert by["Trial balance FY25-26.csv"]["ran"]["agent"] == "ca_financial_statements"
     assert by["Purchases Oct.csv"]["ran"]["agent"] == by["GSTR2B_Oct2026.json"]["ran"]["agent"] == "ca_gst_reconciliation"
     assert by["IT notice.txt"]["doc_type"] == "notice" and by["IT notice.txt"]["ran"]["agent"] == "ca_notice_handler"
     assert by["Form16.txt"]["doc_type"] == "form16" and by["AIS.txt"]["doc_type"] == "ais"

@@ -3,7 +3,7 @@
 import { ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { BillBox, ColdEmailBox, ContentBox, DocBox, FestivalBox, HiringBox, InboxBox, LeadResearchBox, ReactivationBox, ShelfBox, VideoBox } from "./try/ai";
-import { AnomalyBox, Audit3cdBox, Gstr1Box, HubBox, BankBox, CalendarBox, CapitalGainsBox, ChaserBox, CleanerBox, ExcelBox, FilingTrackerBox, GstBox, ItrBox, NoticeBox, RecurringBooksBox, TaxDocsBox, TdsBox } from "./try/ca";
+import { AnomalyBox, Audit3cdBox, FinancialsBox, Gstr1Box, HubBox, BankBox, CalendarBox, CapitalGainsBox, ChaserBox, CleanerBox, ExcelBox, FilingTrackerBox, GstBox, ItrBox, NoticeBox, RecurringBooksBox, TaxDocsBox, TdsBox } from "./try/ca";
 import { AgentSlug, SourceOfTruth } from "./try/kit";
 import { DispatcherBox, MissedCallBox, RenewalsBox, SpeedToLeadBox } from "./try/sims";
 
@@ -18,7 +18,7 @@ const BOXES: Record<string, () => React.ReactNode> = {
   renewals: RenewalsBox, "missed-call-recovery": MissedCallBox, "sop-and-proposal-drafter": DocBox, "speed-to-lead": SpeedToLeadBox, "stock-shelf-scanner": ShelfBox,
   "ca-bank-classifier": BankBox, "ca-capital-gains": CapitalGainsBox, "ca-compliance-calendar": CalendarBox, "ca-document-chaser": ChaserBox,
   "ca-filing-tracker": FilingTrackerBox, "ca-gst-reconciliation": GstBox, "ca-itr-preparation": ItrBox, "ca-notice-handler": NoticeBox,
-  "ca-tax-audit-3cd": Audit3cdBox, "ca-excel-cleaner": CleanerBox, "ca-anomaly-finder": AnomalyBox, "ca-upload-hub": HubBox, "ca-gstr1": Gstr1Box, "ca-tax-documents-reader": TaxDocsBox, "ca-tds-returns": TdsBox,
+  "ca-tax-audit-3cd": Audit3cdBox, "ca-excel-cleaner": CleanerBox, "ca-anomaly-finder": AnomalyBox, "ca-upload-hub": HubBox, "ca-gstr1": Gstr1Box, "ca-financial-statements": FinancialsBox, "ca-tax-documents-reader": TaxDocsBox, "ca-tds-returns": TdsBox,
 };
 
 /** "Try it" on an agent's page: every agent has something to try without signing up. */

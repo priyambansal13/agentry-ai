@@ -3,7 +3,7 @@
 import { Button, Input, Label, Select } from "@agentry/ui";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { caBankLine, caBookRecurring, caDeleteRecurring, caDeleteWork, caItr, caSaveRecurring, caTool } from "@/app/(app)/actions";
+import { caBankLine, caBookRecurring, caLedgerLine, caDeleteRecurring, caDeleteWork, caItr, caSaveRecurring, caTool } from "@/app/(app)/actions";
 
 /** Forms for the CA agents that work on files (GST, capital gains, bank, notices, TDS, 3CD, Excel desk) and the ITR computation. */
 function useGo() {
@@ -117,6 +117,21 @@ export function BankLineCategory({ wid, row, category, categories }: { wid: stri
     <span className="flex items-center gap-1.5">
       <Select aria-label="Category" className="h-8 w-48 text-xs" value={category} disabled={pending}
         onChange={(e) => go(() => caBankLine(wid, { row, category: e.target.value, learn }))}>{categories.map((c) => <option key={c}>{c}</option>)}</Select>
+      <label className="flex items-center gap-1 text-xs text-muted"><input type="checkbox" checked={learn} onChange={(e) => setLearn(e.target.checked)} />learn</label>
+      <Err e={err} />
+    </span>
+  );
+}
+
+/** Place (or move) a trial-balance ledger in a Schedule III line; "learn" keeps it for the firm's later trial balances. */
+export function LedgerLine({ wid, ledger, line, lines }: { wid: string; ledger: string; line: string | null; lines: [string, string][] }) {
+  const { err, pending, go } = useGo();
+  const [learn, setLearn] = useState(true);
+  return (
+    <span className="flex items-center gap-1.5">
+      <Select aria-label={`Line for ${ledger}`} className="h-8 w-56 text-xs" value={line ?? ""} disabled={pending}
+        onChange={(e) => e.target.value && go(() => caLedgerLine(wid, { ledger, line: e.target.value, learn }))}>
+        {!line && <option value="">Not placed: choose…</option>}{lines.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select>
       <label className="flex items-center gap-1 text-xs text-muted"><input type="checkbox" checked={learn} onChange={(e) => setLearn(e.target.checked)} />learn</label>
       <Err e={err} />
     </span>
