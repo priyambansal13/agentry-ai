@@ -2,7 +2,7 @@ import { Badge, Card, CardBody, CardHeader, CardTitle } from "@agentry/ui";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AGENT_LABEL } from "@/components/ca-tools";
-import { BankLineCategory, CopyText, DeleteWork, LedgerLine } from "@/components/ca-tool-forms";
+import { BankLineCategory, CopyText, DeleteWork, LedgerLine, TaxOpening } from "@/components/ca-tool-forms";
 import { api, ApiError, getActiveOrg, getFeatures } from "@/lib/session";
 
 export const metadata = { title: "Result" };
@@ -286,6 +286,46 @@ function Financials({ r, wid }: { r: any; wid: string }) {
   </>);
 }
 
+const DEP_SEV: Record<string, "danger" | "warning" | "neutral"> = { serious: "danger", warning: "warning", info: "neutral" };
+function Depreciation({ r, wid }: { r: any; wid: string }) {
+  const s = r.summary;
+  const d = r.deferred_tax;
+  const pct = (x: number) => `${+(x * 100).toFixed(3)}%`;
+  const t = r.book_total;
+  return (<>
+    <Card><CardBody><dl className="grid gap-x-8 sm:grid-cols-2">
+      <Row k="Year" v={`${r.year.label} (${r.year.start} to ${r.year.end})`} /><Row k="Assets" v={`${s.assets} (${s.additions} added, ${s.sold} sold)`} />
+      <Row k="Book depreciation (Schedule II)" v={inr(s.book_depreciation)} /><Row k="Tax depreciation (blocks)" v={inr(s.tax_depreciation)} />
+      <Row k={`Deferred tax ${d.charge >= 0 ? "charge" : "credit"}`} v={inr(Math.abs(d.charge))} />
+      <Row k="Capital work in progress" v={s.cwip ? inr(s.cwip) : "none"} /></dl></CardBody></Card>
+    {r.checks.length > 0 && <Card><CardHeader><CardTitle>Checks</CardTitle></CardHeader><CardBody><ul className="space-y-1.5 text-sm">{r.checks.map((c: any, i: number) =>
+      <li key={i} className="flex gap-2"><Badge tone={DEP_SEV[c.severity]}>{c.severity}</Badge>{c.what}</li>)}</ul></CardBody></Card>}
+    <Card><CardHeader><CardTitle>Income-tax: written-down value by block</CardTitle></CardHeader><CardBody className="p-0">
+      <Table head={["Block", "Rate", "Opening WDV", `Added (${r.half_days}+ days)`, `Added (under ${r.half_days})`, "Sales", "Depreciation", "Closing WDV"]}
+        rows={[...r.blocks.map((b: any) => [<span key="b">{b.label}{b.stcg ? <Badge tone="danger"> STCG {inr(b.stcg)}</Badge> : null}{b.stcl ? <Badge tone="warning"> STCL {inr(b.stcl)}</Badge> : null}</span>,
+          pct(b.rate), inr(b.opening), inr(b.additions_full), inr(b.additions_half), inr(b.sales), inr(b.depreciation), inr(b.closing)]),
+          [<b key="t">Total</b>, "", ...["opening", "additions_full", "additions_half", "sales", "depreciation", "closing"].map((k) => <b key={k}>{inr(r.blocks.reduce((a: number, b: any) => a + b[k], 0))}</b>)]]} />
+    </CardBody></Card>
+    <Card><CardHeader><CardTitle>Opening tax WDV by block</CardTitle></CardHeader><CardBody>
+      <p className="mb-3 text-sm text-muted">Use last year&apos;s closing WDV from the tax computation. Changing a figure works out the blocks and the deferred tax again.</p>
+      <TaxOpening wid={wid} blocks={r.blocks} /></CardBody></Card>
+    <Card><CardHeader><CardTitle>Books: Schedule II, straight line</CardTitle></CardHeader><CardBody className="p-0">
+      <Table head={["Class", "Life (years)", "Opening WDV", "Additions", "Depreciation", "Disposals", "Closing WDV"]}
+        rows={[...r.classes.map((c: any) => [c.class, c.life ?? "-", inr(c.opening), inr(c.additions), inr(c.depreciation), inr(c.disposals), inr(c.closing)]),
+          [<b key="t">Total</b>, "", ...["opening", "additions", "depreciation", "disposals", "closing"].map((k) => <b key={k}>{inr(t[k])}</b>)]]} /></CardBody></Card>
+    <Card><CardHeader><CardTitle>Deferred tax (AS 22)</CardTitle></CardHeader><CardBody className="p-0">
+      <Table head={["", "Opening", "Closing"]} rows={[["Book WDV (depreciable assets)", inr(d.book_wdv_opening), inr(d.book_wdv_closing)],
+        ["Tax WDV", inr(d.tax_wdv_opening), inr(d.tax_wdv_closing)], ["Timing difference", inr(d.difference_opening), inr(d.difference_closing)],
+        [`Deferred tax ${d.position === "asset" ? "asset" : "liability"} at ${pct(d.tax_rate)}`, inr(d.dtl_opening), inr(d.dtl_closing)],
+        [<b key="c">{d.charge >= 0 ? "Charge" : "Credit"} for the year</b>, "", <b key="v">{inr(Math.abs(d.charge))}</b>]]} />
+      <p className="px-4 pb-3 text-xs text-muted">Land and assets paid in cash over ₹10,000 are left out: neither ever gets tax depreciation, so there&apos;s no timing difference.</p></CardBody></Card>
+    <details className="rounded-xl border-2 border-line p-3"><summary className="cursor-pointer font-semibold">Asset by asset ({r.assets.length})</summary>
+      <Table head={["Asset", "Class", "Cost", "Put to use", "Opening", "Depreciation", "Closing", "Tax"]} rows={r.assets.map((x: any) => [x.name, x.class + (x.assumed ? " (assumed)" : ""),
+        inr(x.cost), x.in_use ?? x.acquired ?? "-", inr(x.book.opening), inr(x.book.depreciation), x.sold ? `sold ${x.sold}` : x.cwip ? "CWIP" : inr(x.book.closing),
+        x.tax.cash_disallowed ? "cash: not allowed" : x.tax.half ? "half rate" : x.block ? "" : "no depreciation"])} /></details>
+  </>);
+}
+
 export default async function WorkPage({ params }: { params: Promise<{ wid: string }> }) {
   const active = await getActiveOrg();
   if (!active) redirect("/home");
@@ -324,6 +364,7 @@ export default async function WorkPage({ params }: { params: Promise<{ wid: stri
       {w.agent === "ca_upload_hub" && <Hub r={r} />}
       {w.agent === "ca_gstr1" && <Gstr1 r={r} />}
       {w.agent === "ca_financial_statements" && <Financials r={r} wid={w.id} />}
+      {w.agent === "ca_depreciation" && <Depreciation r={r} wid={w.id} />}
     </div>
   );
 }

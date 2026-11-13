@@ -9,7 +9,7 @@ is recognised, filed on the client, ticked off the checklist it answers, and the
     file        through the document chaser when it's on (matched to the checklist item, ticked), else stored with its type
     route       sales register -> GSTR-1 preparation (when GST is on, else the anomaly finder) · bank statement -> bank
                 classifier · broker P&L -> capital gains · payments register with TDS -> TDS returns · purchase register,
-                day book, ledger -> anomaly finder · trial balance -> financial statements · GSTR-2B + purchase register in the same
+                day book, ledger -> anomaly finder · trial balance -> financial statements · fixed asset register -> depreciation · GSTR-2B + purchase register in the same
                 batch -> GST reconciliation · Form 16 / 16A / AIS / TIS / 26AS -> tax documents reader · notice -> notice
                 handler. Only agents the firm has switched on; a failed run is reported, never blocks the rest.
 The batch itself is saved as one piece of work (agent "ca_upload_hub") listing every file, what it was recognised as, the
@@ -42,8 +42,10 @@ LABEL = {"bank_statement": "Bank statement", "broker_pnl": "Broker capital gains
 AGENT = {"bank_statement": "ca_bank_classifier", "broker_pnl": "ca_capital_gains", "tds_register": "ca_tds_returns",
          "sales_register": "ca_anomaly_finder", "purchase_register": "ca_anomaly_finder", "ledger": "ca_anomaly_finder",
          "form16": "ca_tax_docs_reader", "form16a": "ca_tax_docs_reader", "ais": "ca_tax_docs_reader", "tis": "ca_tax_docs_reader",
-         "26as": "ca_tax_docs_reader", "notice": "ca_notice_handler", "trial_balance": "ca_financial_statements"}
-GATE = {"ca_anomaly_finder": "excel_desk", "ca_gstr1": "ca_gst_reconciliation", "ca_financial_statements": None}  # None: every CA firm  # agents that come with another switch
+         "26as": "ca_tax_docs_reader", "notice": "ca_notice_handler", "trial_balance": "ca_financial_statements",
+         "fixed_asset_register": "ca_depreciation"}
+GATE = {"ca_anomaly_finder": "excel_desk", "ca_gstr1": "ca_gst_reconciliation", "ca_financial_statements": None,  # agents that come with another switch
+        "ca_depreciation": None}  # None: every CA firm
 SHEETS = ("text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 AFTER = {"gstr2b": "kept; reconciled when a purchase register comes in"}
 
@@ -178,6 +180,10 @@ async def _run_agent(conn, org_id: str, client: dict, agent: str, data: bytes, m
         from agentry.automations.ca import finstat
         kind = (await conn.execute(text("select kind from app.ca_clients where id = cast(:c as uuid)"), {"c": client["id"]})).scalar_one()
         result = await finstat.prepare(org_id, conn, data, mime, kind=kind, client=client["name"])
+    elif agent == "ca_depreciation":
+        from agentry.automations.ca import depreciation
+        kind = (await conn.execute(text("select kind from app.ca_clients where id = cast(:c as uuid)"), {"c": client["id"]})).scalar_one()
+        result = depreciation.compute(data, mime, kind=kind, client=client["name"])
     elif agent == "ca_gstr1":
         from agentry.automations.ca import gstr1
         result = gstr1.compute(data, mime, client_gstin=client.get("gstin"))
@@ -306,6 +312,7 @@ SAMPLE_FILES = {  # name in the zip -> sample file
     "HDFC statement Oct.csv": "bank_statement_sample.csv", "Zerodha tax P&L FY25-26.csv": "broker_pnl_sample.csv",
     "Purchases Oct.csv": "purchase_register_sample.csv", "Sales Oct.csv": "sales_register_oct_sample.csv", "GSTR2B_Oct2026.json": "gstr2b_sample.json",
     "TDS payments Q2.csv": "tds_register_sample.csv", "Trial balance FY25-26.csv": "trial_balance_sample.csv", "Day book Apr-Oct.csv": "purchase_daybook_sample.csv",
+    "Fixed assets FY25-26.csv": "fixed_asset_register_sample.csv",
     "Form16.txt": "form16_sample.txt", "AIS.txt": "ais_sample.txt", "IT notice.txt": "notice_143_1_sample.txt",
 }
 
@@ -322,7 +329,8 @@ def sample_zip() -> bytes:
 
 AGENT_LABEL = {"ca_bank_classifier": "Bank statement classifier", "ca_capital_gains": "Capital gains", "ca_tds_returns": "TDS returns",
                "ca_anomaly_finder": "Anomaly finder", "ca_tax_docs_reader": "Tax documents reader", "ca_notice_handler": "Notice handler",
-               "ca_gst_reconciliation": "GST reconciliation", "ca_gstr1": "GSTR-1 preparation", "ca_financial_statements": "Financial statements"}
+               "ca_gst_reconciliation": "GST reconciliation", "ca_gstr1": "GSTR-1 preparation", "ca_financial_statements": "Financial statements",
+               "ca_depreciation": "Depreciation"}
 
 
 def preview(uploads: list[tuple[bytes, str | None, str | None]]) -> dict:

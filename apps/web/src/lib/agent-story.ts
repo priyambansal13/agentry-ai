@@ -413,6 +413,16 @@ export const stories: Record<string, Story> = {
     before: ["Hours regrouping ledgers in Excel", "Ratios worked out by hand at the last minute", "Big swings noticed by the auditor"],
     after: ["Statements in minutes, last year alongside", "Ratios and 25% changes ready", "Client questions sent on day one"],
   },
+  "ca-depreciation": {
+    flow: ["Asset register", "Each asset classed", "Books + tax", "Deferred tax", "Into the accounts"], highlight: 2,
+    steps: [["customer", "Sends the fixed asset register with the year's purchases and sales (or it arrives through the upload hub)."],
+      ["agent", "Classes each asset for the Companies Act's useful life and the Income-tax block, and flags any it can't place."],
+      ["agent", "Works out straight-line book depreciation by days in use, and tax depreciation by block with the 180-day half rate."],
+      ["agent", "Handles sales (profit on sale, section 50), cash payments over ₹10,000 and assets not yet in use, then the deferred tax."],
+      ["you", "Enter last year's tax WDV if it's missing, check the flags, and post the entries."]],
+    before: ["Two depreciation sheets kept by hand", "The 180-day rule missed on a late purchase", "Deferred tax worked out at the last minute"],
+    after: ["Book and tax depreciation in one go", "Half rates and sales handled every time", "Deferred tax ready with the statements"],
+  },
   "ca-gstr1": {
     flow: ["Sales register", "Checked", "Each line to its table", "HSN + docs", "Offline tool Excel"], highlight: 2,
     steps: [["customer", "Sends the month's sales register (or it arrives through the upload hub)."],

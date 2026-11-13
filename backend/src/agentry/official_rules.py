@@ -27,6 +27,8 @@ BASE_FY = 2025  # the figures above are the law for FY 2025-26 (AY 2026-27): a c
 RBI = ("Reserve Bank of India: bank rate", "https://www.rbi.org.in/")
 MSMED = ("MSMED Act, 2006 (sections 15 and 16)", "https://samadhaan.msme.gov.in/")
 GST = ("GST law: CGST Rules and CBIC notifications (GSTR-1)", "https://cbic-gst.gov.in/")
+DEP_IT = ("Income-tax law: depreciation (section 32 and Appendix I rates; carried into the Income-tax Act, 2025)", "https://www.incometax.gov.in/iec/foportal/")
+DEP_CO = ("Companies Act, 2013: Schedule II (useful lives, residual value)", "https://www.mca.gov.in/")
 FEST = ("Festival dates (government holiday lists and the published panchang)", "https://dopt.gov.in/")
 
 
@@ -93,6 +95,22 @@ RULES: dict[str, Rule] = {
     # ---------- GSTR-1 ----------
     "gst.b2cl_limit": Rule("GSTR-1 preparation", "B2CL: inter-state invoice to an unregistered buyer above (else B2CS)", "amount", 100000, GST,
                            r"b2cl|b2c \(large\)|unregistered|inter-state"),
+    # ---------- Depreciation ----------
+    "dep.bld_res": Rule("Depreciation", "WDV rate: residential buildings", "rate", 0.05, DEP_IT, r"residential|building"),
+    "dep.bld": Rule("Depreciation", "WDV rate: other buildings", "rate", 0.10, DEP_IT, r"building"),
+    "dep.bld_temp": Rule("Depreciation", "WDV rate: temporary structures", "rate", 0.40, DEP_IT, r"temporary|purely temporary"),
+    "dep.furniture": Rule("Depreciation", "WDV rate: furniture and fittings", "rate", 0.10, DEP_IT, r"furniture|fittings"),
+    "dep.pm": Rule("Depreciation", "WDV rate: plant and machinery (general, incl. cars)", "rate", 0.15, DEP_IT, r"plant and machinery|machinery|motor car"),
+    "dep.vehicle_hire": Rule("Depreciation", "WDV rate: buses, lorries, taxis in a hiring business", "rate", 0.30, DEP_IT, r"lorr|bus|taxi|hire"),
+    "dep.computer": Rule("Depreciation", "WDV rate: computers and software", "rate", 0.40, DEP_IT, r"computer|software"),
+    "dep.energy": Rule("Depreciation", "WDV rate: energy-saving and renewable energy devices", "rate", 0.40, DEP_IT, r"energy|renewable|pollution"),
+    "dep.intangible": Rule("Depreciation", "WDV rate: know-how, patents, copyrights, trademarks, licences", "rate", 0.25, DEP_IT,
+                           r"intangible|patent|copyright|trade ?mark|know-how|licen"),
+    "dep.half_days": Rule("Depreciation", "Half the rate when put to use for less than (days)", "days", 180, DEP_IT, r"180 days|half|put to use"),
+    "dep.residual": Rule("Depreciation", "Residual value, books (share of cost)", "rate", 0.05, DEP_CO, r"residual value|schedule ii"),
+    "dep.tax_company": Rule("Depreciation", "Tax rate for deferred tax: company (22% + 10% surcharge + 4% cess, section 115BAA)", "rate", 0.25168, IT,
+                            r"115baa|domestic compan|corporate tax"),
+    "dep.tax_firm": Rule("Depreciation", "Tax rate for deferred tax: firm / LLP (30% + 4% cess)", "rate", 0.312, IT, r"firm|llp|partnership"),
 }
 
 # TDS: section -> (rate for individuals / HUF, rate for others, threshold, label)

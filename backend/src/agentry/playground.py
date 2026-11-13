@@ -305,7 +305,15 @@ async def financials(p: dict) -> dict:
     return _jsonable(finstat.build(ledgers, has_py=has_py, kind=kind) | {"columns": used})
 
 
-CALC = {"msme": msme_calc, "upload-hub": upload_hub, "gstr1": gstr1, "financials": financials, "excel-clean": excel_clean, "anomalies": anomalies, "itr": itr, "capital-gains": capital_gains, "tds": tds, "audit-3cd": audit_3cd, "gst": gst, "calendar": calendar,
+def depreciation(p: dict) -> dict:
+    from agentry.automations.ca import depreciation as m
+    assets, used = m.read(_rows(p.get("rows")))
+    kind = "company" if p.get("kind") not in ("firm", "individual", "llp") else p["kind"]
+    opening = {k: float(v) for k, v in (p.get("tax_opening") or {}).items() if k in m.BLOCKS and isinstance(v, (int, float)) and 0 <= v < 1e13}
+    return _jsonable(m.build(assets, fy=_s(p.get("fy"), 20) or None, kind=kind, tax_opening=opening) | {"columns": used})
+
+
+CALC = {"msme": msme_calc, "depreciation": depreciation, "upload-hub": upload_hub, "gstr1": gstr1, "financials": financials, "excel-clean": excel_clean, "anomalies": anomalies, "itr": itr, "capital-gains": capital_gains, "tds": tds, "audit-3cd": audit_3cd, "gst": gst, "calendar": calendar,
         "chaser": chaser, "tax-docs": tax_docs, "renewals": renewals}
 
 
@@ -644,6 +652,8 @@ def sample(kind: str) -> dict:
                 "questions": ["Total TDS deducted by section", "Which payments were over ₹50,000?", "How many deductees are there?"]}
     if kind == "financials":
         return {"rows": _csv(ca / "trial_balance_sample.csv"), "kind": "company"}
+    if kind == "depreciation":
+        return {"rows": _from_header(_csv(ca / "fixed_asset_register_sample.csv"), ("asset", "cost")), "fy": "FY 2025-26", "kind": "company"}
     if kind == "gstr1":
         return {"rows": _csv(ca / "sales_register_oct_sample.csv"), "gstin": "27AAKFM1234L1Z5", "period": "Oct 2026"}
     if kind == "upload-hub":
@@ -717,6 +727,7 @@ _RULES = {  # website agent slug -> official figures it uses (official_rules key
     "ca-itr-preparation": ("itr.",), "ca-capital-gains": ("cg.", "itr.rate_111a", "itr.rate_112a", "itr.ltcg_exempt"),
     "ca-tds-returns": ("tds.",), "invoice-follow-up": ("msme.",), "ca-tax-audit-3cd": ("audit.",), "ca-bank-classifier": ("bank.", "audit.cash_receipt"),
     "ca-anomaly-finder": ("audit.cash_limit", "audit.cash_receipt"), "ca-gstr1": ("gst.",),
+    "ca-depreciation": ("dep.",),
 }
 _TEXT = {  # what the other boxes rest on: (basis, [(label, source, url)])
     "ca-gst-reconciliation": ("Your purchase register against the GSTR-2B statement, matched by supplier GSTIN and invoice number.", [
@@ -733,6 +744,12 @@ _TEXT = {  # what the other boxes rest on: (basis, [(label, source, url)])
         ("Schedule III", "Companies Act, 2013: format of the balance sheet and statement of profit and loss", "https://www.mca.gov.in/"),
         ("Ratios", "Schedule III (amended 24 Mar 2021): ratios to disclose; explain a change over 25%", "https://www.mca.gov.in/"),
         ("Placing ledgers", "Rules on the ledger name and its Tally group; the firm's corrections are learned; the AI only suggests for leftovers", None)]),
+    "ca-depreciation": (("Your fixed asset register: tax depreciation by block at the Income-tax rates, book depreciation by straight line "
+                         "over the Companies Act's Schedule II lives; the rates are official figures checked daily."), [
+        ("Income-tax", ("Section 32 and the depreciation rates table: written-down value by block, half the rate if used under 180 days; "
+                        "section 50 on a block sold out; section 43(1) on cash payments over ₹10,000"), "https://www.incometax.gov.in/iec/foportal/"),
+        ("Companies Act", "Schedule II: useful lives, 5% residual value, pro rata from the date put to use", "https://www.mca.gov.in/"),
+        ("Deferred tax", "AS 22: timing difference between book and tax WDV at the enacted tax rate", "https://www.icai.org/")]),
     "ca-gstr1": (("Your sales register and the GST law: tables as in the GST portal's offline tool; the B2CL limit is an official figure "
                   "checked daily."), [
         ("Place of supply", "IGST Act sections 10-12: inter-state (IGST) vs intra-state (CGST + SGST)", "https://cbic-gst.gov.in/"),

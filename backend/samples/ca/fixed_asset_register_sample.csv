@@ -1,0 +1,22 @@
+Mehta Steel Pvt Ltd
+Fixed Asset Register FY 2025-26
+
+Asset Code,Asset,Category,Date of Purchase,Put to Use Date,Cost,Opening Accumulated Depreciation,Opening Tax WDV,Sale Date,Sale Value,Useful Life (Years),Payment Mode
+FA-001,"Factory land, Taloja MIDC",Land,10/06/2015,,4500000,0,,,,,Bank
+FA-002,"Factory building, Taloja",Factory building,15/01/2016,01/03/2016,3200000,920531,1177758,,,30,Bank
+FA-003,"Office premises, Andheri",Building,01/07/2019,15/07/2019,2400000,217128,1275458,,,60,Bank
+FA-004,CNC lathe machine,Plant and machinery,20/04/2018,02/05/2018,1850000,810303,593068,,,15,Bank
+FA-005,Hydraulic press 100T,Plant and machinery,10/09/2020,25/09/2020,1200000,343118,532446,,,15,Bank
+FA-006,DG set 125 kVA,Plant and machinery,05/11/2019,05/11/2019,650000,222486,266778,,,15,Bank
+FA-007,Toyota Innova MH46 AB 2211,Motor car,14/08/2021,14/08/2021,1950000,840662,1017912,20/12/2025,950000,8,Bank
+FA-008,Office furniture,Furniture and fittings,01/05/2017,01/05/2017,480000,361055,206624,,,10,Bank
+FA-009,Dell laptops (5),Computers,15/06/2022,15/06/2022,375000,331947,81000,,,3,Bank
+FA-010,Tally Prime licence,Software,10/04/2023,10/04/2023,54000,20281,19440,,,,Bank
+FA-011,Air conditioners (4),Office equipment,25/03/2021,28/03/2021,180000,137175,86914,,,5,Bank
+FA-012,Laser cutting machine,Plant and machinery,12/05/2025,01/06/2025,2750000,,,,,15,NEFT
+FA-013,Mahindra Bolero pick-up,Vehicle - pick up,18/09/2025,20/09/2025,980000,,,,,8,NEFT
+FA-014,Rooftop solar plant 50 kW,Solar power plant,25/11/2025,10/01/2026,2100000,,,,,15,RTGS
+FA-015,Office chairs (8),Furniture and fittings,04/10/2025,04/10/2025,28000,,,,,10,Cash
+FA-016,Server rack and NAS,Servers,15/02/2026,15/02/2026,420000,,,,,6,NEFT
+FA-017,Powder coating line,Plant and machinery,20/03/2026,15/04/2026,1650000,,,,,15,RTGS
+FA-018,Platform weighing scale,Misc,01/08/2025,01/08/2025,45000,,,,,,UPI

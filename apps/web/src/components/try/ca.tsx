@@ -402,6 +402,49 @@ export function FinancialsBox() {
   );
 }
 
+/* ---------- Depreciation (fixed rules, no AI) ---------- */
+
+export function DepreciationBox() {
+  const s = useSample("depreciation");
+  const [rows, setRows] = useState<string[][]>([]);
+  useEffect(() => { if (s) setRows(s.rows); }, [s]);
+  const r = useRun("depreciation", false);
+  const x = r.result;
+  const pct = (v: number) => `${+(v * 100).toFixed(3)}%`;
+  return (
+    <TryShell title="A fixed asset register, depreciated twice: books and tax"
+      intro="Mehta Steel Pvt Ltd's register for FY 2025-26: 18 assets including land, a car sold in December, a solar plant and a server put to use late in the year, chairs paid in cash, a machine not yet installed and one with no category. Edit any date or amount and work it out again."
+      sell="In the portal you upload the client's register from their page (or it arrives through the upload hub), enter last year's tax WDV by block if the register doesn't carry it, and download the Schedule II, block and deferred tax workings as Excel.">
+      <SheetEditor rows={rows} onChange={setRows} caption="Fixed asset register" maxRows={40} />
+      <div className="mt-4"><RunButton r={r} label="Work out depreciation" input={() => ({ rows, fy: s?.fy, kind: s?.kind })} disabled={!s} /></div>
+      {x && (
+        <div className="mt-6 space-y-4">
+          <div className="grid gap-3 sm:grid-cols-3"><Stat label="Book depreciation (Schedule II)" value={inr(x.summary.book_depreciation)} note={x.year.label} />
+            <Stat label="Tax depreciation (blocks)" value={inr(x.summary.tax_depreciation)} note={`${x.summary.additions} added, ${x.summary.sold} sold`} />
+            <Stat label={`Deferred tax ${x.deferred_tax.charge >= 0 ? "charge" : "credit"}`} value={inr(Math.abs(x.deferred_tax.charge))}
+              note={`at ${pct(x.deferred_tax.tax_rate)} on the change in timing difference`} /></div>
+          {x.checks.length > 0 && <Panel title="Checks" tone="warn"><ul className="space-y-1.5 text-sm">{x.checks.map((c: Any, i: number) =>
+            <li key={i} className="flex gap-2"><Severity level={c.severity === "serious" ? "high" : "low"} /><span>{c.what}</span></li>)}</ul></Panel>}
+          <Panel title="Income-tax: written-down value by block"><div className="overflow-x-auto"><table className="w-full text-sm">
+            <thead><tr className="text-left text-xs text-muted"><th>Block</th><th className="text-right">Rate</th><th className="text-right">Opening</th><th className="text-right">Added</th>
+              <th className="text-right">Sales</th><th className="text-right">Depreciation</th><th className="text-right">Closing</th></tr></thead>
+            <tbody>{x.blocks.map((b: Any) => <tr key={b.key} className="border-t border-line"><td className="py-1">{b.label}{b.additions_half > 0 && <span className="ml-1 text-xs text-muted">({inr(b.additions_half)} at half rate)</span>}</td>
+              <td className="text-right">{pct(b.rate)}</td><td className="text-right tabular-nums">{inr(b.opening)}</td><td className="text-right tabular-nums">{inr(b.additions_full + b.additions_half)}</td>
+              <td className="text-right tabular-nums">{inr(b.sales)}</td><td className="text-right font-semibold tabular-nums">{inr(b.depreciation)}</td><td className="text-right tabular-nums">{inr(b.closing)}</td></tr>)}</tbody></table></div></Panel>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Panel title="Books: Schedule II, straight line"><table className="w-full text-sm"><thead><tr className="text-left text-xs text-muted"><th>Class</th><th className="text-right">Life</th><th className="text-right">Depreciation</th><th className="text-right">Closing</th></tr></thead>
+              <tbody>{x.classes.map((c: Any) => <tr key={c.class} className="border-t border-line"><td className="py-1">{c.class}</td><td className="text-right">{c.life ? `${c.life} yrs` : "–"}</td>
+                <td className="text-right tabular-nums">{inr(c.depreciation)}</td><td className="text-right tabular-nums">{inr(c.closing)}</td></tr>)}</tbody></table></Panel>
+            <Panel title="Deferred tax"><table className="w-full text-sm"><thead><tr className="text-xs text-muted"><th /><th className="text-right">Opening</th><th className="text-right">Closing</th></tr></thead>
+              <tbody>{[["Book WDV", "book_wdv"], ["Tax WDV", "tax_wdv"], ["Timing difference", "difference"], [`Deferred tax ${x.deferred_tax.position === "asset" ? "asset" : "liability"}`, "dtl"]].map(([l, k]) =>
+                <tr key={k} className="border-t border-line"><td className="py-1">{l}</td><td className="text-right tabular-nums">{inr(x.deferred_tax[`${k}_opening`])}</td><td className="text-right tabular-nums">{inr(x.deferred_tax[`${k}_closing`])}</td></tr>)}</tbody></table>
+              <p className="mt-2 text-xs text-muted">Land and cash-paid assets are left out: they never get tax depreciation, so there&apos;s no timing difference.</p></Panel>
+          </div>
+        </div>)}
+    </TryShell>
+  );
+}
+
 /* ---------- GSTR-1 preparation (fixed rules, no AI) ---------- */
 
 const G1: [string, string, (x: Any[]) => string[]][] = [

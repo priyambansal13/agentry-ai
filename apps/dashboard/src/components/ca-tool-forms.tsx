@@ -3,7 +3,7 @@
 import { Button, Input, Label, Select } from "@agentry/ui";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { caBankLine, caBookRecurring, caLedgerLine, caDeleteRecurring, caDeleteWork, caItr, caSaveRecurring, caTool } from "@/app/(app)/actions";
+import { caBankLine, caBookRecurring, caLedgerLine, caDeleteRecurring, caDeleteWork, caItr, caSaveRecurring, caTaxOpening, caTool } from "@/app/(app)/actions";
 
 /** Forms for the CA agents that work on files (GST, capital gains, bank, notices, TDS, 3CD, Excel desk) and the ITR computation. */
 function useGo() {
@@ -135,6 +135,26 @@ export function LedgerLine({ wid, ledger, line, lines }: { wid: string; ledger: 
       <label className="flex items-center gap-1 text-xs text-muted"><input type="checkbox" checked={learn} onChange={(e) => setLearn(e.target.checked)} />learn</label>
       <Err e={err} />
     </span>
+  );
+}
+
+/** Last year's closing tax WDV by block (from the tax computation): the blocks and deferred tax are worked out again. */
+export function TaxOpening({ wid, blocks }: { wid: string; blocks: { key: string; label: string; opening: number; opening_from: string }[] }) {
+  const { err, pending, go } = useGo();
+  const [v, setV] = useState<Record<string, string>>(Object.fromEntries(blocks.map((b) => [b.key, String(b.opening)])));
+  const num = (k: string) => Number((v[k] ?? "").replace(/,/g, ""));
+  const changed = blocks.filter((b) => (v[b.key] ?? "").trim() !== "" && num(b.key) !== b.opening);
+  return (
+    <form className="space-y-3" onSubmit={(e) => {
+      e.preventDefault();
+      go(() => caTaxOpening(wid, Object.fromEntries(changed.map((b) => [b.key, num(b.key)]))));
+    }}>
+      <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">{blocks.map((b) => (
+        <div key={b.key} className="space-y-0.5"><Label htmlFor={`op-${b.key}`} className="text-xs">{b.label} <span className="text-muted">({b.opening_from})</span></Label>
+          <Input id={`op-${b.key}`} inputMode="decimal" className="h-9" value={v[b.key] ?? ""} onChange={(e) => setV({ ...v, [b.key]: e.target.value })} /></div>))}</div>
+      <Button type="submit" disabled={pending || !changed.length || changed.some((b) => !Number.isFinite(num(b.key)) || num(b.key) < 0)}>
+        {pending ? "Working out…" : "Use these opening figures"}</Button><Err e={err} />
+    </form>
   );
 }
 

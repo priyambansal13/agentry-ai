@@ -24,6 +24,7 @@ from agentry.automations.ca import (
     chaser,
     cleaner,
     core,
+    depreciation,
     excel,
     finstat,
     gst,
@@ -607,6 +608,8 @@ async def work_sheet(wid: str, ctx: Any) -> Response:
         body = gstr1.sheet(r)
     elif w["agent"] == "ca_financial_statements":
         body = finstat.sheet(r)
+    elif w["agent"] == "ca_depreciation":
+        body = depreciation.sheet(r)
     elif w["agent"] in SHEETS:
         body = SHEETS[w["agent"]](r)
     else:
@@ -723,6 +726,53 @@ async def finstat_correct(wid: str, body: LedgerLine, ctx: Any) -> dict:
         await conn.execute(text("update app.ca_work set result = cast(:r as jsonb), updated_at = now() where id = cast(:i as uuid)"),
                            {"r": json.dumps(r, default=str), "i": wid})
     return {"summary": r["summary"], "balanced": r["balance_sheet"]["balanced"]}
+
+
+# Depreciation from a fixed asset register (docs/PLAN-CA-DESK-2.md #6): any CA firm
+
+async def _depreciation(ctx: OrgContext, cid: str, upload: tuple[bytes, str | None, str | None], fy: str | None) -> dict:
+    async with tenant_session(ctx.org_id) as conn:
+        c = await _client(conn, cid)
+
+    async def run(data: bytes, mime: str) -> dict:
+        return depreciation.compute(data, mime, fy=fy, kind=c["kind"], client=c["name"])
+    return await _one(ctx, cid, "ca_depreciation", upload, "fixed_asset_register", f"Depreciation {fy or ''}: {upload[1]}".replace("  ", " "), run)
+
+
+@router.post("/clients/{cid}/depreciation", status_code=201)
+async def depreciation_run(cid: str, ctx: Any, file: Annotated[UploadFile, File()], fy: Annotated[str | None, Form(max_length=20)] = None) -> dict:
+    _work(ctx)
+    return await _depreciation(ctx, cid, (await file.read(), file.filename, file.content_type), (fy or "").strip() or None)
+
+
+@router.post("/clients/{cid}/depreciation/sample", status_code=201)
+async def depreciation_sample(cid: str, ctx: Any) -> dict:
+    _work(ctx)
+    p = SAMPLE / "fixed_asset_register_sample.csv"
+    return await _depreciation(ctx, cid, (p.read_bytes(), p.name, "text/csv"), None)
+
+
+class TaxOpening(BaseModel):
+    opening: dict[str, Annotated[float, Field(ge=0, le=1e13)]] = Field(max_length=20)
+
+
+@router.post("/work/{wid}/tax-opening")
+async def depreciation_opening(wid: str, body: TaxOpening, ctx: Any) -> dict:
+    """Last year's closing tax WDV by block (from the tax computation): the blocks and deferred tax are worked out again."""
+    _work(ctx)
+    async with tenant_session(ctx.org_id) as conn:
+        w = await _work_row(conn, wid)
+        if w["agent"] != "ca_depreciation":
+            raise HTTPException(404, "not a depreciation result")
+        try:
+            r = depreciation.rebuild(w["result"], body.opening)
+        except core.CaError as e:
+            raise _err(e) from e
+        await conn.execute(text("update app.ca_work set result = cast(:r as jsonb), updated_at = now() where id = cast(:i as uuid)"),
+                           {"r": json.dumps(r, default=str), "i": wid})
+        await audit.record(conn, org_id=ctx.org_id, actor_type="user", actor_user_id=ctx.principal.user_id, action="ca_depreciation.tax_opening",
+                           target_type="ca_work", target_id=wid, metadata={"blocks": sorted(body.opening)})
+    return {"summary": r["summary"]}
 
 
 # ITR preparation
