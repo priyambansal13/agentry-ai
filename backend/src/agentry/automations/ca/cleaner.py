@@ -111,7 +111,8 @@ def _kind(name: str, values: list[str]) -> str:
         return "phone"
     if re.search(r"date|dt\b|dated", n) or share(lambda v: _date(v, False) is not None and not re.fullmatch(r"\d+(\.\d+)?", v.strip())) >= 0.7:
         return "date"
-    if share(lambda v: _num(v) is not None) >= 0.7 and not re.search(r"\bno\b|number|invoice|voucher|bill|code|hsn|sac|pin|account", n):
+    code_like = re.search(r"\bno\b|number|invoice|voucher|bill|code|hsn|sac|pin|account", n) and not re.search(r"value|amount|\bamt\b|total|tax", n)
+    if share(lambda v: _num(v) is not None) >= 0.7 and not code_like:
         return "number"
     return "text"
 

@@ -1,0 +1,26 @@
+Mehta Traders (GSTIN 27AAKFM1234L1Z5)
+Sales Register October 2026
+
+Invoice Date,Invoice No,Voucher Type,Customer,Customer GSTIN,Place of Supply,HSN,Description,Qty,UQC,Taxable Value,Rate,IGST,CGST,SGST,Cess,Invoice Value,Port Code,Shipping Bill No,Shipping Bill Date
+02/10/2026,MT/26-27/101,Invoice,Shah Engineering Works,27AAPFS4411K1ZV,27-Maharashtra,73181500,MS bolts,2000,NOS,84000,18,,7560.0,7560.0,,99120.0,,,
+03/10/2026,MT/26-27/102,Invoice,Patil Fabricators,27ABCPP7712M1ZA,27-Maharashtra,72085100,HR plates,1200,KGS,96000,18,,8640.0,8640.0,,113280.0,,,
+05/10/2026,MT/26-27/103,Invoice,Kaveri Industries,29AAFCK3301D1ZZ,29-Karnataka,73181500,MS bolts,5000,NOS,210000,18,37800.0,,,,247800.0,,,
+06/10/2026,MT/26-27/104,Invoice,Walk-in customer,,27-Maharashtra,82055990,Hand tools,15,NOS,6500,18,,585.0,585.0,,7670.0,,,
+07/10/2026,MT/26-27/105,Invoice,Delta Pumps Pvt Ltd,24AADCD5521E1Z6,24-Gujarat,84137010,Pump spares,40,NOS,152000,18,27360.0,,,,179360.0,,,
+09/10/2026,MT/26-27/106,Invoice,R. Iyer (unregistered),,33-Tamil Nadu,84137010,Pump spares,30,NOS,125000,18,22500.0,,,,147500.0,,,
+09/10/2026,MT/26-27/107,Invoice,Online buyer,,07-Delhi,82055990,Hand tools,10,NOS,4200,18,756.0,,,,4956.0,,,
+10/10/2026,MT/26-27/108,Invoice,Gulf Traders LLC,,96-Other Countries,73181500,MS bolts,20000,NOS,640000,0,,,,,640000.0,INNSA1,4410023,12/10/2026
+12/10/2026,MT/26-27/109,Invoice,Shah Engineering Works,27AAPFS4411K1ZV,27-Maharashtra,73181500,MS bolts,1500,NOS,63000,18,,5670.0,5670.0,,74340.0,,,
+13/10/2026,MT/26-27/111,Invoice,Sunrise Steels,33AAGCS8890F1Z1,33-Tamil Nadu,72085100,HR plates,3000,KGS,240000,18,43200.0,,,,283200.0,,,
+14/10/2026,MT/26-27/112,Invoice,Patil Fabricators,27ABCPP7712M1ZA,27-Maharashtra,72085100,HR plates,800,KGS,64000,18,11520,,,,75520,,,
+15/10/2026,MT/26-27/113,Invoice,Kaveri Industries,29AAFCK3301D1ZZ,29-Karnataka,8413,Pump spares,10,NOS,38000,12,4560.0,,,,42560.0,,,
+16/10/2026,MT/26-27/114,Invoice,Om Sai Hardware,27AABCO1234X1ZK,27-Maharashtra,82055990,Hand tools,60,NOS,21000,18,,1890.0,1890.0,,24780.0,,,
+18/10/2026,MT/26-27/115,Invoice,Walk-in customer,,27-Maharashtra,82055990,Hand tools,8,NOS,3600,5,,90.0,90.0,,3780.0,,,
+20/10/2026,MT/26-27/116,Invoice,Delta Pumps Pvt Ltd,24AADCD5521E1Z6,24-Gujarat,84137010,Pump spares,25,NOS,95000,18,17100.0,,,,113000,,,
+21/10/2026,MT/26-27/116,Invoice,Shah Engineering Works,27AAPFS4411K1ZV,27-Maharashtra,73181500,MS bolts,500,NOS,21000,18,,1890.0,1890.0,,24780.0,,,
+22/10/2026,MT/26-27/117,Invoice,Gulf Traders LLC,,96-Other Countries,84137010,Pump spares,50,NOS,180000,18,32400.0,,,,212400.0,INNSA1,4410290,24/10/2026
+24/10/2026,MT/26-27/118,Invoice,Patil Fabricators,27ABCPP7712M1ZA,27-Maharashtra,72,HR plates,300,KGS,24000,18,,2160.0,2160.0,,28320.0,,,
+30/09/2026,MT/26-27/100,Invoice,Shah Engineering Works,27AAPFS4411K1ZV,27-Maharashtra,73181500,MS bolts,400,NOS,16800,18,,1512.0,1512.0,,19824.0,,,
+26/10/2026,CN/26-27/07,Credit Note,Shah Engineering Works,27AAPFS4411K1ZV,27-Maharashtra,73181500,MS bolts returned,100,NOS,4200,18,,378.0,378.0,,4956.0,,,
+27/10/2026,CN/26-27/08,Credit Note,R. Iyer (unregistered),,33-Tamil Nadu,84137010,Pump spares returned,5,NOS,20000,18,3600.0,,,,23600.0,,,
+28/10/2026,DN/26-27/02,Debit Note,Kaveri Industries,29AAFCK3301D1ZZ,29-Karnataka,73181500,Price difference,,,5000,18,900.0,,,,5900.0,,,

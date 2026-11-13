@@ -882,7 +882,7 @@ export async function hqDueDateAdd(body: Record<string, string>) {
 
 export async function caTool(path: string, form: FormData | null, cid?: string) {
   // path: "/org/ca/clients/{cid}/gst", ".../bank/sample", "/org/ca/excel/table"…
-  if (!/^\/org\/ca\/(clients\/[0-9a-f-]{36}\/(gst|capital-gains|bank|notices|tds|audit|anomalies|hub)(\/sample)?|excel\/(table|reconcile|ask|(clean|anomalies)(\/sample)?))$/.test(path)) {
+  if (!/^\/org\/ca\/(clients\/[0-9a-f-]{36}\/(gst|capital-gains|bank|notices|tds|audit|anomalies|hub|gstr1)(\/sample)?|excel\/(table|reconcile|ask|(clean|anomalies)(\/sample)?))$/.test(path)) {
     return { ok: false as const, error: "unknown tool" };
   }
   const paths = [...caPaths(cid), "/excel"];

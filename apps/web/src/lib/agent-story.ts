@@ -403,6 +403,15 @@ export const stories: Record<string, Story> = {
     before: ["The same entries typed every month", "EMI splits worked out by hand", "Overspending noticed at year end"],
     after: ["Routine entries post themselves", "Correct interest and principal every month", "Budget alerts while there's still time"],
   },
+  "ca-gstr1": {
+    flow: ["Sales register", "Checked", "Each line to its table", "HSN + docs", "Offline tool Excel"], highlight: 2,
+    steps: [["customer", "Sends the month's sales register (or it arrives through the upload hub)."],
+      ["agent", "Checks every line first: GSTIN, IGST vs CGST + SGST for the place of supply, rate, value, invoice number, date."],
+      ["agent", "Places each line in B2B, B2CL, B2CS, exports or notes, and builds the HSN summary and documents issued."],
+      ["you", "Fix what's flagged with the client, download the workbook and import it into the offline tool."]],
+    before: ["Copy-pasting the register into the offline tool's sheets", "Wrong tax type found after filing", "HSN and Table 13 built by hand"],
+    after: ["Every table filled in minutes", "Problems fixed before filing", "HSN and documents issued done for you"],
+  },
   "ca-upload-hub": {
     flow: ["Zip or many files", "Each recognised", "Filed + ticked", "Right agent runs", "Work waiting"], highlight: 3,
     steps: [["customer", "Sends everything at once from their portal link: a zip, a folder's worth of PDFs, phone photos."],

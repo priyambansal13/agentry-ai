@@ -26,6 +26,7 @@ from agentry.automations.ca import (
     core,
     excel,
     gst,
+    gstr1,
     hub,
     itr,
     notices,
@@ -601,6 +602,8 @@ async def work_sheet(wid: str, ctx: Any) -> Response:
         body = anomalies.sheet(r)
     elif w["agent"] == "ca_upload_hub":
         body = hub.sheet(r)
+    elif w["agent"] == "ca_gstr1":
+        body = gstr1.sheet(r)
     elif w["agent"] in SHEETS:
         body = SHEETS[w["agent"]](r)
     else:
@@ -642,6 +645,33 @@ async def gst_sample(cid: str, ctx: GstOn) -> dict:
     _work(ctx)
     return await _gst(ctx, cid, ((SAMPLE / "gstr2b_sample.json").read_bytes(), "gstr2b_sample.json", "application/json"),
                       ((SAMPLE / "purchase_register_sample.csv").read_bytes(), "purchase_register_sample.csv", "text/csv"), "Oct 2026 (sample)")
+
+
+# GSTR-1 preparation (docs/PLAN-CA-DESK-2.md #4): comes with GST reconciliation
+
+def _gstr1_runner(gstin: str | None, period: str | None):
+    async def run(data: bytes, mime: str) -> dict:
+        return gstr1.compute(data, mime, client_gstin=gstin, period=period)
+    return run
+
+
+async def _gstr1(ctx: OrgContext, cid: str, upload: tuple[bytes, str | None, str | None], period: str | None) -> dict:
+    async with tenant_session(ctx.org_id) as conn:
+        gstin = (await _client(conn, cid))["gstin"]
+    return await _one(ctx, cid, "ca_gstr1", upload, "sales_register", f"GSTR-1 {period or ''}".strip(), _gstr1_runner(gstin, period))
+
+
+@router.post("/clients/{cid}/gstr1", status_code=201)
+async def gstr1_run(cid: str, ctx: GstOn, file: Annotated[UploadFile, File()], period: Annotated[str | None, Form(max_length=30)] = None) -> dict:
+    _work(ctx)
+    return await _gstr1(ctx, cid, (await file.read(), file.filename, file.content_type), (period or "").strip() or None)
+
+
+@router.post("/clients/{cid}/gstr1/sample", status_code=201)
+async def gstr1_sample(cid: str, ctx: GstOn) -> dict:
+    _work(ctx)
+    p = SAMPLE / "sales_register_oct_sample.csv"
+    return await _gstr1(ctx, cid, (p.read_bytes(), p.name, "text/csv"), "Oct 2026")
 
 
 # ITR preparation

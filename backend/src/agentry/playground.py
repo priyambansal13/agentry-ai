@@ -31,7 +31,7 @@ from agentry.llm.prompts import load
 IST = ZoneInfo("Asia/Kolkata")
 CALC_PER_HOUR = 120
 LIVE_PER_DAY = 8
-MAX_ROWS, MAX_COLS, MAX_CELL = 60, 16, 200
+MAX_ROWS, MAX_COLS, MAX_CELL = 60, 24, 200
 MAX_TEXT = 6000
 MAX_IMAGE = 4 * 1024 * 1024
 EST_COST = 0.02  # held against the budget before a live try runs
@@ -292,7 +292,12 @@ def upload_hub(p: dict) -> dict:
     return _jsonable(hub.preview([(hub.sample_zip(), "documents-from-client.zip", "application/zip")]))
 
 
-CALC = {"msme": msme_calc, "upload-hub": upload_hub, "excel-clean": excel_clean, "anomalies": anomalies, "itr": itr, "capital-gains": capital_gains, "tds": tds, "audit-3cd": audit_3cd, "gst": gst, "calendar": calendar,
+def gstr1(p: dict) -> dict:
+    from agentry.automations.ca import gstr1 as m
+    return _jsonable(m.prepare(_rows(p.get("rows")), client_gstin=_s(p.get("gstin"), 15) or "27AAKFM1234L1Z5", period=_s(p.get("period"), 20) or None))
+
+
+CALC = {"msme": msme_calc, "upload-hub": upload_hub, "gstr1": gstr1, "excel-clean": excel_clean, "anomalies": anomalies, "itr": itr, "capital-gains": capital_gains, "tds": tds, "audit-3cd": audit_3cd, "gst": gst, "calendar": calendar,
         "chaser": chaser, "tax-docs": tax_docs, "renewals": renewals}
 
 
@@ -629,6 +634,8 @@ def sample(kind: str) -> dict:
     if kind == "excel":
         return {"rows": _csv(ca / "tds_register_sample.csv"),
                 "questions": ["Total TDS deducted by section", "Which payments were over ₹50,000?", "How many deductees are there?"]}
+    if kind == "gstr1":
+        return {"rows": _csv(ca / "sales_register_oct_sample.csv"), "gstin": "27AAKFM1234L1Z5", "period": "Oct 2026"}
     if kind == "upload-hub":
         from agentry.automations.ca import hub
         return {"files": list(hub.SAMPLE_FILES)}
@@ -699,7 +706,7 @@ async def run(kind: str, payload: dict, *, ip: str | None, token: str | None) ->
 _RULES = {  # website agent slug -> official figures it uses (official_rules key prefixes / keys)
     "ca-itr-preparation": ("itr.",), "ca-capital-gains": ("cg.", "itr.rate_111a", "itr.rate_112a", "itr.ltcg_exempt"),
     "ca-tds-returns": ("tds.",), "invoice-follow-up": ("msme.",), "ca-tax-audit-3cd": ("audit.",), "ca-bank-classifier": ("bank.", "audit.cash_receipt"),
-    "ca-anomaly-finder": ("audit.cash_limit", "audit.cash_receipt"),
+    "ca-anomaly-finder": ("audit.cash_limit", "audit.cash_receipt"), "ca-gstr1": ("gst.",),
 }
 _TEXT = {  # what the other boxes rest on: (basis, [(label, source, url)])
     "ca-gst-reconciliation": ("Your purchase register against the GSTR-2B statement, matched by supplier GSTIN and invoice number.", [
@@ -711,6 +718,12 @@ _TEXT = {  # what the other boxes rest on: (basis, [(label, source, url)])
         ("Checklists", "Agentry's checklist per filing (ITR, GST, TDS, audit, ROC); each firm can edit its own", None)]),
     "ca-notice-handler": ("Only the notice's own text: the dates, demand and DIN read are checked against it before they're shown.", [
         ("The notice", "As issued by the Income Tax Department (verify it on the e-filing portal with its DIN)", "https://www.incometax.gov.in/iec/foportal/")]),
+    "ca-gstr1": (("Your sales register and the GST law: tables as in the GST portal's offline tool; the B2CL limit is an official figure "
+                  "checked daily."), [
+        ("Place of supply", "IGST Act sections 10-12: inter-state (IGST) vs intra-state (CGST + SGST)", "https://cbic-gst.gov.in/"),
+        ("GST rates", "CBIC notifications: 5% / 18% / 40% from 22 Sep 2025 (12% and 28% removed, except tobacco)", "https://cbic-gst.gov.in/"),
+        ("GSTR-1 tables", "GSTR-1 offline tool Excel workbook (B2B, B2CL, B2CS, CDNR, CDNUR, EXP, HSN B2B / B2C, docs)", "https://www.gst.gov.in/download/returns"),
+        ("Invoice numbers", "CGST Rule 46: up to 16 characters, letters, digits, / and -", "https://cbic-gst.gov.in/")]),
     "ca-upload-hub": (("Spreadsheets are recognised by their columns and title lines (no AI); PDFs and photos by the document reader, "
                        "checked against the client's checklist."), [
         ("Checklists", "Agentry's checklist per filing (ITR, GST, TDS, audit, ROC); each firm can edit its own", None),

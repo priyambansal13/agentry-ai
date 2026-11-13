@@ -357,6 +357,46 @@ export function ExcelBox() {
   );
 }
 
+/* ---------- GSTR-1 preparation (fixed rules, no AI) ---------- */
+
+const G1: [string, string, (x: Any[]) => string[]][] = [
+  ["b2b", "B2B", (x) => [x[2], x[1], x[5], `${x[10]}%`, inr(x[11])]], ["b2cl", "B2C large", (x) => [x[0], "", x[3], `${x[5]}%`, inr(x[6])]],
+  ["b2cs", "B2C small", (x) => ["", "", x[1], `${x[3]}%`, inr(x[4])]], ["exp", "Exports", (x) => [x[1], x[0], x[4] || "", `${x[7]}%`, inr(x[8])]],
+  ["cdnr", "Notes (registered)", (x) => [x[2], x[1], x[5], `${x[10]}%`, inr(x[11])]], ["cdnur", "Notes (unregistered)", (x) => [x[1], x[0], x[4], `${x[7]}%`, inr(x[8])]],
+];
+
+export function Gstr1Box() {
+  const s = useSample("gstr1");
+  const [rows, setRows] = useState<string[][]>([]);
+  useEffect(() => { if (s) setRows(s.rows); }, [s]);
+  const r = useRun("gstr1", false);
+  const x = r.result;
+  return (
+    <TryShell title="October's sales register, ready for GSTR-1"
+      intro="A Maharashtra trader's 22 entries for the month: local and other-state customers, walk-ins, an export under LUT and one with IGST, credit and debit notes. Each line is placed in its GSTR-1 table and checked first; edit any cell (try changing a place of supply) and prepare again."
+      sell="In the portal you upload the client's register from their page (or it arrives through the upload hub), and download every table as the GST offline tool's Excel workbook, with the HSN summary and documents issued filled in.">
+      <SheetEditor rows={rows} onChange={setRows} caption="Sales register (Oct 2026)" maxRows={30} />
+      <div className="mt-4"><RunButton r={r} label="Prepare GSTR-1" input={() => ({ rows, gstin: s?.gstin, period: s?.period })} disabled={!s} /></div>
+      {x && (
+        <div className="mt-6 space-y-4">
+          <div className="grid gap-3 sm:grid-cols-3"><Stat label="Taxable value" value={inr(x.totals.all.taxable)} note={`${x.totals.all.count} documents, ${x.period}`} />
+            <Stat label="Tax" value={inr(x.totals.all.igst + x.totals.all.cgst + x.totals.all.sgst)} note={`IGST ${inr(x.totals.all.igst)} · CGST ${inr(x.totals.all.cgst)} · SGST ${inr(x.totals.all.sgst)}`} />
+            <Stat label="To fix first" value={x.summary.high} note={`${x.summary.medium + x.summary.low} more to check`} /></div>
+          {x.issues.length > 0 && <Panel title="Checks before filing" tone="warn"><ul className="space-y-1.5 text-sm">{x.issues.map((i: Any, n: number) => <li key={n} className="flex gap-2">
+            <Severity level={i.severity} /><span>{i.invoice && <span className="font-semibold">{i.invoice}: </span>}{i.problem}{i.value && !i.invoice ? ` (${i.value})` : ""}</span></li>)}</ul></Panel>}
+          <Panel title="Where each line went"><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left text-xs text-muted"><th className="py-1 pr-2">Table</th><th className="pr-2">Invoice / note</th><th className="pr-2">Customer / type</th><th className="pr-2">Place of supply</th><th className="pr-2">Rate</th><th className="text-right">Taxable</th></tr></thead>
+            <tbody>{G1.flatMap(([k, label, f]) => (x.tables[k] ?? []).map((row: Any[], i: number) => { const c = f(row); return (
+              <tr key={`${k}${i}`} className="border-t border-line"><td className="py-1.5 pr-2 font-semibold">{label}</td>{c.slice(0, 4).map((v, j) => <td key={j} className="pr-2">{v}</td>)}<td className="text-right tabular-nums">{c[4]}</td></tr>); }))}</tbody></table></div></Panel>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Panel title="HSN summary (B2B / B2C)"><ul className="space-y-1 text-sm">{[...x.tables.hsn_b2b.map((h: Any[]) => ["B2B", h]), ...x.tables.hsn_b2c.map((h: Any[]) => ["B2C", h])].map(([p, h]: Any, i: number) =>
+              <li key={i} className="flex justify-between gap-2"><span><span className="text-muted">{p}</span> {h[0] || "(none)"} {h[1]} · {h[3]} {h[2]} · {h[5]}%</span><span className="tabular-nums">{inr(h[6])}</span></li>)}</ul></Panel>
+            <Panel title="Documents issued (Table 13)"><ul className="space-y-1 text-sm">{x.tables.docs.map((d: Any[]) => <li key={d[0]}><span className="font-semibold">{d[0]}</span>: {d[1]} to {d[2]}, {d[3]} issued{d[4] ? `, ${d[4]} cancelled` : ""}</li>)}</ul></Panel>
+          </div>
+        </div>)}
+    </TryShell>
+  );
+}
+
 /* ---------- upload hub (recognition preview: nothing stored, no AI) ---------- */
 
 export function HubBox() {

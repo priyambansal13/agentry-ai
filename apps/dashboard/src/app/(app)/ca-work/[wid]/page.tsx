@@ -210,6 +210,35 @@ function Hub({ r }: { r: any }) {
   </>);
 }
 
+const G1_TABLES: [string, string, string[], (x: any[]) => React.ReactNode[]][] = [
+  ["b2b", "B2B (4A)", ["GSTIN", "Customer", "Invoice", "Date", "Value", "Place of supply", "Rate", "Taxable"], (x) => [x[0], x[1], x[2], x[3], inr(x[4]), x[5], `${x[10]}%`, inr(x[11])]],
+  ["b2cl", "B2C large (5)", ["Invoice", "Date", "Value", "Place of supply", "Rate", "Taxable"], (x) => [x[0], x[1], inr(x[2]), x[3], `${x[5]}%`, inr(x[6])]],
+  ["b2cs", "B2C small (7)", ["Place of supply", "Rate", "Taxable"], (x) => [x[1], `${x[3]}%`, inr(x[4])]],
+  ["exp", "Exports (6A)", ["Type", "Invoice", "Date", "Value", "Port", "Shipping bill", "Rate", "Taxable"], (x) => [x[0], x[1], x[2], inr(x[3]), x[4], x[5] ? `${x[5]} (${x[6]})` : "-", `${x[7]}%`, inr(x[8])]],
+  ["cdnr", "Credit / debit notes, registered (9B)", ["GSTIN", "Customer", "Note", "Date", "C/D", "Value", "Rate", "Taxable"], (x) => [x[0], x[1], x[2], x[3], x[4], inr(x[8]), `${x[10]}%`, inr(x[11])]],
+  ["cdnur", "Credit / debit notes, unregistered (9B)", ["Type", "Note", "Date", "C/D", "Place of supply", "Value", "Rate", "Taxable"], (x) => [x[0], x[1], x[2], x[3], x[4], inr(x[5]), `${x[7]}%`, inr(x[8])]],
+  ["hsn_b2b", "HSN summary, B2B (12)", ["HSN", "Description", "UQC", "Qty", "Rate", "Taxable", "IGST", "CGST", "SGST"], (x) => [x[0], x[1], x[2], x[3], `${x[5]}%`, inr(x[6]), inr(x[7]), inr(x[8]), inr(x[9])]],
+  ["hsn_b2c", "HSN summary, B2C (12)", ["HSN", "Description", "UQC", "Qty", "Rate", "Taxable", "IGST", "CGST", "SGST"], (x) => [x[0], x[1], x[2], x[3], `${x[5]}%`, inr(x[6]), inr(x[7]), inr(x[8]), inr(x[9])]],
+  ["docs", "Documents issued (13)", ["Nature", "From", "To", "Total", "Cancelled"], (x) => x],
+];
+function Gstr1({ r }: { r: any }) {
+  const s = r.summary;
+  return (<>
+    <Card><CardBody><dl className="grid gap-x-8 sm:grid-cols-2">
+      <Row k="Period" v={r.period ?? "-"} /><Row k="Client's state" v={r.client_state || "-"} /><Row k="Register rows" v={s.rows} />
+      <Row k="B2CL above" v={inr(r.b2cl_limit)} />
+      <Row k="To fix before filing" v={s.high ? <Badge tone="danger">{s.high}</Badge> : "none"} /><Row k="To check" v={s.medium + s.low || "none"} /></dl></CardBody></Card>
+    {r.issues.length > 0 && <Card><CardHeader><CardTitle>Checks</CardTitle></CardHeader><CardBody className="p-0">
+      <Table head={["", "Row", "Invoice", "Problem", "Value"]} rows={r.issues.map((i: any) => [<Badge key="s" tone={SEV[i.severity]}>{i.severity}</Badge>, i.row ?? "", i.invoice, i.problem, i.value])} /></CardBody></Card>}
+    <Card><CardHeader><CardTitle>Totals by table</CardTitle></CardHeader><CardBody className="p-0">
+      <Table head={["Table", "Documents", "Taxable", "IGST", "CGST", "SGST", "Cess"]} rows={Object.entries(r.totals).map(([k, v]: [string, any]) => [k === "all" ? <b key="a">All</b> : k.toUpperCase(), v.count, inr(v.taxable), inr(v.igst), inr(v.cgst), inr(v.sgst), inr(v.cess)])} /></CardBody></Card>
+    {G1_TABLES.filter(([k]) => r.tables[k]?.length).map(([k, title, head, row]) => (
+      <Card key={k}><CardHeader><CardTitle>{title} ({r.tables[k].length})</CardTitle></CardHeader><CardBody className="p-0">
+        <Table head={head} rows={r.tables[k].slice(0, 100).map(row)} /></CardBody></Card>))}
+    <p className="text-xs text-muted">Download Excel gives each table as a sheet of the GST offline tool&apos;s workbook (headings on row 4): check it against the latest tool before importing.</p>
+  </>);
+}
+
 export default async function WorkPage({ params }: { params: Promise<{ wid: string }> }) {
   const active = await getActiveOrg();
   if (!active) redirect("/home");
@@ -246,6 +275,7 @@ export default async function WorkPage({ params }: { params: Promise<{ wid: stri
       {w.agent === "excel_cleaner" && <Cleaner r={r} />}
       {w.agent === "ca_anomaly_finder" && <Anomalies r={r} />}
       {w.agent === "ca_upload_hub" && <Hub r={r} />}
+      {w.agent === "ca_gstr1" && <Gstr1 r={r} />}
     </div>
   );
 }

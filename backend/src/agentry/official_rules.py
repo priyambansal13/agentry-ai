@@ -26,6 +26,7 @@ IT_AUDIT = ("Income-tax law: disallowances and penalties", "https://www.incometa
 BASE_FY = 2025  # the figures above are the law for FY 2025-26 (AY 2026-27): a change must apply from a later year
 RBI = ("Reserve Bank of India: bank rate", "https://www.rbi.org.in/")
 MSMED = ("MSMED Act, 2006 (sections 15 and 16)", "https://samadhaan.msme.gov.in/")
+GST = ("GST law: CGST Rules and CBIC notifications (GSTR-1)", "https://cbic-gst.gov.in/")
 FEST = ("Festival dates (government holiday lists and the published panchang)", "https://dopt.gov.in/")
 
 
@@ -89,6 +90,9 @@ RULES: dict[str, Rule] = {
     "bank.44ad_digital": Rule("Bank statement classifier", "44AD presumptive income on digital receipts", "rate", 0.06, IT, r"44ad"),
     "bank.44ad_cash": Rule("Bank statement classifier", "44AD presumptive income on cash receipts", "rate", 0.08, IT, r"44ad"),
     "bank.44ada": Rule("Bank statement classifier", "44ADA presumptive income for professionals", "rate", 0.50, IT, r"44ada"),
+    # ---------- GSTR-1 ----------
+    "gst.b2cl_limit": Rule("GSTR-1 preparation", "B2CL: inter-state invoice to an unregistered buyer above (else B2CS)", "amount", 100000, GST,
+                           r"b2cl|b2c \(large\)|unregistered|inter-state"),
 }
 
 # TDS: section -> (rate for individuals / HUF, rate for others, threshold, label)

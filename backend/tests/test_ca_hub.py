@@ -59,6 +59,7 @@ async def test_sample_zip_routes_every_file(client, team_org):
     assert by["Zerodha tax P&L FY25-26.csv"]["ran"]["agent"] == "ca_capital_gains"
     assert by["TDS payments Q2.csv"]["ran"]["agent"] == "ca_tds_returns"
     assert by["Day book Apr-Oct.csv"]["ran"]["agent"] == "ca_anomaly_finder"
+    assert by["Sales Oct.csv"]["ran"]["agent"] == "ca_gstr1" and by["Sales Oct.csv"]["ticked"]
     assert by["Purchases Oct.csv"]["ran"]["agent"] == by["GSTR2B_Oct2026.json"]["ran"]["agent"] == "ca_gst_reconciliation"
     assert by["IT notice.txt"]["doc_type"] == "notice" and by["IT notice.txt"]["ran"]["agent"] == "ca_notice_handler"
     assert by["Form16.txt"]["doc_type"] == "form16" and by["AIS.txt"]["doc_type"] == "ais"
@@ -66,7 +67,7 @@ async def test_sample_zip_routes_every_file(client, team_org):
     assert b["summary"]["filed"] == len(hub.SAMPLE_FILES) and b["summary"]["problems"] == 0, b["files"]
     work = (await client.get(f"/org/ca/clients/{cid}/work", headers=h["owner"])).json()["items"]
     agents = {w["agent"] for w in work}
-    assert {"ca_upload_hub", "ca_bank_classifier", "ca_capital_gains", "ca_tds_returns", "ca_anomaly_finder", "ca_gst_reconciliation"} <= agents
+    assert {"ca_upload_hub", "ca_bank_classifier", "ca_capital_gains", "ca_tds_returns", "ca_anomaly_finder", "ca_gst_reconciliation", "ca_gstr1"} <= agents
     gst = next(w for w in work if w["agent"] == "ca_gst_reconciliation")
     assert gst["title"] == "GST reconciliation Oct 2026"  # period from the 2B file
     again = (await client.post(f"/org/ca/clients/{cid}/hub/sample", headers=h["owner"])).json()

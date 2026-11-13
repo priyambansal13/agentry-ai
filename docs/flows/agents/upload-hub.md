@@ -31,7 +31,8 @@ checklist it answers, and the right agent run on it, so the work is waiting when
 | Bank statement | Bank statement classifier |
 | Broker P&L | Capital gains |
 | Payments register with TDS | TDS returns |
-| Sales / purchase register, ledger, day book | Anomaly finder (with the client's GSTIN) |
+| Sales register (GST on) | GSTR-1 preparation |
+| Purchase register, ledger, day book (and sales registers when GST is off) | Anomaly finder (with the client's GSTIN) |
 | Form 16 / 16A / AIS / TIS / 26AS | Tax documents reader |
 | Tax notice | Notice handler (reply card on the board) |
 | Trial balance / GSTR-2B alone | kept for the financial statements agent / the next purchase register |
