@@ -191,6 +191,25 @@ function Anomalies({ r }: { r: any }) {
   </>);
 }
 
+const HUB_STATUS: Record<string, [string, "success" | "warning" | "danger" | "neutral"]> = {
+  filed: ["filed", "success"], duplicate: ["already had it", "neutral"], skipped: ["skipped", "warning"], error: ["couldn't take", "danger"] };
+function Hub({ r }: { r: any }) {
+  const s = r.summary;
+  return (<>
+    <Card><CardBody><dl className="grid gap-x-8 sm:grid-cols-2">
+      <Row k="Files" v={s.files} /><Row k="Filed on the client" v={s.filed} /><Row k="Checklist items ticked" v={s.ticked} /><Row k="Agents run" v={s.agents} />
+      {s.duplicates > 0 && <Row k="Already had (not stored again)" v={s.duplicates} />}{s.problems > 0 && <Row k="Need a look" v={<Badge tone="warning">{s.problems}</Badge>} />}
+      <Row k="Sent from" v={r.source === "client_portal" ? "the client's portal" : "the firm"} /></dl></CardBody></Card>
+    <Card><CardHeader><CardTitle>Every file</CardTitle></CardHeader><CardBody className="p-0">
+      <Table head={["File", "", "Taken as", "Ticked", "What happened"]} rows={r.files.map((f: any) => [
+        f.file_id ? <a key="f" href={`/api/ca/files/${f.file_id}`} className="font-medium hover:underline">{f.filename}</a> : f.filename,
+        <Badge key="s" tone={HUB_STATUS[f.status]?.[1] ?? "neutral"}>{HUB_STATUS[f.status]?.[0] ?? f.status}</Badge>,
+        f.recognised ?? "-", f.ticked ?? "",
+        f.ran ? (f.ran.work_id ? <Link key="w" href={`/ca-work/${f.ran.work_id}`} className="underline">{AGENT_LABEL[f.ran.agent] ?? f.ran.agent}</Link> : `${AGENT_LABEL[f.ran.agent] ?? f.ran.agent}: ${f.ran.note ?? "done"}`)
+          : <span key="n" className={f.agent_error ? "text-danger" : "text-muted"}>{f.agent_error ?? f.why ?? f.next ?? ""}</span>])} /></CardBody></Card>
+  </>);
+}
+
 export default async function WorkPage({ params }: { params: Promise<{ wid: string }> }) {
   const active = await getActiveOrg();
   if (!active) redirect("/home");
@@ -226,6 +245,7 @@ export default async function WorkPage({ params }: { params: Promise<{ wid: stri
       {w.agent === "excel_desk" && <Excel r={r} title={w.title} />}
       {w.agent === "excel_cleaner" && <Cleaner r={r} />}
       {w.agent === "ca_anomaly_finder" && <Anomalies r={r} />}
+      {w.agent === "ca_upload_hub" && <Hub r={r} />}
     </div>
   );
 }

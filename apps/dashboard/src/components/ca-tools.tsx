@@ -1,14 +1,14 @@
 import { Card, CardBody, CardHeader, CardTitle } from "@agentry/ui";
 import Link from "next/link";
 import type { CaMeta } from "@/components/ca";
-import { ItrForm, ToolForm, type ToolSpec } from "@/components/ca-tool-forms";
+import { HubForm, ItrForm, ToolForm, type ToolSpec } from "@/components/ca-tool-forms";
 import { api } from "@/lib/session";
 
 /** The CA agents that work on one client's documents: GST, ITR, capital gains, bank statements, notices, TDS, 3CD. */
 const SHEET = ".csv,.xlsx";
 export const AGENT_LABEL: Record<string, string> = {
   ca_gst_reconciliation: "GST reconciliation", ca_itr_prep: "ITR computation", ca_capital_gains: "Capital gains", ca_bank_classifier: "Bank statement",
-  ca_notice_handler: "Notice", ca_tds_returns: "TDS returns", ca_tax_audit: "Tax audit (3CD)", excel_desk: "Excel desk", excel_cleaner: "Excel cleaner", ca_anomaly_finder: "Anomaly finder",
+  ca_notice_handler: "Notice", ca_tds_returns: "TDS returns", ca_tax_audit: "Tax audit (3CD)", excel_desk: "Excel desk", excel_cleaner: "Excel cleaner", ca_anomaly_finder: "Anomaly finder", ca_upload_hub: "Upload hub", ca_tax_docs_reader: "Tax documents reader",
 };
 
 function specs(cid: string): (ToolSpec & { agent: string; title: string; needs?: string })[] {
@@ -40,7 +40,6 @@ function specs(cid: string): (ToolSpec & { agent: string; title: string; needs?:
 export async function CaTools({ clientId, meta, orgId }: { clientId: string; meta: CaMeta; orgId: string }) {
   const on = (k: string) => meta.enabled.includes(k);
   const tools = specs(clientId).filter((s) => on(s.needs ?? s.agent));
-  if (!tools.length && !on("ca_itr_prep")) return null;
   const work = (await api<{ items: { id: string; agent: string; title: string; created_at: string }[] }>(`/org/ca/clients/${clientId}/work`, { orgId })).items;
   const itr = on("ca_itr_prep") ? await api<{ inputs: Record<string, number>; fields: Record<string, string>; from: { documents: number; capital_gains: boolean } }>(
     `/org/ca/clients/${clientId}/itr/prefill`, { orgId }) : null;
@@ -54,6 +53,11 @@ export async function CaTools({ clientId, meta, orgId }: { clientId: string; met
               <Link href={`/ca-work/${w.id}`} className="font-medium hover:underline">{w.title}</Link>
               <span className="text-xs text-muted">{AGENT_LABEL[w.agent] ?? w.agent} · {new Date(w.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>
             </li>))}</ul>)}
+        {meta.can_work && (
+          <details className="rounded-xl border-2 border-ink p-3" open={work.length === 0}>
+            <summary className="cursor-pointer font-semibold">Drop many files or a zip</summary>
+            <div className="mt-2"><HubForm clientId={clientId} /></div>
+          </details>)}
         {meta.can_work && tools.map((s) => (
           <details key={s.key} className="rounded-xl border-2 border-line p-3">
             <summary className="cursor-pointer font-semibold">{s.title}</summary>

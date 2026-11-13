@@ -287,7 +287,12 @@ def anomalies(p: dict) -> dict:
     return _jsonable(m.find(rows))
 
 
-CALC = {"msme": msme_calc, "excel-clean": excel_clean, "anomalies": anomalies, "itr": itr, "capital-gains": capital_gains, "tds": tds, "audit-3cd": audit_3cd, "gst": gst, "calendar": calendar,
+def upload_hub(p: dict) -> dict:
+    from agentry.automations.ca import hub
+    return _jsonable(hub.preview([(hub.sample_zip(), "documents-from-client.zip", "application/zip")]))
+
+
+CALC = {"msme": msme_calc, "upload-hub": upload_hub, "excel-clean": excel_clean, "anomalies": anomalies, "itr": itr, "capital-gains": capital_gains, "tds": tds, "audit-3cd": audit_3cd, "gst": gst, "calendar": calendar,
         "chaser": chaser, "tax-docs": tax_docs, "renewals": renewals}
 
 
@@ -624,6 +629,9 @@ def sample(kind: str) -> dict:
     if kind == "excel":
         return {"rows": _csv(ca / "tds_register_sample.csv"),
                 "questions": ["Total TDS deducted by section", "Which payments were over ₹50,000?", "How many deductees are there?"]}
+    if kind == "upload-hub":
+        from agentry.automations.ca import hub
+        return {"files": list(hub.SAMPLE_FILES)}
     if kind == "anomalies":
         rows = _csv(ca / "purchase_daybook_sample.csv")
         return {"preview": rows[:16], "rows": len(rows) - 3}
@@ -703,6 +711,10 @@ _TEXT = {  # what the other boxes rest on: (basis, [(label, source, url)])
         ("Checklists", "Agentry's checklist per filing (ITR, GST, TDS, audit, ROC); each firm can edit its own", None)]),
     "ca-notice-handler": ("Only the notice's own text: the dates, demand and DIN read are checked against it before they're shown.", [
         ("The notice", "As issued by the Income Tax Department (verify it on the e-filing portal with its DIN)", "https://www.incometax.gov.in/iec/foportal/")]),
+    "ca-upload-hub": (("Spreadsheets are recognised by their columns and title lines (no AI); PDFs and photos by the document reader, "
+                       "checked against the client's checklist."), [
+        ("Checklists", "Agentry's checklist per filing (ITR, GST, TDS, audit, ROC); each firm can edit its own", None),
+        ("GSTR-2B", "Downloaded from the GST portal (JSON)", "https://www.gst.gov.in/")]),
     "ca-anomaly-finder": ("Your sheet and fixed rules; the cash limits are official figures, checked daily against official sources.", [
         ("IGST vs CGST + SGST", "IGST Act sections 7-8 and 10-12: inter-state vs intra-state by place of supply", "https://cbic-gst.gov.in/"),
         ("GST rates", "CBIC rate notifications (5% / 18% / 40% from 22 Sep 2025; older 12% / 28% still in past books)", "https://cbic-gst.gov.in/"),

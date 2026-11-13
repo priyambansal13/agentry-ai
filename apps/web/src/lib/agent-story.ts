@@ -403,6 +403,16 @@ export const stories: Record<string, Story> = {
     before: ["The same entries typed every month", "EMI splits worked out by hand", "Overspending noticed at year end"],
     after: ["Routine entries post themselves", "Correct interest and principal every month", "Budget alerts while there's still time"],
   },
+  "ca-upload-hub": {
+    flow: ["Zip or many files", "Each recognised", "Filed + ticked", "Right agent runs", "Work waiting"], highlight: 3,
+    steps: [["customer", "Sends everything at once from their portal link: a zip, a folder's worth of PDFs, phone photos."],
+      ["agent", "Opens the zip, recognises each file (registers and statements by their columns), and skips anything already sent."],
+      ["agent", "Files each on the client and ticks it off the checklist for the filing it belongs to."],
+      ["agent", "Runs the right agent on each: GSTR-2B with the purchase register reconciled, bank statement classified, notice answered…"],
+      ["you", "Open the client and find the work already done, with a list of anything that needs a look."]],
+    before: ["Downloading attachments and renaming files", "Working out which file is for which filing", "Starting each tool by hand"],
+    after: ["One drop for everything the client sent", "Checklists tick themselves", "Reconciliations and scans ready when you open the client"],
+  },
   "ca-anomaly-finder": {
     flow: ["Ledger or register", "Every check runs", "Most serious first", "Rows + why", "Fixed before review"], highlight: 2,
     steps: [["you", "Upload a client's ledger, day book or sales / purchase register on their page (or on the Excel desk)."],

@@ -26,6 +26,7 @@ from agentry.automations.ca import (
     core,
     excel,
     gst,
+    hub,
     itr,
     notices,
     recurring,
@@ -238,6 +239,33 @@ async def delete_file(fid: str, ctx: Any) -> dict:
         await conn.execute(text("delete from app.ca_files where id = cast(:i as uuid)"), {"i": fid})
     core.path_of(f).unlink(missing_ok=True)
     return {"deleted": True}
+
+
+# ---------- upload hub: many files or a zip at once ----------
+
+@router.post("/clients/{cid}/hub", status_code=201)
+async def hub_upload(cid: str, ctx: Any, files: Annotated[list[UploadFile], File()]) -> dict:
+    """Many files or a zip: each recognised, filed, ticked off the checklist and the right agent run (docs/PLAN-CA-DESK-2.md #3)."""
+    _work(ctx)
+    if len(files) > hub.MAX_FILES:
+        raise HTTPException(422, f"up to {hub.MAX_FILES} files at a time")
+    try:
+        return await hub.process(ctx.org_id, cid, [(await f.read(hub.MAX_TOTAL + 1), f.filename, f.content_type) for f in files],
+                                 source="portal", user_id=ctx.principal.user_id, actor_type=ctx.actor_type)
+    except hub.HubError as e:
+        raise HTTPException(404 if "not found" in str(e) else 422, str(e)) from e
+
+
+@router.post("/clients/{cid}/hub/sample", status_code=201)
+async def hub_sample(cid: str, ctx: Any) -> dict:
+    """A zip as a client would send it: bank statement, broker P&L, purchase register + GSTR-2B, TDS register, day book,
+    Form 16, AIS and a notice."""
+    _work(ctx)
+    try:
+        return await hub.process(ctx.org_id, cid, [(hub.sample_zip(), "documents-from-client.zip", "application/zip")],
+                                 source="portal", user_id=ctx.principal.user_id, actor_type=ctx.actor_type)
+    except hub.HubError as e:
+        raise HTTPException(404 if "not found" in str(e) else 422, str(e)) from e
 
 
 # ---------- tax documents (reader) ----------
@@ -571,6 +599,8 @@ async def work_sheet(wid: str, ctx: Any) -> Response:
         body = cleaner.sheet(r)
     elif w["agent"] == "ca_anomaly_finder":
         body = anomalies.sheet(r)
+    elif w["agent"] == "ca_upload_hub":
+        body = hub.sheet(r)
     elif w["agent"] in SHEETS:
         body = SHEETS[w["agent"]](r)
     else:
@@ -1021,6 +1051,17 @@ async def portal_view(token: str) -> dict:
     from agentry.automations.ca import portal
     try:
         return await portal.view(token)
+    except portal.PortalError as e:
+        raise HTTPException(e.status, str(e)) from e
+
+
+@public_portal.post("/{token}/files/many", status_code=201)
+async def portal_upload_many(token: str, files: Annotated[list[UploadFile], File()]) -> dict:
+    from agentry.automations.ca import portal
+    if len(files) > hub.MAX_FILES:
+        raise HTTPException(422, f"up to {hub.MAX_FILES} files at a time")
+    try:
+        return await portal.upload_many(token, [(await f.read(hub.MAX_TOTAL + 1), f.filename, f.content_type) for f in files])
     except portal.PortalError as e:
         raise HTTPException(e.status, str(e)) from e
 

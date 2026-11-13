@@ -357,6 +357,29 @@ export function ExcelBox() {
   );
 }
 
+/* ---------- upload hub (recognition preview: nothing stored, no AI) ---------- */
+
+export function HubBox() {
+  const s = useSample("upload-hub");
+  const r = useRun("upload-hub", false);
+  const x = r.result;
+  return (
+    <TryShell title="A client's zip, sorted in seconds"
+      intro="Mehta Traders sends one zip at month end: a bank statement, a broker P&L, the purchase register, the GSTR-2B, a TDS register, the day book, Form 16, the AIS and an income-tax notice, with names like “Purchases Oct.csv”. See what each file is taken as and which agent picks it up."
+      sell="In the portal (and from the client's own portal link) every file is also filed on the client, ticked off their checklist, and the agent actually runs: the GST reconciliation, the bank classification, the anomaly scan, the notice reply are waiting when you open the client.">
+      {s && <Panel title="documents-from-client.zip"><ul className="grid gap-1 text-sm sm:grid-cols-2">{s.files.map((f: string) => <li key={f} className="flex items-center gap-2"><FileText aria-hidden="true" className="h-4 w-4 text-muted" />{f}</li>)}</ul></Panel>}
+      <div className="mt-4"><RunButton r={r} label="Sort the zip" input={() => ({})} disabled={!s} /></div>
+      {x && (
+        <div className="mt-6 overflow-x-auto rounded-2xl border-2 border-ink bg-card">
+          <table className="w-full text-sm"><thead><tr className="text-left"><th className="p-3">File</th><th className="p-3">Taken as</th><th className="p-3">Picked up by</th></tr></thead>
+            <tbody>{x.files.map((f: Any) => <tr key={f.filename} className="border-t border-line"><td className="p-3 font-medium">{f.filename}</td><td className="p-3">{f.recognised ?? "–"}</td>
+              <td className="p-3">{f.agent_label ? <span className="inline-flex items-center gap-1.5"><CheckCircle2 aria-hidden="true" className="h-4 w-4 text-success" />{f.agent_label}</span> : <span className="text-muted">{f.next ?? "filed for the team"}</span>}</td></tr>)}</tbody></table>
+          <p className="border-t border-line p-3 text-xs text-muted">The GSTR-2B and the purchase register arrived together, so they go to GST reconciliation as a pair; the day book goes to the anomaly finder.</p>
+        </div>)}
+    </TryShell>
+  );
+}
+
 /* ---------- anomaly finder (fixed rules, no AI) ---------- */
 
 function parseCsv(text: string): string[][] {

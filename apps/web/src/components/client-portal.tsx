@@ -57,8 +57,8 @@ export function ClientPortal({ token }: { token: string }) {
 
         <section aria-labelledby="send-other" className="rounded-2xl border-2 border-line bg-card p-4">
           <h2 id="send-other" className="font-semibold">Something else to send?</h2>
-          <p className="text-sm text-muted">Notices, bills, statements: we&apos;ll put it in the right place.</p>
-          <div className="mt-3"><UploadButton token={token} label="Send a file" onDone={load} color={v.firm.color} /></div>
+          <p className="text-sm text-muted">Notices, bills, statements, registers: pick several at once or a zip, and we&apos;ll put each in the right place.</p>
+          <div className="mt-3"><UploadButton token={token} label="Send files" onDone={load} color={v.firm.color} many /></div>
         </section>
 
         {v.due.length > 0 && <section aria-labelledby="due" className="rounded-2xl border-2 border-line bg-card p-4">
@@ -100,7 +100,7 @@ function FilingCard({ f, labels, token, color, onDone }: { f: Filing; labels: Re
   );
 }
 
-function UploadButton({ token, filing, label, onDone, color }: { token: string; filing?: string; label: string; onDone: () => void; color: string }) {
+function UploadButton({ token, filing, label, onDone, color, many = false }: { token: string; filing?: string; label: string; onDone: () => void; color: string; many?: boolean }) {
   const input = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<{ busy: boolean; msg: string | null; bad: boolean }>({ busy: false, msg: null, bad: false });
   async function send(file: File) {
@@ -114,10 +114,24 @@ function UploadButton({ token, filing, label, onDone, color }: { token: string; 
     setState({ busy: false, msg: body.matched ? `Got it: ${body.matched}` : "Got it: we'll put it in the right place.", bad: false });
     onDone();
   }
+  async function sendMany(files: File[]) {
+    setState({ busy: true, msg: null, bad: false });
+    const form = new FormData();
+    files.forEach((f) => form.append("files", f));
+    const r = await fetch(`${API}/public/portal/${token}/files/many`, { method: "POST", body: form });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) return setState({ busy: false, msg: typeof body.detail === "string" ? body.detail : "Couldn't send them: try again.", bad: true });
+    const taken = (body.files ?? []).filter((f: { status: string }) => f.status === "filed");
+    const left = (body.files ?? []).filter((f: { status: string }) => f.status !== "filed");
+    setState({ busy: false, bad: left.length > 0 && !taken.length,
+      msg: `Got ${taken.length} file${taken.length === 1 ? "" : "s"}${taken.length ? `: ${taken.map((f: { taken_as: string | null; filename: string }) => f.taken_as ?? f.filename).join(", ")}` : ""}.`
+        + (left.length ? ` Not taken: ${left.map((f: { filename: string; why: string | null }) => `${f.filename} (${f.why ?? "already sent"})`).join("; ")}.` : "") });
+    onDone();
+  }
   return (
     <span className="inline-flex flex-col items-end gap-1">
-      <input ref={input} type="file" accept="image/*,application/pdf,.csv,.xlsx" className="sr-only" aria-label={label}
-        onChange={(e) => { const file = e.target.files?.[0]; if (file) void send(file); e.target.value = ""; }} />
+      <input ref={input} type="file" multiple={many} accept={`image/*,application/pdf,.csv,.xlsx${many ? ",.zip,.json" : ""}`} className="sr-only" aria-label={label}
+        onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) void (many ? sendMany(fs) : send(fs[0]!)); e.target.value = ""; }} />
       <button type="button" onClick={() => input.current?.click()} disabled={state.busy} style={{ background: color, color: textOn(color) }}
         className="inline-flex h-10 items-center gap-1.5 rounded-xl px-4 text-sm font-semibold disabled:opacity-60">
         {state.busy ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : filing ? <Upload aria-hidden="true" className="h-4 w-4" /> : <FileUp aria-hidden="true" className="h-4 w-4" />}

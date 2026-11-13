@@ -13,8 +13,8 @@ const nextConfig: NextConfig = {
   // Self-contained server bundle for the Docker image (traces files from the monorepo root).
   output: "standalone",
   outputFileTracingRoot: fileURLToPath(new URL("../../", import.meta.url)),
-  // knowledge files and invoice spreadsheets are uploaded through server actions (API limit: 10 MB)
-  experimental: { serverActions: { bodySizeLimit: "11mb" } },
+  // files are uploaded through server actions (API limits: 10 MB a knowledge file, 20 MB a CA file, 100 MB an upload-hub batch)
+  experimental: { serverActions: { bodySizeLimit: "101mb" } },
 };
 
 export default nextConfig;

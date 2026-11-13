@@ -61,6 +61,33 @@ export function ToolForm({ spec, clientId }: { spec: ToolSpec; clientId?: string
   );
 }
 
+/** The upload hub: many files or a zip for one client; each file recognised, filed, ticked and its agent run. */
+export function HubForm({ clientId }: { clientId: string }) {
+  const { err, pending, go, router } = useGo();
+  const [files, setFiles] = useState<File[]>([]);
+  const open = (d: unknown) => { const id = workId(d); if (id) router.push(`/ca-work/${id}`); };
+  return (
+    <form className="space-y-2" onSubmit={(e) => {
+      e.preventDefault();
+      const fd = new FormData();
+      files.forEach((f) => fd.append("files", f));
+      go(() => caTool(`/org/ca/clients/${clientId}/hub`, fd, clientId), open);
+    }}>
+      <p className="text-sm text-muted">Everything the client sent, at once (up to 40 files or a zip, 100 MB). Each file is recognised, filed, ticked off the
+        checklist, and the right agent run: bank statements classified, broker P&amp;L to capital gains, TDS registers checked, registers and day books
+        scanned for anomalies, a GSTR-2B with the purchase register reconciled, Form 16 / AIS read, notices answered.</p>
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="space-y-1"><Label htmlFor="hub-files">Files or a zip</Label>
+          <input id="hub-files" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.csv,.xlsx,.json,.txt,.zip" className="block text-sm"
+            onChange={(e) => setFiles(Array.from(e.target.files ?? []))} /></div>
+        <Button type="submit" disabled={pending || !files.length}>{pending ? "Working…" : files.length > 1 ? `Take ${files.length} files` : "Take it"}</Button>
+        <Button type="button" variant="secondary" disabled={pending} onClick={() => go(() => caTool(`/org/ca/clients/${clientId}/hub/sample`, null, clientId), open)}>Try a sample zip</Button>
+      </div>
+      <Err e={err} />
+    </form>
+  );
+}
+
 type Field = Record<string, string>;
 export function ItrForm({ clientId, fields, inputs, from }: { clientId: string; fields: Field; inputs: Record<string, number>; from: { documents: number; capital_gains: boolean } }) {
   const { err, pending, go, router } = useGo();

@@ -16,6 +16,7 @@ flowchart TD
 ```
 
 - No password: the link is the key, stored hashed; "please don't share it" is on the page. 20 uploads a day per client, 20 MB each.
+- "Something else to send?" takes several files or a zip: they go through the upload hub (docs/flows/agents/upload-hub.md), so each is filed, ticked and the right agent run for the firm.
 - Agentry's own ads and analytics don't load on portal pages; "powered by Agentry" is the only mention.
 - Not yet: the firm's own domain (portal.theirfirm.in). Today the address is on Agentry's site.
 

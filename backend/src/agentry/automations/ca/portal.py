@@ -8,6 +8,8 @@ name and colours, to see their filings and due dates and to send documents.
               for the next four months with where each comes from (and official extensions); files sent recently
     upload    photos / PDFs / spreadsheets go through the document chaser: matched to the checklist item, ticked off,
               filed; an unmatched file is a card for the firm. 20 files a day per link, 20 MB each.
+    many      several files or a zip at once through the upload hub (hub.py): each recognised, filed, ticked and the right
+              agent run for the firm; the client sees only what each file was taken as.
     billing   each client who opens their portal or sends a file in a month counts once (event ca.portal_used); the plan's
               portal_clients price applies.
 """
@@ -140,6 +142,31 @@ async def view(token: str) -> dict:
                          "received": [i["label"] for i in (f["checklist"] or []) if i.get("status") == "received"]} for f in filings],
             "due": [{"title": d["title"], "due_on": d["due_on"], "source": d["source"]} for d in dues][:20],
             "files": [dict(f) for f in files]}
+
+
+async def upload_many(token: str, uploads: list[tuple[bytes, str | None, str | None]]) -> dict:
+    from agentry.automations.ca import hub
+    org_id, client_id = await _resolve(token)
+    files, skipped = hub.unpack(uploads)
+    take: list[tuple[bytes, str, str | None]] = []
+    async with system_session() as conn:
+        for f in files:
+            if await site_audit.hit(conn, f"portal-up:{client_id}", UPLOADS_PER_DAY, "24 hours"):
+                take.append(f)
+            else:
+                skipped.append({"filename": f[1], "why": f"{UPLOADS_PER_DAY} files a day: send the rest tomorrow, or on WhatsApp"})
+    if not take:
+        raise PortalError(429 if files else 422, skipped[0]["why"] if skipped else "no files")
+    try:
+        r = await hub.process(org_id, client_id, take, source="client_portal", actor_type="system")
+    except core.CaError as e:
+        raise PortalError(422, str(e)) from e
+    async with tenant_session(org_id) as conn:
+        await _used(org_id, client_id, conn)
+    shown = [{"filename": f["filename"], "status": f["status"], "taken_as": f.get("recognised") if f.get("doc_type") != "other" else None,
+              "why": f.get("why")} for f in r["files"]]
+    shown += [{"filename": s["filename"], "status": "skipped", "taken_as": None, "why": s["why"]} for s in skipped]
+    return {"files": shown, "received": sum(1 for f in shown if f["status"] == "filed")}
 
 
 async def upload(token: str, data: bytes, *, filename: str | None, mime: str | None, filing_id: str | None) -> dict:

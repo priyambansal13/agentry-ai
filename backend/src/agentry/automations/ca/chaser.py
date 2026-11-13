@@ -52,16 +52,16 @@ ITEMS = {  # key -> (label, doc types that answer it)
     "property_sale": ("Sale and purchase deeds of property sold", ("sale_deed",)),
     "proofs_80c": ("80C proofs (LIC, PPF, ELSS, tuition fees, home loan principal)", ("investment_proof", "insurance_receipt")),
     "proofs_80d": ("Health insurance premium receipt (80D)", ("insurance_receipt",)),
-    "books": ("Books of accounts or profit & loss for the year", ("financial_statements",)),
+    "books": ("Books of accounts or profit & loss for the year", ("financial_statements", "trial_balance", "ledger")),
     "foreign": ("Foreign income and foreign assets details", ("other",)),
     "financials": ("Audited financial statements", ("financial_statements",)),
     "tds_certificates": ("TDS certificates (Form 16A) received", ("form16a",)),
     "sales_register": ("Sales invoices / sales register for the period", ("sales_register",)),
-    "purchase_register": ("Purchase bills / purchase register for the period", ("purchase_register",)),
-    "payments_register": ("Salary and vendor payments with TDS for the quarter", ("other",)),
+    "purchase_register": ("Purchase bills / purchase register for the period", ("purchase_register", "gstr2b")),
+    "payments_register": ("Salary and vendor payments with TDS for the quarter", ("tds_register", "other")),
     "challans": ("TDS challans paid", ("challan",)),
-    "trial_balance": ("Trial balance and ledgers", ("financial_statements",)),
-    "fixed_assets": ("Fixed asset register (additions and sales)", ("other",)),
+    "trial_balance": ("Trial balance and ledgers", ("trial_balance", "ledger", "financial_statements")),
+    "fixed_assets": ("Fixed asset register (additions and sales)", ("fixed_asset_register", "other")),
     "loan_confirmations": ("Loan confirmations from lenders", ("other",)),
     "board_resolution": ("Signed financials and AGM / board resolution details", ("financial_statements",)),
     "director_kyc": ("Director's PAN, Aadhaar, mobile and email (for the OTP)", ("pan_aadhaar",)),
@@ -149,13 +149,16 @@ async def set_item(conn: AsyncConnection, org_id: str, filing_id: str, key: str,
 def _guess(filename: str | None, text_: str | None, wanted: list[dict]) -> dict:
     """What the file is from its name and text, without a model (also the test mock)."""
     s = f"{filename or ''} {(text_ or '')[:3000]}".lower()
-    rules = [("form16", r"form[\s_-]*16(?!a)|form no\.?\s*16"), ("form16a", r"form[\s_-]*16a"), ("26as", r"26as|annual tax statement"),
+    rules = [("notice", r"notice u/s|section 143|section 139\(9\)|section 148|intimation u/s"),  # a notice quotes 26AS / Form 16: first
+             ("form16", r"form[\s_-]*16(?!a)|form no\.?\s*16"), ("form16a", r"form[\s_-]*16a"), ("26as", r"26as|annual tax statement"),
              ("ais", r"\bais\b|annual information statement"), ("bank_statement", r"statement of account|bank statement|account statement"),
              ("interest_certificate", r"interest certificate"), ("broker_pnl", r"tax p&?l|tradewise|capital gains?"),
              ("cas_statement", r"cams|kfintech|consolidated account statement"), ("rent_receipt", r"rent receipt"),
              ("home_loan_certificate", r"home loan|housing loan"), ("insurance_receipt", r"premium|insurance|mediclaim"),
-             ("investment_proof", r"\bppf\b|\belss\b|tuition|80c"), ("notice", r"notice u/s|section 143|section 139\(9\)|section 148"),
-             ("challan", r"challan|itns ?281"), ("sales_register", r"sales register|sales invoices"), ("purchase_register", r"purchase register")]
+             ("investment_proof", r"\bppf\b|\belss\b|tuition|80c"),
+             ("challan", r"challan|itns ?281"), ("sales_register", r"sales register|sales invoices"), ("purchase_register", r"purchase register"),
+             ("gstr2b", r"gstr[\s_-]*2b"), ("trial_balance", r"trial[\s_-]*balance"), ("fixed_asset_register", r"fixed[\s_-]*asset"),
+             ("tds_register", r"tds[\s_-]*register|payments? register"), ("ledger", r"day[\s_-]*book|ledger")]
     doc_type = next((t for t, rx in rules if re.search(rx, s)), "other")
     item = next((i["key"] for i in wanted if doc_type in ITEMS.get(i["key"], ("", ()))[1]), "other")
     return {"item": item, "doc_type": doc_type, "label": doc_type.replace("_", " "), "confidence": 0.9 if doc_type != "other" else 0.3}
@@ -185,8 +188,14 @@ async def classify(org_id: str, data: bytes, mime: str, filename: str | None, wa
     return out
 
 
+def _known(doc_type: str, wanted: list[dict]) -> dict:
+    """The classification for a file whose type is already known (a spreadsheet recognised by its columns): no model call."""
+    item = next((i["key"] for i in wanted if doc_type in ITEMS.get(i["key"], ("", ()))[1]), "other")
+    return {"item": item, "doc_type": doc_type, "label": doc_type.replace("_", " "), "confidence": 0.95}
+
+
 async def receive(org_id: str, client_id: str, data: bytes, *, mime: str | None, filename: str | None, source: str,
-                  filing_id: str | None = None, user_id: str | None = None) -> dict:
+                  filing_id: str | None = None, user_id: str | None = None, doc_type: str | None = None) -> dict:
     """A file from a client: stored, matched to the checklist item it answers (on the given filing, else the oldest
     filing still waiting for documents), and that item ticked off when the match is confident."""
     mime = core.mime_of(filename, mime)
@@ -197,7 +206,7 @@ async def receive(org_id: str, client_id: str, data: bytes, *, mime: str | None,
         filings = (await conn.execute(text(q + (" and id = cast(:f as uuid)" if filing_id else "") + " order by due_on nulls last, created_at"),
                                       {"c": client_id, "f": filing_id})).mappings().all()
     wanted = [dict(i, filing=f["id"]) for f in filings for i in missing(f["checklist"])]
-    c = await classify(org_id, data, mime, filename, wanted)
+    c = _known(doc_type, wanted) if doc_type else await classify(org_id, data, mime, filename, wanted)
     match = next((i for i in wanted if i["key"] == c["item"]), None) if c.get("confidence", 0) >= 0.6 else None
     target = match["filing"] if match else (filing_id or (filings[0]["id"] if filings else None))
     async with tenant_session(org_id) as conn:
