@@ -20,6 +20,9 @@ export default async function ExcelPage() {
       <Card><CardHeader><CardTitle>Clean a messy sheet</CardTitle></CardHeader><CardBody>
         <ToolForm spec={{ key: "clean", path: "/org/ca/excel/clean", files: [{ name: "file", label: "Sheet", accept: SHEETS }], extra: "standardise_names", sample: true,
           button: "Clean it", hint: "The register or ledger a client sent: title lines, totals and repeated headers removed; \"1,200 Dr\", \"(500)\" and \"₹5,000\" made numbers; dates in one format; GSTIN / PAN checked; duplicates removed; similar party names grouped. Every change is listed." }} /></CardBody></Card>
+      <Card><CardHeader><CardTitle>Find anomalies</CardTitle></CardHeader><CardBody>
+        <ToolForm spec={{ key: "anomalies", path: "/org/ca/excel/anomalies", files: [{ name: "file", label: "Ledger, day book or register", accept: SHEETS }], sample: true,
+          button: "Find anomalies", hint: "What a reviewer looks for, most serious first: duplicates, repeated or missing voucher numbers, cash over the 40A(3) / 269ST limits, wrong GST type for the state, odd rates, invalid GSTINs, dates outside the year, amounts just under limits, outliers, holidays and a Benford test. On a client's page the client's own GSTIN is used." }} /></CardBody></Card>
       <div className="grid gap-4 lg:grid-cols-3">
         <Card><CardHeader><CardTitle>PDF or photo to Excel</CardTitle></CardHeader><CardBody>
           <ToolForm spec={{ key: "table", path: "/org/ca/excel/table", files: [{ name: "file", label: "PDF, photo or text", accept: ".pdf,.jpg,.jpeg,.png,.webp,.txt" }],

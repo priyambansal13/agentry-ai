@@ -8,10 +8,10 @@ import { api } from "@/lib/session";
 const SHEET = ".csv,.xlsx";
 export const AGENT_LABEL: Record<string, string> = {
   ca_gst_reconciliation: "GST reconciliation", ca_itr_prep: "ITR computation", ca_capital_gains: "Capital gains", ca_bank_classifier: "Bank statement",
-  ca_notice_handler: "Notice", ca_tds_returns: "TDS returns", ca_tax_audit: "Tax audit (3CD)", excel_desk: "Excel desk", excel_cleaner: "Excel cleaner",
+  ca_notice_handler: "Notice", ca_tds_returns: "TDS returns", ca_tax_audit: "Tax audit (3CD)", excel_desk: "Excel desk", excel_cleaner: "Excel cleaner", ca_anomaly_finder: "Anomaly finder",
 };
 
-function specs(cid: string): (ToolSpec & { agent: string; title: string })[] {
+function specs(cid: string): (ToolSpec & { agent: string; title: string; needs?: string })[] {
   const p = (x: string) => `/org/ca/clients/${cid}/${x}`;
   return [
     { agent: "ca_notice_handler", title: "Notice", key: "notice", path: p("notices"), files: [{ name: "file", label: "The notice", accept: ".pdf,.jpg,.jpeg,.png,.txt" }],
@@ -31,12 +31,15 @@ function specs(cid: string): (ToolSpec & { agent: string; title: string })[] {
     { agent: "ca_tax_audit", title: "Tax audit (3CD)", key: "audit", path: p("audit"), extra: "fy", sample: true, button: "Test the clauses",
       files: [{ name: "file", label: "Ledger / day book", accept: SHEET }],
       hint: "40A(3), 43B, 36(1)(va), 43B(h) MSME, 269SS / 269T / 269ST and 40(a)(ia) exceptions, with the disallowance for each." },
+    { agent: "ca_anomaly_finder", needs: "excel_desk", title: "Anomaly finder", key: "anomalies", path: p("anomalies"), sample: true, button: "Find anomalies",
+      files: [{ name: "file", label: "Ledger, day book or sales / purchase register", accept: SHEET }],
+      hint: "Duplicates, repeated or missing voucher numbers, cash over the 40A(3) / 269ST limits, IGST vs CGST + SGST against the client's state, odd GST rates, invalid GSTINs, out-of-year dates, outliers and a Benford test." },
   ];
 }
 
 export async function CaTools({ clientId, meta, orgId }: { clientId: string; meta: CaMeta; orgId: string }) {
   const on = (k: string) => meta.enabled.includes(k);
-  const tools = specs(clientId).filter((s) => on(s.agent));
+  const tools = specs(clientId).filter((s) => on(s.needs ?? s.agent));
   if (!tools.length && !on("ca_itr_prep")) return null;
   const work = (await api<{ items: { id: string; agent: string; title: string; created_at: string }[] }>(`/org/ca/clients/${clientId}/work`, { orgId })).items;
   const itr = on("ca_itr_prep") ? await api<{ inputs: Record<string, number>; fields: Record<string, string>; from: { documents: number; capital_gains: boolean } }>(

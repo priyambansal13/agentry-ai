@@ -168,6 +168,29 @@ function Cleaner({ r }: { r: any }) {
   </>);
 }
 
+const SEV: Record<string, "danger" | "warning" | "neutral"> = { high: "danger", medium: "warning", low: "neutral" };
+function Anomalies({ r }: { r: any }) {
+  const s = r.summary;
+  const used = Object.entries(r.columns).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(" · ");
+  return (<>
+    <Card><CardBody><dl className="grid gap-x-8 sm:grid-cols-2">
+      <Row k="Rows checked" v={s.rows} /><Row k="Total of the amounts" v={inr(s.total)} />
+      <Row k="Serious" v={s.high ? <Badge tone="danger">{s.high} rows</Badge> : "none"} /><Row k="Worth a look" v={s.medium ? <Badge tone="warning">{s.medium} rows</Badge> : "none"} />
+      <Row k="Minor" v={s.low || "none"} />{r.fy_start && <Row k="Year" v={`FY ${r.fy_start}-${String(r.fy_start + 1).slice(2)}`} />}</dl>
+      <p className="mt-2 text-xs text-muted">Columns read: {used}</p>
+      {r.skipped.map((x: string) => <p key={x} className="text-xs text-muted">Not checked: {x}</p>)}</CardBody></Card>
+    {r.findings.length === 0 && <Card><CardBody>Nothing found by any check.</CardBody></Card>}
+    {r.findings.map((f: any) => (
+      <Card key={f.key}><CardHeader><CardTitle><Badge tone={SEV[f.severity]}>{f.severity}</Badge> {f.title} ({f.count})</CardTitle></CardHeader>
+        <CardBody className="space-y-2 p-0"><p className="px-4 text-sm text-muted">{f.why}</p>
+          <Table head={["Row", "Date", "Voucher", "Party", "Amount", "Why"]} rows={f.rows.slice(0, 50).map((x: any) => [x.row ?? "", x.date ?? "", x.voucher ?? "", x.party ?? "", typeof x.amount === "number" ? inr(x.amount) : "", x.note])} />
+          {f.rows.length > 50 && <p className="px-4 pb-3 text-xs text-muted">and {f.count - 50} more in the Excel download</p>}</CardBody></Card>))}
+    {r.benford && <Card><CardHeader><CardTitle>Benford first-digit test: {r.benford.verdict}</CardTitle></CardHeader><CardBody>
+      <p className="mb-2 text-sm text-muted">{r.benford.n} amounts; chi-square {r.benford.chi2} (above 20.1 doesn&apos;t fit at 1%). Natural amounts start with 1 about 30% of the time and with 9 about 5%.</p>
+      <Table head={["First digit", "Expected", "In this sheet"]} rows={r.benford.digits.map((d: any) => [d.digit, `${d.expected}%`, `${d.actual}%`])} /></CardBody></Card>}
+  </>);
+}
+
 export default async function WorkPage({ params }: { params: Promise<{ wid: string }> }) {
   const active = await getActiveOrg();
   if (!active) redirect("/home");
@@ -202,6 +225,7 @@ export default async function WorkPage({ params }: { params: Promise<{ wid: stri
       {w.agent === "ca_tax_audit" && <Audit r={r} />}
       {w.agent === "excel_desk" && <Excel r={r} title={w.title} />}
       {w.agent === "excel_cleaner" && <Cleaner r={r} />}
+      {w.agent === "ca_anomaly_finder" && <Anomalies r={r} />}
     </div>
   );
 }

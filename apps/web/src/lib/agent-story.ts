@@ -403,6 +403,15 @@ export const stories: Record<string, Story> = {
     before: ["The same entries typed every month", "EMI splits worked out by hand", "Overspending noticed at year end"],
     after: ["Routine entries post themselves", "Correct interest and principal every month", "Budget alerts while there's still time"],
   },
+  "ca-anomaly-finder": {
+    flow: ["Ledger or register", "Every check runs", "Most serious first", "Rows + why", "Fixed before review"], highlight: 2,
+    steps: [["you", "Upload a client's ledger, day book or sales / purchase register on their page (or on the Excel desk)."],
+      ["agent", "Runs every check a reviewer would: duplicates, voucher numbers, cash limits, GST type and rate, GSTINs, dates, outliers, Benford."],
+      ["agent", "Adds split cash entries on one day together and uses the client's own GSTIN for same-state vs other-state."],
+      ["you", "Fix the serious ones with the client, glance at the rest, and keep the Excel for the review file."]],
+    before: ["Hours of filters and sorting per ledger", "Duplicates and wrong tax type found by the auditor", "Checks depend on who reviews"],
+    after: ["Every ledger checked the same way in seconds", "Problems fixed before the partner or auditor sees them", "A findings file for every client"],
+  },
   "ca-excel-cleaner": {
     flow: ["Client's messy sheet", "Header found", "Junk rows out", "Numbers, dates, GSTINs fixed", "Clean sheet + change log"], highlight: 3,
     steps: [["customer", "Sends the sales register, ledger or party list in whatever shape their software exports."],

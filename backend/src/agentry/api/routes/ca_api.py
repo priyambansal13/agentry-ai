@@ -16,6 +16,7 @@ from sqlalchemy import text
 from agentry import audit, official_rules
 from agentry.auth import OrgContext, current_org
 from agentry.automations.ca import (
+    anomalies,
     audit3cd,
     bank,
     calendar,
@@ -568,6 +569,8 @@ async def work_sheet(wid: str, ctx: Any) -> Response:
         body = gst.sheet(r)
     elif w["agent"] == "excel_cleaner":
         body = cleaner.sheet(r)
+    elif w["agent"] == "ca_anomaly_finder":
+        body = anomalies.sheet(r)
     elif w["agent"] in SHEETS:
         body = SHEETS[w["agent"]](r)
     else:
@@ -777,7 +780,7 @@ async def notice_sample(cid: str, ctx: NoticeOn) -> dict:
 @router.get("/excel")
 async def excel_list(ctx: ExcelOn) -> dict:
     async with tenant_session(ctx.org_id) as conn:
-        rows = (await conn.execute(text("""select id::text, title, created_at, params from app.ca_work where agent in ('excel_desk', 'excel_cleaner')
+        rows = (await conn.execute(text("""select id::text, title, created_at, params from app.ca_work where agent in ('excel_desk', 'excel_cleaner', 'ca_anomaly_finder') and client_id is null
             order by created_at desc limit 50"""))).mappings().all()
     return {"items": [dict(r) for r in rows]}
 
@@ -842,6 +845,48 @@ async def excel_clean_sample(ctx: ExcelOn) -> dict:
     _work(ctx)
     r = cleaner.compute((SAMPLE / "messy_sales_register_sample.csv").read_bytes(), "text/csv")
     return await _save(ctx, None, "excel_cleaner", "Cleaned: messy sales register (sample)", r, [], {"kind": "clean", "file": "sample"})
+
+
+@router.post("/excel/anomalies", status_code=201)
+async def excel_anomalies(ctx: ExcelOn, file: Annotated[UploadFile, File()]) -> dict:
+    """The anomaly finder (docs/PLAN-CA-DESK-2.md #2) on the firm's own sheet. No AI."""
+    _work(ctx)
+    data = await file.read()
+    try:
+        r = anomalies.compute(data, _mime(file, data))
+    except (core.CaError, ValueError, IndexError) as e:
+        raise _read_error(e) from e
+    return await _save(ctx, None, "ca_anomaly_finder", f"Anomalies: {file.filename}", r, [], {"kind": "anomalies", "file": file.filename})
+
+
+@router.post("/excel/anomalies/sample", status_code=201)
+async def excel_anomalies_sample(ctx: ExcelOn) -> dict:
+    _work(ctx)
+    r = anomalies.compute((SAMPLE / "purchase_daybook_sample.csv").read_bytes(), "text/csv")
+    return await _save(ctx, None, "ca_anomaly_finder", "Anomalies: purchase day book (sample)", r, [], {"kind": "anomalies", "file": "sample"})
+
+
+async def _anomalies_for(ctx: OrgContext, cid: str, upload: tuple[bytes, str | None, str | None], title: str) -> dict:
+    async with tenant_session(ctx.org_id) as conn:
+        gstin = (await _client(conn, cid))["gstin"]
+
+    async def run(data: bytes, mime: str) -> dict:
+        return anomalies.compute(data, mime, firm_gstin=gstin)
+    return await _one(ctx, cid, "ca_anomaly_finder", upload, "ledger", title, run)
+
+
+@router.post("/clients/{cid}/anomalies", status_code=201)
+async def client_anomalies(cid: str, ctx: ExcelOn, file: Annotated[UploadFile, File()]) -> dict:
+    """On a client: the client's own GSTIN decides same-state vs other-state, and the file is kept on the client."""
+    _work(ctx)
+    return await _anomalies_for(ctx, cid, (await file.read(), file.filename, file.content_type), f"Anomalies: {file.filename}")
+
+
+@router.post("/clients/{cid}/anomalies/sample", status_code=201)
+async def client_anomalies_sample(cid: str, ctx: ExcelOn) -> dict:
+    _work(ctx)
+    p = SAMPLE / "purchase_daybook_sample.csv"
+    return await _anomalies_for(ctx, cid, (p.read_bytes(), p.name, "text/csv"), "Anomalies: sample purchase day book")
 
 
 # ---------- recurring entries (the firm's own books) ----------

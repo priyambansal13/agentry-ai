@@ -357,6 +357,65 @@ export function ExcelBox() {
   );
 }
 
+/* ---------- anomaly finder (fixed rules, no AI) ---------- */
+
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    const cells: string[] = [];
+    let cur = "", q = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { if (q && line[i + 1] === '"') { cur += '"'; i++; } else q = !q; }
+      else if ((ch === "," || ch === "\t") && !q) { cells.push(cur); cur = ""; }
+      else cur += ch;
+    }
+    rows.push([...cells, cur]);
+  }
+  return rows;
+}
+
+export function AnomalyBox() {
+  const s = useSample("anomalies");
+  const [own, setOwn] = useState("");
+  const r = useRun("anomalies", false);
+  const x = r.result;
+  const ownRows = own.trim() ? parseCsv(own) : null;
+  return (
+    <TryShell title="A purchase day book, checked like a reviewer would"
+      intro={`A sample day book of ${s?.rows ?? 167} entries for a Maharashtra trader, with the slips real books have hidden in it. Every check runs in seconds, most serious first, each with its rows and why it matters. Or paste up to 60 rows of your own.`}
+      sell="In the portal you run it on a client's full ledger or register (up to 20,000 rows) from their page: the client's own GSTIN decides same-state vs other-state, the file stays on the client, and the findings download as Excel for the review file.">
+      {s && <Panel title={`The sample (first ${s.preview.length - 3} of ${s.rows} entries)`}><div className="overflow-x-auto"><table className="w-full text-xs"><tbody>
+        {s.preview.map((row: string[], i: number) => <tr key={i} className={i === 2 ? "font-semibold" : "border-t border-line"}>{row.map((c, j) => <td key={j} className="whitespace-nowrap px-1.5 py-1">{c}</td>)}</tr>)}</tbody></table></div></Panel>}
+      <details className="mt-4"><summary className="cursor-pointer text-sm font-semibold">Or paste your own (CSV, header first, up to 60 rows)</summary>
+        <div className="mt-2"><Area id="an-own" label="Rows copied from Excel or a CSV" value={own} onChange={setOwn} rows={6} placeholder="Date,Voucher No,Party,GSTIN,Taxable Value,IGST,CGST,SGST,Amount,Mode" /></div></details>
+      <div className="mt-4"><RunButton r={r} label={ownRows ? "Check my rows" : "Check the sample"} input={() => (ownRows ? { rows: ownRows } : { use_sample: true })} disabled={!s} /></div>
+      {x && (
+        <div className="mt-6 space-y-4">
+          <div className="grid gap-3 sm:grid-cols-3"><Stat label="Rows checked" value={x.summary.rows} note={x.fy_start ? `FY ${x.fy_start}-${String(x.fy_start + 1).slice(2)}` : undefined} />
+            <Stat label="To fix" value={x.summary.high} note="rows with a serious finding" /><Stat label="To look at" value={x.summary.medium + x.summary.low} /></div>
+          {x.findings.length === 0 && <Panel title="Nothing found"><p className="text-sm">No check found anything in these rows.</p></Panel>}
+          {x.findings.map((f: Any) => (
+            <Panel key={f.key} tone={f.severity === "high" ? "warn" : "card"} title={<span className="flex items-center gap-2"><Severity level={f.severity} /> {f.title} ({f.count})</span>}>
+              <p className="text-sm text-ink-soft">{f.why}</p>
+              <ul className="mt-2 space-y-1 text-sm">{f.rows.slice(0, 6).map((row: Any, i: number) => <li key={i} className="flex flex-wrap gap-x-2">
+                {row.row && <span className="text-muted">row {row.row}</span>}{row.date && <span>{fmtDate(row.date)}</span>}{row.voucher && <span>{row.voucher}</span>}
+                {row.party && <span className="font-semibold">{row.party}</span>}{typeof row.amount === "number" && <span className="tabular-nums">{inr(row.amount)}</span>}<span className="text-muted">· {row.note}</span></li>)}
+                {f.count > 6 && <li className="text-xs text-muted">and {f.count - 6} more</li>}</ul>
+            </Panel>))}
+          {x.benford && <Panel title={`Benford first-digit test: ${x.benford.verdict}`}>
+            <div className="flex items-end gap-1.5" role="img" aria-label="First-digit shares, expected vs this sheet">{x.benford.digits.map((d: Any) => (
+              <div key={d.digit} className="flex flex-1 flex-col items-center gap-1 text-[11px]">
+                <div className="flex h-24 w-full items-end justify-center gap-0.5"><div className="w-1/3 rounded-t bg-line" style={{ height: `${d.expected * 3}%` }} title={`expected ${d.expected}%`} />
+                  <div className="w-1/3 rounded-t bg-ink" style={{ height: `${d.actual * 3}%` }} title={`actual ${d.actual}%`} /></div>{d.digit}</div>))}</div>
+            <p className="mt-2 text-xs text-muted">Grey: expected in natural amounts · black: this sheet ({x.benford.n} amounts, chi-square {x.benford.chi2}). Not proof of anything; a sign of how amounts were made.</p></Panel>}
+          {x.skipped?.map((m: string) => <p key={m} className="text-xs text-muted">Not checked: {m}</p>)}
+        </div>)}
+    </TryShell>
+  );
+}
+
 /* ---------- Excel cleaner (fixed rules, no AI) ---------- */
 
 export function CleanerBox() {

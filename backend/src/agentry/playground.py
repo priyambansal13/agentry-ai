@@ -281,7 +281,13 @@ def excel_clean(p: dict) -> dict:
     return _jsonable(r)
 
 
-CALC = {"msme": msme_calc, "excel-clean": excel_clean, "itr": itr, "capital-gains": capital_gains, "tds": tds, "audit-3cd": audit_3cd, "gst": gst, "calendar": calendar,
+def anomalies(p: dict) -> dict:
+    from agentry.automations.ca import anomalies as m
+    rows = _csv(_ca_samples() / "purchase_daybook_sample.csv") if p.get("use_sample") else _rows(p.get("rows"))
+    return _jsonable(m.find(rows))
+
+
+CALC = {"msme": msme_calc, "excel-clean": excel_clean, "anomalies": anomalies, "itr": itr, "capital-gains": capital_gains, "tds": tds, "audit-3cd": audit_3cd, "gst": gst, "calendar": calendar,
         "chaser": chaser, "tax-docs": tax_docs, "renewals": renewals}
 
 
@@ -618,6 +624,9 @@ def sample(kind: str) -> dict:
     if kind == "excel":
         return {"rows": _csv(ca / "tds_register_sample.csv"),
                 "questions": ["Total TDS deducted by section", "Which payments were over ₹50,000?", "How many deductees are there?"]}
+    if kind == "anomalies":
+        rows = _csv(ca / "purchase_daybook_sample.csv")
+        return {"preview": rows[:16], "rows": len(rows) - 3}
     if kind == "excel-clean":
         raw = list(csv.reader(io.StringIO((ca / "messy_sales_register_sample.csv").read_text(encoding="utf-8-sig"))))
         width = max(len(r) for r in raw)
@@ -682,6 +691,7 @@ async def run(kind: str, payload: dict, *, ip: str | None, token: str | None) ->
 _RULES = {  # website agent slug -> official figures it uses (official_rules key prefixes / keys)
     "ca-itr-preparation": ("itr.",), "ca-capital-gains": ("cg.", "itr.rate_111a", "itr.rate_112a", "itr.ltcg_exempt"),
     "ca-tds-returns": ("tds.",), "invoice-follow-up": ("msme.",), "ca-tax-audit-3cd": ("audit.",), "ca-bank-classifier": ("bank.", "audit.cash_receipt"),
+    "ca-anomaly-finder": ("audit.cash_limit", "audit.cash_receipt"),
 }
 _TEXT = {  # what the other boxes rest on: (basis, [(label, source, url)])
     "ca-gst-reconciliation": ("Your purchase register against the GSTR-2B statement, matched by supplier GSTIN and invoice number.", [
@@ -693,6 +703,10 @@ _TEXT = {  # what the other boxes rest on: (basis, [(label, source, url)])
         ("Checklists", "Agentry's checklist per filing (ITR, GST, TDS, audit, ROC); each firm can edit its own", None)]),
     "ca-notice-handler": ("Only the notice's own text: the dates, demand and DIN read are checked against it before they're shown.", [
         ("The notice", "As issued by the Income Tax Department (verify it on the e-filing portal with its DIN)", "https://www.incometax.gov.in/iec/foportal/")]),
+    "ca-anomaly-finder": ("Your sheet and fixed rules; the cash limits are official figures, checked daily against official sources.", [
+        ("IGST vs CGST + SGST", "IGST Act sections 7-8 and 10-12: inter-state vs intra-state by place of supply", "https://cbic-gst.gov.in/"),
+        ("GST rates", "CBIC rate notifications (5% / 18% / 40% from 22 Sep 2025; older 12% / 28% still in past books)", "https://cbic-gst.gov.in/"),
+        ("Benford's law", "First-digit test, chi-square at 1% (8 degrees of freedom)", None)]),
     "ca-excel-cleaner": ("Your sheet and fixed rules: the same file always gives the same result, and every change is listed.", [
         ("GSTIN check digit", "GST registration rules (the 15th character is a checksum of the first 14)", "https://www.gst.gov.in/"),
         ("PAN format", "Income Tax Department: five letters, four digits, a letter", "https://www.incometax.gov.in/iec/foportal/"),
@@ -730,8 +744,10 @@ async def sources(slug: str) -> dict:
         items = [{"label": f["label"], "value": f["shown"], "source": f["update"]["source"] if f.get("update") else f["source"],
                   "url": (f["update"]["source_url"] if f.get("update") else f["url"]), "updated": bool(f.get("update"))} for f in figs]
         basis = ("Your invoices and due dates; for MSME suppliers the MSMED Act, 2006 (sections 15 and 16) and the RBI bank rate, "
-                 "checked against official sources every day." if slug == "invoice-follow-up" else
+                 "checked against official sources every day." if slug == "invoice-follow-up" else _TEXT[slug][0] if slug in _TEXT else
                  "The law for FY 2025-26 (AY 2026-27), with any change since that's verified on the official source and approved.")
+        if slug in _TEXT:
+            items += [{"label": a, "value": None, "source": b, "url": c, "updated": False} for a, b, c in _TEXT[slug][1]]
         return {"basis": basis,
                 "items": items, "official": True, "checked_at": checked}
     if slug == "ca-compliance-calendar":

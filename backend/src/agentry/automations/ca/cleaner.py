@@ -116,7 +116,7 @@ def _kind(name: str, values: list[str]) -> str:
     return "text"
 
 
-def clean(rows: list[list[str]], *, standardise_names: bool = False) -> dict:
+def clean(rows: list[list[str]], *, standardise_names: bool = False, drop_duplicates: bool = True) -> dict:
     rows = [[str(c) if c is not None else "" for c in r] for r in rows]
     if len(rows) > MAX_ROWS + 50:
         raise core.CaError(f"up to {MAX_ROWS:,} rows at a time: split the file")
@@ -219,7 +219,7 @@ def clean(rows: list[list[str]], *, standardise_names: bool = False) -> dict:
     unique: list[tuple[int, list]] = []
     for n, o in out_rows:
         key = tuple(o)
-        if key in seen:
+        if key in seen and drop_duplicates:
             note("Exact duplicate rows removed (the first kept)", f"row {n}")
             continue
         seen.add(key)
