@@ -3,7 +3,7 @@
 import { Button, Input, Label, Select } from "@agentry/ui";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { caBankLine, caBookRecurring, caLedgerLine, caDeleteRecurring, caDeleteWork, caItr, caSaveRecurring, caTaxOpening, caTool } from "@/app/(app)/actions";
+import { caBankLine, caBookRecurring, caLedgerLine, caDeleteRecurring, caDeleteWork, caItr, caConfirmReply, caConfirmSend, caConfirmSet, caSaveRecurring, caTaxOpening, caTool } from "@/app/(app)/actions";
 
 /** Forms for the CA agents that work on files (GST, capital gains, bank, notices, TDS, 3CD, Excel desk) and the ITR computation. */
 function useGo() {
@@ -24,12 +24,13 @@ function useGo() {
 const Err = ({ e }: { e: string | null }) => (e ? <p role="alert" className="text-sm text-danger">{e}</p> : null);
 const workId = (d: unknown) => { const x = d as { id?: string; work_id?: string }; return x.work_id ?? x.id; };
 
-export type ToolSpec = { key: string; path: string; files: { name: string; label: string; accept: string }[]; extra?: "period" | "fy" | "columns" | "question" | "tolerance" | "standardise_names";
+export type ToolSpec = { key: string; path: string; files: { name: string; label: string; accept: string }[]; extra?: "period" | "fy" | "columns" | "question" | "tolerance" | "standardise_names" | "as_of";
   sample?: boolean; hint: string; button: string };
 
 export function ToolForm({ spec, clientId }: { spec: ToolSpec; clientId?: string }) {
   const { err, pending, go, router } = useGo();
-  const [extra, setExtra] = useState(spec.extra === "fy" ? "2025" : spec.extra === "period" ? "" : spec.extra === "tolerance" ? "1" : spec.extra === "standardise_names" ? "false" : "");
+  const [minBal, setMinBal] = useState("0");
+  const [extra, setExtra] = useState(spec.extra === "as_of" ? "2026-03-31" : spec.extra === "fy" ? "2025" : spec.extra === "period" ? "" : spec.extra === "tolerance" ? "1" : spec.extra === "standardise_names" ? "false" : "");
   const [files, setFiles] = useState<Record<string, File | null>>({});
   const ready = spec.files.every((f) => files[f.name]) && (!["period", "question"].includes(spec.extra ?? "") || extra.trim().length > 1);
   const open = (d: unknown) => { const id = workId(d); if (id) router.push(`/ca-work/${id}`); };
@@ -39,6 +40,7 @@ export function ToolForm({ spec, clientId }: { spec: ToolSpec; clientId?: string
       const fd = new FormData();
       spec.files.forEach((f) => fd.append(f.name, files[f.name]!));
       if (spec.extra) fd.append(spec.extra, extra);
+      if (spec.extra === "as_of") fd.append("min_balance", minBal.replace(/,/g, "") || "0");
       go(() => caTool(spec.path, fd, clientId), open);
     }}>
       <p className="text-sm text-muted">{spec.hint}</p>
@@ -48,6 +50,8 @@ export function ToolForm({ spec, clientId }: { spec: ToolSpec; clientId?: string
             <input id={`${spec.key}-${f.name}`} type="file" accept={f.accept} className="block text-sm" onChange={(e) => setFiles({ ...files, [f.name]: e.target.files?.[0] ?? null })} /></div>))}
         {spec.extra === "period" && <div className="space-y-1"><Label htmlFor={`${spec.key}-p`}>Period</Label><Input id={`${spec.key}-p`} className="w-36" placeholder="Oct 2026" value={extra} onChange={(e) => setExtra(e.target.value)} /></div>}
         {spec.extra === "fy" && <div className="space-y-1"><Label htmlFor={`${spec.key}-fy`}>Financial year starting</Label><Input id={`${spec.key}-fy`} className="w-24" inputMode="numeric" value={extra} onChange={(e) => setExtra(e.target.value)} /></div>}
+        {spec.extra === "as_of" && <><div className="space-y-1"><Label htmlFor={`${spec.key}-d`}>Balances as at</Label><Input id={`${spec.key}-d`} type="date" className="w-40" value={extra} onChange={(e) => setExtra(e.target.value)} /></div>
+          <div className="space-y-1"><Label htmlFor={`${spec.key}-m`}>Ask parties with at least (₹)</Label><Input id={`${spec.key}-m`} className="w-32" inputMode="decimal" value={minBal} onChange={(e) => setMinBal(e.target.value)} /></div></>}
         {spec.extra === "columns" && <div className="space-y-1"><Label htmlFor={`${spec.key}-c`}>Your columns (optional)</Label><Input id={`${spec.key}-c`} className="w-72" placeholder="Date, Party, Invoice, Amount" value={extra} onChange={(e) => setExtra(e.target.value)} /></div>}
         {spec.extra === "question" && <div className="min-w-64 flex-1 space-y-1"><Label htmlFor={`${spec.key}-q`}>Question</Label><Input id={`${spec.key}-q`} placeholder="Total amount by party, top 5" value={extra} onChange={(e) => setExtra(e.target.value)} /></div>}
         {spec.extra === "tolerance" && <div className="space-y-1"><Label htmlFor={`${spec.key}-t`}>Equal within (₹)</Label><Input id={`${spec.key}-t`} className="w-24" inputMode="decimal" value={extra} onChange={(e) => setExtra(e.target.value)} /></div>}
@@ -154,6 +158,66 @@ export function TaxOpening({ wid, blocks }: { wid: string; blocks: { key: string
           <Input id={`op-${b.key}`} inputMode="decimal" className="h-9" value={v[b.key] ?? ""} onChange={(e) => setV({ ...v, [b.key]: e.target.value })} /></div>))}</div>
       <Button type="submit" disabled={pending || !changed.length || changed.some((b) => !Number.isFinite(num(b.key)) || num(b.key) < 0)}>
         {pending ? "Working out…" : "Use these opening figures"}</Button><Err e={err} />
+    </form>
+  );
+}
+
+/** Send the drafted confirmation requests, or reminders to parties who haven't replied in a week. */
+export function ConfirmSend({ wid, drafts, remind }: { wid: string; drafts: number; remind: number }) {
+  const { err, pending, go } = useGo();
+  const [msg, setMsg] = useState<string | null>(null);
+  const [byHand, setByHand] = useState<{ party: string; subject: string; body: string }[]>([]);
+  const done = (d: unknown) => {
+    const r = d as { sent: number; failed: unknown[]; messages: { party: string; via: string; subject?: string; body?: string }[] };
+    setByHand(r.messages.filter((m) => m.via === "recorded" && m.body).map((m) => ({ party: m.party, subject: m.subject ?? "", body: m.body ?? "" })));
+    const recorded = r.messages.filter((m) => m.via === "recorded").length;
+    setMsg(`${r.sent} sent${recorded ? ` (${recorded} recorded only: no mailbox connected, or a test address; copy the text below to send by hand)` : ""}${r.failed.length ? `, ${r.failed.length} failed` : ""}.`);
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button type="button" disabled={pending || !drafts} onClick={() => confirm(`Email ${drafts} confirmation request${drafts === 1 ? "" : "s"} from the firm's mailbox?`) && go(() => caConfirmSend(wid, false), done)}>
+        {pending ? "Sending…" : `Send ${drafts} request${drafts === 1 ? "" : "s"}`}</Button>
+      {remind > 0 && <Button type="button" variant="secondary" disabled={pending} onClick={() => confirm(`Send ${remind} reminder${remind === 1 ? "" : "s"}?`) && go(() => caConfirmSend(wid, true), done)}>
+        Remind {remind} (no reply in a week)</Button>}
+      {msg && <span className="text-sm text-muted">{msg}</span>}<Err e={err} />
+      {byHand.length > 0 && <details className="w-full rounded-xl border-2 border-line p-3 text-sm"><summary className="cursor-pointer font-semibold">To send by hand ({byHand.length})</summary>
+        <ul className="mt-2 space-y-3">{byHand.map((m) => <li key={m.party}><p className="font-medium">{m.party}: {m.subject} <CopyText text={`${m.subject}\n\n${m.body}`} /></p>
+          <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-paper p-2 text-xs">{m.body}</pre></li>)}</ul>
+        <p className="mt-2 text-xs text-muted">Each link is private to that party; it works for 60 days.</p></details>}
+    </div>
+  );
+}
+
+/** One party: paste their email reply (read for you), set the result by hand, or add an email address. */
+export function ConfirmParty({ wid, pid, status, email }: { wid: string; pid: string; status: string; email: string | null }) {
+  const { err, pending, go } = useGo();
+  const [mode, setMode] = useState<"" | "reply" | "set" | "email">("");
+  const [txt, setTxt] = useState("");
+  const [res, setRes] = useState("agreed");
+  const [fig, setFig] = useState("");
+  const close = () => { setMode(""); setTxt(""); setFig(""); };
+  if (!mode) return (
+    <span className="flex flex-wrap gap-2 text-xs">
+      {["sent", "unclear", "differs", "agreed"].includes(status) && <button type="button" className="underline" onClick={() => setMode("reply")}>paste reply</button>}
+      {status !== "not_selected" && status !== "draft" && status !== "no_email" && <button type="button" className="underline" onClick={() => setMode("set")}>set result</button>}
+      {(status === "no_email" || status === "not_selected" || status === "draft") && <button type="button" className="underline" onClick={() => setMode("email")}>{email ? "change email" : "add email"}</button>}
+    </span>);
+  return (
+    <form className="min-w-64 space-y-1.5" onSubmit={(e) => {
+      e.preventDefault();
+      if (mode === "reply") go(() => caConfirmReply(wid, pid, txt), close);
+      else if (mode === "email") go(() => caConfirmSet(wid, pid, { email: txt }), close);
+      else go(() => caConfirmSet(wid, pid, { status: res, their_balance: res === "differs" ? Number(fig.replace(/,/g, "")) : null, note: txt || null }), close);
+    }}>
+      {mode === "reply" && <textarea aria-label="The party's reply" className="w-full rounded-lg border-2 border-line p-2 text-xs" rows={3} value={txt} onChange={(e) => setTxt(e.target.value)} placeholder="Paste the email reply" />}
+      {mode === "email" && <Input aria-label="Email" className="h-8 text-xs" value={txt} onChange={(e) => setTxt(e.target.value)} placeholder="accounts@party.com" />}
+      {mode === "set" && <div className="flex flex-wrap gap-1.5">
+        <Select aria-label="Result" className="h-8 w-28 text-xs" value={res} onChange={(e) => setRes(e.target.value)}><option value="agreed">Agreed</option><option value="differs">Differs</option><option value="unclear">Unclear</option></Select>
+        {res === "differs" && <Input aria-label="Their balance" className="h-8 w-28 text-xs" inputMode="decimal" placeholder="Their figure" value={fig} onChange={(e) => setFig(e.target.value)} />}
+        <Input aria-label="Note" className="h-8 w-40 text-xs" placeholder="Note (letter, call…)" value={txt} onChange={(e) => setTxt(e.target.value)} /></div>}
+      <span className="flex gap-2"><Button type="submit" className="h-8 text-xs" disabled={pending || (mode !== "set" && txt.trim().length < 2) || (mode === "set" && res === "differs" && !Number.isFinite(Number(fig.replace(/,/g, ""))) )}>
+        {pending ? "Saving…" : mode === "reply" ? "Read it" : "Save"}</Button><button type="button" className="text-xs underline" onClick={close}>cancel</button></span>
+      <Err e={err} />
     </form>
   );
 }

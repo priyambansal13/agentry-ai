@@ -413,6 +413,16 @@ export const stories: Record<string, Story> = {
     before: ["Hours regrouping ledgers in Excel", "Ratios worked out by hand at the last minute", "Big swings noticed by the auditor"],
     after: ["Statements in minutes, last year alongside", "Ratios and 25% changes ready", "Client questions sent on day one"],
   },
+  "ca-balance-confirmations": {
+    flow: ["Party balances", "Requests drafted", "You press Send", "Replies read", "Audit file summary"], highlight: 3,
+    steps: [["you", "Upload the client's debtor and creditor balances (Tally closing balances, with emails) and choose the minimum to ask."],
+      ["agent", "Drafts a request to each party with their balance and a private link; lists anyone without an email."],
+      ["you", "Press Send: the requests go from your firm's own mailbox, straight from you as auditor."],
+      ["customer", "Each party agrees in one tap, or gives their figure and attaches their statement (or replies to the email)."],
+      ["agent", "Reads email replies (rules first, the AI for unclear ones), sends reminders after a week, and keeps the summary current."]],
+    before: ["Letters typed and posted party by party", "Replies lost in someone's inbox", "Coverage worked out by hand at the end"],
+    after: ["Every request out in one go", "Each reply tracked against the balance", "Coverage and differences ready for the file"],
+  },
   "ca-depreciation": {
     flow: ["Asset register", "Each asset classed", "Books + tax", "Deferred tax", "Into the accounts"], highlight: 2,
     steps: [["customer", "Sends the fixed asset register with the year's purchases and sales (or it arrives through the upload hub)."],

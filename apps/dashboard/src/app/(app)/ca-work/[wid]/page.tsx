@@ -2,7 +2,7 @@ import { Badge, Card, CardBody, CardHeader, CardTitle } from "@agentry/ui";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AGENT_LABEL } from "@/components/ca-tools";
-import { BankLineCategory, CopyText, DeleteWork, LedgerLine, TaxOpening } from "@/components/ca-tool-forms";
+import { BankLineCategory, ConfirmParty, ConfirmSend, CopyText, DeleteWork, LedgerLine, TaxOpening } from "@/components/ca-tool-forms";
 import { api, ApiError, getActiveOrg, getFeatures } from "@/lib/session";
 
 export const metadata = { title: "Result" };
@@ -326,6 +326,36 @@ function Depreciation({ r, wid }: { r: any; wid: string }) {
   </>);
 }
 
+const CONF_LABEL: Record<string, [string, "danger" | "warning" | "neutral" | "success"]> = { draft: ["to send", "neutral"], not_selected: ["not selected", "neutral"],
+  no_email: ["no email", "warning"], sent: ["no reply yet", "neutral"], agreed: ["agreed", "success"], differs: ["differs", "danger"], unclear: ["reply to read", "warning"] };
+function Confirmations({ r, wid }: { r: any; wid: string }) {
+  const s = r.summary;
+  const drafts = s.debtor.drafts + s.creditor.drafts;
+  const remind = r.parties.filter((p: any) => p.remind).length;
+  const col = (k: string, f: (v: any) => any = (v) => v) => [f(s.debtor[k]), f(s.creditor[k])];
+  return (<>
+    <Card><CardBody className="space-y-3">
+      <p className="text-sm text-muted">Balances of {r.client} as at {r.as_of}. Each party gets a private link to confirm directly to you (SA 505), or can reply to the email.
+        Nothing goes out until you press Send; it goes from the firm&apos;s connected mailbox.</p>
+      <ConfirmSend wid={wid} drafts={drafts} remind={remind} /></CardBody></Card>
+    <Card><CardHeader><CardTitle>Summary for the audit file</CardTitle></CardHeader><CardBody className="p-0">
+      <Table head={["", "Debtors", "Creditors"]} rows={[["Parties / total balance", ...[s.debtor, s.creditor].map((x: any) => `${x.parties} · ${inr(x.balance)}`)],
+        ["Requests sent", ...[s.debtor, s.creditor].map((x: any) => `${x.sent} · ${inr(x.sent_amount)}`)], ["Agreed", ...[s.debtor, s.creditor].map((x: any) => `${x.agreed} · ${inr(x.agreed_amount)}`)],
+        ["Differ (total difference)", ...[s.debtor, s.creditor].map((x: any) => x.differs ? <span key="d" className="text-danger">{x.differs} · {inr(x.difference)}</span> : "0")],
+        ["No reply yet", ...[s.debtor, s.creditor].map((x: any) => `${x.no_reply} · ${inr(x.no_reply_amount)}`)], ["Replies to read", ...col("unclear")],
+        ["No email", ...col("no_email")], ["Coverage (agreed / total)", ...col("coverage_pct", (v) => `${v}%`)], ["Response rate", ...col("response_pct", (v) => `${v}%`)]]} /></CardBody></Card>
+    {(["debtor", "creditor"] as const).map((k) => <Card key={k}><CardHeader><CardTitle>{k === "debtor" ? "Debtors" : "Creditors"}</CardTitle></CardHeader><CardBody className="p-0">
+      <Table head={["Party", "Balance in books", "Status", "Their figure", "Difference", "Next", ""]} rows={r.parties.filter((p: any) => p.kind === k).map((p: any) => [
+        <span key="n">{p.party}<span className="block text-xs text-muted">{p.email ?? "no email"}{p.reminders ? ` · ${p.reminders} reminder${p.reminders === 1 ? "" : "s"}` : ""}</span></span>,
+        `${inr(Math.abs(p.our_balance))} ${p.our_balance >= 0 ? "Dr" : "Cr"}`,
+        <span key="s"><Badge tone={CONF_LABEL[p.status]![1]}>{CONF_LABEL[p.status]![0]}</Badge>{p.reply_via && <span className="block text-xs text-muted">by {p.reply_via}{p.reply_read_by === "ai" ? " (AI read: check)" : ""}</span>}</span>,
+        p.their_balance === null ? "-" : inr(p.their_balance), p.difference === null ? "-" : inr(p.difference),
+        <span key="f" className="text-xs">{p.follow_up}{p.reply_note && <span className="mt-1 block text-muted">&ldquo;{p.reply_note.slice(0, 200)}&rdquo;</span>}
+          {p.reply_file_id && <a className="block underline" href={`/api/ca/files/${p.reply_file_id}`}>their statement</a>}</span>,
+        <ConfirmParty key="a" wid={wid} pid={p.id} status={p.status} email={p.email} />])} /></CardBody></Card>)}
+  </>);
+}
+
 export default async function WorkPage({ params }: { params: Promise<{ wid: string }> }) {
   const active = await getActiveOrg();
   if (!active) redirect("/home");
@@ -365,6 +395,7 @@ export default async function WorkPage({ params }: { params: Promise<{ wid: stri
       {w.agent === "ca_gstr1" && <Gstr1 r={r} />}
       {w.agent === "ca_financial_statements" && <Financials r={r} wid={w.id} />}
       {w.agent === "ca_depreciation" && <Depreciation r={r} wid={w.id} />}
+      {w.agent === "ca_balance_confirmations" && <Confirmations r={r} wid={w.id} />}
     </div>
   );
 }

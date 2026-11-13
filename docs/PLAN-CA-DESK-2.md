@@ -22,3 +22,6 @@ only where judgement is needed and is always checked.
 
 ## Pricing
 Part of the CA plan (agents switched on per firm); the upload hub counts towards the client portal's monthly clients.
+
+## Status
+All 7 built and committed on 2026-11-13 (flow docs in docs/flows/agents/). Not deployed yet: the deploy applies migrations 0061 and 0062.

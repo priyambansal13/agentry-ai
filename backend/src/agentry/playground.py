@@ -313,7 +313,18 @@ def depreciation(p: dict) -> dict:
     return _jsonable(m.build(assets, fy=_s(p.get("fy"), 20) or None, kind=kind, tax_opening=opening) | {"columns": used})
 
 
-CALC = {"msme": msme_calc, "depreciation": depreciation, "upload-hub": upload_hub, "gstr1": gstr1, "financials": financials, "excel-clean": excel_clean, "anomalies": anomalies, "itr": itr, "capital-gains": capital_gains, "tds": tds, "audit-3cd": audit_3cd, "gst": gst, "calendar": calendar,
+def confirmations(p: dict) -> dict:
+    from agentry.automations.ca import confirmations as m
+    replies = p.get("replies") if isinstance(p.get("replies"), dict) else {}
+    replies = {str(k)[:200]: str(v)[:2000] for k, v in list(replies.items())[:60]}
+    try:
+        minimum = max(0.0, min(float(p.get("min_balance") or 0), 1e12))
+    except (TypeError, ValueError):
+        minimum = 0.0
+    return _jsonable(m.demo(_rows(p.get("rows")), replies, client="Mehta Steel Pvt Ltd", firm="Your CA firm", as_of="2026-03-31", min_balance=minimum))
+
+
+CALC = {"msme": msme_calc, "depreciation": depreciation, "confirmations": confirmations, "upload-hub": upload_hub, "gstr1": gstr1, "financials": financials, "excel-clean": excel_clean, "anomalies": anomalies, "itr": itr, "capital-gains": capital_gains, "tds": tds, "audit-3cd": audit_3cd, "gst": gst, "calendar": calendar,
         "chaser": chaser, "tax-docs": tax_docs, "renewals": renewals}
 
 
@@ -652,6 +663,9 @@ def sample(kind: str) -> dict:
                 "questions": ["Total TDS deducted by section", "Which payments were over ₹50,000?", "How many deductees are there?"]}
     if kind == "financials":
         return {"rows": _csv(ca / "trial_balance_sample.csv"), "kind": "company"}
+    if kind == "confirmations":
+        return {"rows": _from_header(_csv(ca / "party_balances_sample.csv"), ("party", "balance")), "min_balance": 10000,
+                "replies": json.loads((ca / "confirmation_replies_sample.json").read_text())}
     if kind == "depreciation":
         return {"rows": _from_header(_csv(ca / "fixed_asset_register_sample.csv"), ("asset", "cost")), "fy": "FY 2025-26", "kind": "company"}
     if kind == "gstr1":
@@ -744,6 +758,10 @@ _TEXT = {  # what the other boxes rest on: (basis, [(label, source, url)])
         ("Schedule III", "Companies Act, 2013: format of the balance sheet and statement of profit and loss", "https://www.mca.gov.in/"),
         ("Ratios", "Schedule III (amended 24 Mar 2021): ratios to disclose; explain a change over 25%", "https://www.mca.gov.in/"),
         ("Placing ledgers", "Rules on the ledger name and its Tally group; the firm's corrections are learned; the AI only suggests for leftovers", None)]),
+    "ca-balance-confirmations": (("Your client's debtor and creditor balances; each party confirms directly to the auditor. Replies are read "
+                                  "by fixed rules here (in the portal the AI reads the unclear ones, and a figure it gives must be in the reply)."), [
+        ("SA 505", "Standard on Auditing 505, External Confirmations: the auditor controls the requests and receives the replies", "https://www.icai.org/"),
+        ("Balances", "The client's books (Tally: Sundry Debtors / Sundry Creditors, closing balances)", None)]),
     "ca-depreciation": (("Your fixed asset register: tax depreciation by block at the Income-tax rates, book depreciation by straight line "
                          "over the Companies Act's Schedule II lives; the rates are official figures checked daily."), [
         ("Income-tax", ("Section 32 and the depreciation rates table: written-down value by block, half the rate if used under 180 days; "

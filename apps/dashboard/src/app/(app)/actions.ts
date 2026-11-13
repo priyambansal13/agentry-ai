@@ -882,7 +882,7 @@ export async function hqDueDateAdd(body: Record<string, string>) {
 
 export async function caTool(path: string, form: FormData | null, cid?: string) {
   // path: "/org/ca/clients/{cid}/gst", ".../bank/sample", "/org/ca/excel/table"…
-  if (!/^\/org\/ca\/(clients\/[0-9a-f-]{36}\/(gst|capital-gains|bank|notices|tds|audit|anomalies|hub|gstr1|financials|depreciation)(\/sample)?|excel\/(table|reconcile|ask|(clean|anomalies)(\/sample)?))$/.test(path)) {
+  if (!/^\/org\/ca\/(clients\/[0-9a-f-]{36}\/(gst|capital-gains|bank|notices|tds|audit|anomalies|hub|gstr1|financials|depreciation|confirmations)(\/sample)?|excel\/(table|reconcile|ask|(clean|anomalies)(\/sample)?))$/.test(path)) {
     return { ok: false as const, error: "unknown tool" };
   }
   const paths = [...caPaths(cid), "/excel"];
@@ -899,6 +899,15 @@ export async function caLedgerLine(wid: string, body: { ledger: string; line: st
 }
 export async function caTaxOpening(wid: string, opening: Record<string, number>) {
   return run<{ summary: unknown }>(`/org/ca/work/${wid}/tax-opening`, { method: "POST", body: { opening } }, [`/ca-work/${wid}`]);
+}
+export async function caConfirmSend(wid: string, reminder: boolean) {
+  return run<{ sent: number; failed: unknown[]; messages: { via: string }[] }>(`/org/ca/work/${wid}/confirmations/send`, { method: "POST", body: { reminder } }, [`/ca-work/${wid}`]);
+}
+export async function caConfirmReply(wid: string, pid: string, replyText: string) {
+  return run<{ status: string }>(`/org/ca/work/${wid}/confirmations/${pid}/reply`, { method: "POST", body: { text: replyText } }, [`/ca-work/${wid}`]);
+}
+export async function caConfirmSet(wid: string, pid: string, body: { status?: string; their_balance?: number | null; note?: string | null; email?: string }) {
+  return run<unknown>(`/org/ca/work/${wid}/confirmations/${pid}`, { method: "POST", body }, [`/ca-work/${wid}`]);
 }
 export async function caDeleteWork(wid: string, cid?: string) {
   return run<unknown>(`/org/ca/work/${wid}`, { method: "DELETE" }, [...caPaths(cid), "/excel"]);

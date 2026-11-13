@@ -402,6 +402,42 @@ export function FinancialsBox() {
   );
 }
 
+/* ---------- Balance confirmations (rules here; the AI reads unclear replies in the portal) ---------- */
+
+const CONF: Record<string, string> = { sent: "No reply yet", agreed: "Agreed", differs: "Differs", unclear: "Reply to read", no_email: "No email", not_selected: "Below the minimum" };
+
+export function ConfirmationsBox() {
+  const s = useSample("confirmations");
+  const [rows, setRows] = useState<string[][]>([]);
+  useEffect(() => { if (s) setRows(s.rows); }, [s]);
+  const r = useRun("confirmations", false);
+  const x = r.result;
+  return (
+    <TryShell title="Debtor and creditor balances, confirmed for the audit"
+      intro="Mehta Steel Pvt Ltd's party balances at 31 March 2026. A request is drafted for every party above ₹10,000 with an email; six sample replies come back (an agreement, a different figure with the reason, an out-of-office…) and are read. Edit a balance or an email and draft again."
+      sell="In the portal the requests go from your firm's own mailbox when you press Send, each party confirms on a private link (or replies to the email: the AI reads the unclear ones), reminders go after a week, and the summary downloads for the audit file.">
+      <SheetEditor rows={rows} onChange={setRows} caption="Party balances" maxRows={40} />
+      <div className="mt-4"><RunButton r={r} label="Draft and read the replies" input={() => ({ rows, min_balance: s?.min_balance, replies: s?.replies })} disabled={!s} /></div>
+      {x && (
+        <div className="mt-6 space-y-4">
+          <div className="grid gap-3 sm:grid-cols-3">{(["debtor", "creditor"] as const).map((k) => <Stat key={k} label={k === "debtor" ? "Debtors confirmed" : "Creditors confirmed"}
+            value={`${x.summary[k].coverage_pct}%`} note={`${x.summary[k].agreed} agreed, ${x.summary[k].differs} differ, ${x.summary[k].no_reply} no reply`} />)}
+            <Stat label="Differences to reconcile" value={inr(x.summary.debtor.difference + x.summary.creditor.difference)} note="ours minus theirs" /></div>
+          <Panel title="Parties"><div className="overflow-x-auto"><table className="w-full text-sm">
+            <thead><tr className="text-left text-xs text-muted"><th>Party</th><th className="text-right">In the books</th><th>Status</th><th className="text-right">Their figure</th><th>Next</th></tr></thead>
+            <tbody>{x.parties.map((p: Any) => <tr key={p.party} className="border-t border-line align-top"><td className="py-1.5">{p.party}<span className="block text-xs text-muted">{p.kind}</span></td>
+              <td className="text-right tabular-nums">{inr(Math.abs(p.our_balance))} {p.our_balance >= 0 ? "Dr" : "Cr"}</td>
+              <td><span className={p.status === "differs" ? "font-semibold text-danger" : p.status === "agreed" ? "font-semibold" : ""}>{CONF[p.status] ?? p.status}</span>
+                {p.reply && <span className="block max-w-xs text-xs text-muted">&ldquo;{p.reply.slice(0, 140)}{p.reply.length > 140 ? "…" : ""}&rdquo;</span>}</td>
+              <td className="text-right tabular-nums">{p.their_balance === null || p.their_balance === undefined ? "–" : inr(p.their_balance)}</td>
+              <td className="text-xs text-muted">{p.follow_up}</td></tr>)}</tbody></table></div></Panel>
+          {x.email && <Panel title="The request each party gets"><p className="text-sm font-semibold">{x.email.subject}</p>
+            <pre className="mt-2 whitespace-pre-wrap rounded-xl bg-paper p-3 text-xs">{x.email.body}</pre></Panel>}
+        </div>)}
+    </TryShell>
+  );
+}
+
 /* ---------- Depreciation (fixed rules, no AI) ---------- */
 
 export function DepreciationBox() {

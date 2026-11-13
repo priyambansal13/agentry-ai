@@ -8,7 +8,7 @@ import { api } from "@/lib/session";
 const SHEET = ".csv,.xlsx";
 export const AGENT_LABEL: Record<string, string> = {
   ca_gst_reconciliation: "GST reconciliation", ca_itr_prep: "ITR computation", ca_capital_gains: "Capital gains", ca_bank_classifier: "Bank statement",
-  ca_notice_handler: "Notice", ca_tds_returns: "TDS returns", ca_tax_audit: "Tax audit (3CD)", excel_desk: "Excel desk", excel_cleaner: "Excel cleaner", ca_anomaly_finder: "Anomaly finder", ca_upload_hub: "Upload hub", ca_gstr1: "GSTR-1 preparation", ca_financial_statements: "Financial statements", ca_depreciation: "Depreciation", ca_tax_docs_reader: "Tax documents reader",
+  ca_notice_handler: "Notice", ca_tds_returns: "TDS returns", ca_tax_audit: "Tax audit (3CD)", excel_desk: "Excel desk", excel_cleaner: "Excel cleaner", ca_anomaly_finder: "Anomaly finder", ca_upload_hub: "Upload hub", ca_gstr1: "GSTR-1 preparation", ca_financial_statements: "Financial statements", ca_depreciation: "Depreciation", ca_balance_confirmations: "Balance confirmations", ca_tax_docs_reader: "Tax documents reader",
 };
 
 function specs(cid: string): (ToolSpec & { agent: string; title: string; needs?: string })[] {
@@ -28,6 +28,9 @@ function specs(cid: string): (ToolSpec & { agent: string; title: string; needs?:
     { agent: "ca_depreciation", needs: "ca_filing_tracker", title: "Depreciation", key: "dep", path: p("depreciation"), extra: "fy", sample: true, button: "Work out depreciation",
       files: [{ name: "file", label: "Fixed asset register", accept: SHEET }],
       hint: "Books (Schedule II, straight line over the useful life) and tax (WDV by block, half rate when used under 180 days), sales and capital work in progress, and the deferred tax on the difference." },
+    { agent: "ca_balance_confirmations", needs: "ca_filing_tracker", title: "Balance confirmations", key: "conf", path: p("confirmations"), extra: "as_of", sample: true,
+      button: "Draft the requests", files: [{ name: "file", label: "Debtor and creditor balances (with emails)", accept: SHEET }],
+      hint: "A request to each debtor and creditor to confirm their balance directly to you, with a private link to agree or give their figure. Nothing is sent until you press Send; replies are tracked and summarised for the audit file." },
     { agent: "ca_capital_gains", title: "Capital gains", key: "cg", path: p("capital-gains"), sample: true, button: "Work out the gains",
       files: [{ name: "file", label: "Broker tax P&L / CAMS statement", accept: SHEET }],
       hint: "STCG / LTCG by section, grandfathering for shares bought before Feb 2018, rates before and after 23 Jul 2024; feeds the ITR computation." },

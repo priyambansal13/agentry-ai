@@ -8,13 +8,13 @@ import re
 from datetime import UTC, date, datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from agentry import audit, official_rules
-from agentry.auth import OrgContext, current_org
+from agentry.auth import OrgContext, client_ip, current_org
 from agentry.automations.ca import (
     anomalies,
     audit3cd,
@@ -23,6 +23,7 @@ from agentry.automations.ca import (
     capgains,
     chaser,
     cleaner,
+    confirmations,
     core,
     depreciation,
     excel,
@@ -610,6 +611,8 @@ async def work_sheet(wid: str, ctx: Any) -> Response:
         body = finstat.sheet(r)
     elif w["agent"] == "ca_depreciation":
         body = depreciation.sheet(r)
+    elif w["agent"] == "ca_balance_confirmations":
+        body = confirmations.sheet(r)
     elif w["agent"] in SHEETS:
         body = SHEETS[w["agent"]](r)
     else:
@@ -773,6 +776,82 @@ async def depreciation_opening(wid: str, body: TaxOpening, ctx: Any) -> dict:
         await audit.record(conn, org_id=ctx.org_id, actor_type="user", actor_user_id=ctx.principal.user_id, action="ca_depreciation.tax_opening",
                            target_type="ca_work", target_id=wid, metadata={"blocks": sorted(body.opening)})
     return {"summary": r["summary"]}
+
+
+# Balance confirmations (docs/PLAN-CA-DESK-2.md #7): any CA firm. Nothing is sent until the CA presses Send.
+
+def _confirm_err(e: Exception) -> HTTPException:
+    return HTTPException(e.status, str(e)) if isinstance(e, confirmations.ConfirmError) else _err(e)
+
+
+async def _confirmations(ctx: OrgContext, cid: str, upload: tuple[bytes, str | None, str | None], as_of: str, min_balance: float) -> dict:
+    fid, mime = await _keep(ctx, cid, *upload, "party_balances")
+    try:
+        return await confirmations.prepare(ctx.org_id, cid, upload[0], mime, as_of=as_of, min_balance=min_balance, user_id=ctx.principal.user_id, file_id=fid)
+    except (core.CaError, ValueError, KeyError, IndexError) as e:
+        raise _read_error(e) from e
+
+
+@router.post("/clients/{cid}/confirmations", status_code=201)
+async def confirmations_run(cid: str, ctx: Any, file: Annotated[UploadFile, File()], as_of: Annotated[str, Form(pattern=r"^\d{4}-\d{2}-\d{2}$")],
+                            min_balance: Annotated[float, Form(ge=0, le=1e12)] = 0) -> dict:
+    _work(ctx)
+    return await _confirmations(ctx, cid, (await file.read(), file.filename, file.content_type), as_of, min_balance)
+
+
+@router.post("/clients/{cid}/confirmations/sample", status_code=201)
+async def confirmations_sample(cid: str, ctx: Any) -> dict:
+    _work(ctx)
+    p = SAMPLE / "party_balances_sample.csv"
+    return await _confirmations(ctx, cid, (p.read_bytes(), p.name, "text/csv"), "2026-03-31", 10000)
+
+
+class ConfirmSend(BaseModel):
+    reminder: bool = False
+    ids: list[str] | None = Field(None, max_length=500)
+
+
+@router.post("/work/{wid}/confirmations/send")
+async def confirmations_send(wid: str, body: ConfirmSend, ctx: Any) -> dict:
+    """Sends the requests (or reminders): an explicit action by the CA, from the firm's mailbox."""
+    _work(ctx)
+    try:
+        return await confirmations.send(ctx.org_id, wid, user_id=ctx.principal.user_id, reminder=body.reminder, ids=body.ids)
+    except confirmations.ConfirmError as e:
+        raise _confirm_err(e) from e
+
+
+class ConfirmReply(BaseModel):
+    text: str = Field(min_length=2, max_length=8000)
+
+
+@router.post("/work/{wid}/confirmations/{pid}/reply")
+async def confirmations_reply(wid: str, pid: str, body: ConfirmReply, ctx: Any) -> dict:
+    """An email reply pasted in: read by rules, the AI only when they can't tell."""
+    _work(ctx)
+    async with tenant_session(ctx.org_id) as conn:
+        cfg = await core.enabled(conn, "ca_filing_tracker") or {}
+    try:
+        return await confirmations.record_reply(ctx.org_id, wid, pid, body.text, user_id=ctx.principal.user_id, use_model=bool(cfg.get("use_model", True)))
+    except confirmations.ConfirmError as e:
+        raise _confirm_err(e) from e
+
+
+class ConfirmSet(BaseModel):
+    status: Literal["agreed", "differs", "unclear"] | None = None
+    their_balance: Annotated[float, Field(ge=0, le=1e13)] | None = None
+    note: Annotated[str, Field(max_length=2000)] | None = None
+    email: Annotated[str, Field(max_length=200)] | None = None
+
+
+@router.post("/work/{wid}/confirmations/{pid}")
+async def confirmations_set(wid: str, pid: str, body: ConfirmSet, ctx: Any) -> dict:
+    _work(ctx)
+    try:
+        return await confirmations.set_result(ctx.org_id, wid, pid, status=body.status, their_balance=body.their_balance, note=body.note,
+                                              user_id=ctx.principal.user_id, email=body.email)
+    except confirmations.ConfirmError as e:
+        raise _confirm_err(e) from e
 
 
 # ITR preparation
@@ -1204,4 +1283,26 @@ async def portal_upload(token: str, file: Annotated[UploadFile, File()], filing_
     try:
         return await portal.upload(token, data, filename=file.filename, mime=file.content_type, filing_id=filing_id or None)
     except portal.PortalError as e:
+        raise HTTPException(e.status, str(e)) from e
+
+
+public_confirm = APIRouter(prefix="/public/confirm", tags=["public"])
+
+
+@public_confirm.get("/{token}")
+async def confirm_view(token: str) -> dict:
+    try:
+        return await confirmations.view(token)
+    except confirmations.ConfirmError as e:
+        raise HTTPException(e.status, str(e)) from e
+
+
+@public_confirm.post("/{token}")
+async def confirm_respond(token: str, request: Request, agree: Annotated[bool, Form()],
+                          their_balance: Annotated[float | None, Form(ge=0, le=1e13)] = None, note: Annotated[str | None, Form(max_length=2000)] = None,
+                          file: Annotated[UploadFile | None, File()] = None) -> dict:
+    up = (await file.read(core.MAX_FILE + 1), file.filename, file.content_type) if file and file.filename else None
+    try:
+        return await confirmations.respond(token, agree=agree, their_balance=their_balance, note=note, file=up, ip=client_ip(request))
+    except confirmations.ConfirmError as e:
         raise HTTPException(e.status, str(e)) from e
