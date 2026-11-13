@@ -357,6 +357,44 @@ export function ExcelBox() {
   );
 }
 
+/* ---------- Excel cleaner (fixed rules, no AI) ---------- */
+
+export function CleanerBox() {
+  const s = useSample("excel-clean");
+  const [rows, setRows] = useState<string[][]>([]);
+  const [one, setOne] = useState(false);
+  useEffect(() => { if (s) setRows(s.rows); }, [s]);
+  const r = useRun("excel-clean", false);
+  const x = r.result;
+  return (
+    <TryShell title="A messy sales register, cleaned in one click"
+      intro="The kind of sheet clients send: the firm's name and period on top, a page-break header in the middle, a Total row, amounts as “1,18,000.00 Dr” and “(2,000)”, dates written four ways, a lowercase GSTIN, one wrong GSTIN, a duplicate row and the same party spelt twice. Edit anything, then clean it."
+      sell="In the portal you upload the client's own .xlsx or .csv (up to 20,000 rows) and download the clean workbook: the clean sheet, every change made, what to check and the similar names, ready for Tally import or the next agent.">
+      <SheetEditor rows={rows} onChange={setRows} caption="Sheet as received" maxRows={30} />
+      <label className="mt-4 flex items-center gap-2 text-sm"><input type="checkbox" checked={one} onChange={(e) => setOne(e.target.checked)} /> Use one spelling for similar party names</label>
+      <div className="mt-4"><RunButton r={r} label="Clean it" input={() => ({ rows, standardise_names: one })} disabled={!s} /></div>
+      {x && (
+        <div className="mt-6 space-y-4">
+          <div className="grid gap-3 sm:grid-cols-3"><Stat label="Rows" value={`${x.summary.rows_in} → ${x.summary.rows_out}`} note={`header found on line ${x.summary.header_row}`} />
+            <Stat label="Changes made" value={x.changes.reduce((a: number, c: Any) => a + c.count, 0)} note={`${x.changes.length} kinds`} />
+            <Stat label="To check" value={x.issue_count} note={x.name_groups.length ? `${x.name_groups.length} similar-name group` : undefined} /></div>
+          <Panel title="Clean sheet"><div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr>{x.columns.map((c: string) => <th key={c} className="whitespace-nowrap px-1.5 py-1 text-left">{c}</th>)}</tr></thead>
+            <tbody>{x.rows.map((row: Any[], i: number) => <tr key={i} className="border-t border-line">{row.map((v, j) => <td key={j} className="whitespace-nowrap px-1.5 py-1 tabular-nums">{v === null ? "" : String(v)}</td>)}</tr>)}</tbody></table></div></Panel>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Panel title="What was done"><ul className="space-y-1.5 text-sm">{x.changes.map((c: Any) => <li key={c.what}><span className="font-semibold">{c.count}×</span> {c.what}
+              <span className="block text-xs text-muted">{c.examples.join(" · ")}</span></li>)}</ul></Panel>
+            <div className="space-y-4">
+              {x.issues.length > 0 && <Panel title="For you to check" tone="warn"><ul className="space-y-1.5 text-sm">{x.issues.map((i: Any, n: number) => <li key={n}>
+                <span className="font-semibold">{i.row ? `Row ${i.row}` : "Whole column"}, {i.column}{i.value ? `: ${i.value}` : ""}</span><span className="block text-xs text-muted">{i.problem}</span></li>)}</ul></Panel>}
+              {x.name_groups.length > 0 && <Panel title="Same party, different spellings"><ul className="space-y-1 text-sm">{x.name_groups.map((g: Any) => <li key={g.use}>
+                <span className="font-semibold">{g.use}</span> also written as {g.variants.join(", ")}</li>)}</ul></Panel>}
+            </div>
+          </div>
+        </div>)}
+    </TryShell>
+  );
+}
+
 /* ---------- filing tracker (the board and the WhatsApp status answer) ---------- */
 
 type Card = { client: string; filing: string; owner: string; due: string; status: string };

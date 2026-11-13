@@ -24,12 +24,12 @@ function useGo() {
 const Err = ({ e }: { e: string | null }) => (e ? <p role="alert" className="text-sm text-danger">{e}</p> : null);
 const workId = (d: unknown) => { const x = d as { id?: string; work_id?: string }; return x.work_id ?? x.id; };
 
-export type ToolSpec = { key: string; path: string; files: { name: string; label: string; accept: string }[]; extra?: "period" | "fy" | "columns" | "question" | "tolerance";
+export type ToolSpec = { key: string; path: string; files: { name: string; label: string; accept: string }[]; extra?: "period" | "fy" | "columns" | "question" | "tolerance" | "standardise_names";
   sample?: boolean; hint: string; button: string };
 
 export function ToolForm({ spec, clientId }: { spec: ToolSpec; clientId?: string }) {
   const { err, pending, go, router } = useGo();
-  const [extra, setExtra] = useState(spec.extra === "fy" ? "2025" : spec.extra === "period" ? "" : spec.extra === "tolerance" ? "1" : "");
+  const [extra, setExtra] = useState(spec.extra === "fy" ? "2025" : spec.extra === "period" ? "" : spec.extra === "tolerance" ? "1" : spec.extra === "standardise_names" ? "false" : "");
   const [files, setFiles] = useState<Record<string, File | null>>({});
   const ready = spec.files.every((f) => files[f.name]) && (!["period", "question"].includes(spec.extra ?? "") || extra.trim().length > 1);
   const open = (d: unknown) => { const id = workId(d); if (id) router.push(`/ca-work/${id}`); };
@@ -51,6 +51,8 @@ export function ToolForm({ spec, clientId }: { spec: ToolSpec; clientId?: string
         {spec.extra === "columns" && <div className="space-y-1"><Label htmlFor={`${spec.key}-c`}>Your columns (optional)</Label><Input id={`${spec.key}-c`} className="w-72" placeholder="Date, Party, Invoice, Amount" value={extra} onChange={(e) => setExtra(e.target.value)} /></div>}
         {spec.extra === "question" && <div className="min-w-64 flex-1 space-y-1"><Label htmlFor={`${spec.key}-q`}>Question</Label><Input id={`${spec.key}-q`} placeholder="Total amount by party, top 5" value={extra} onChange={(e) => setExtra(e.target.value)} /></div>}
         {spec.extra === "tolerance" && <div className="space-y-1"><Label htmlFor={`${spec.key}-t`}>Equal within (₹)</Label><Input id={`${spec.key}-t`} className="w-24" inputMode="decimal" value={extra} onChange={(e) => setExtra(e.target.value)} /></div>}
+        {spec.extra === "standardise_names" && <label className="flex h-10 items-center gap-2 text-sm"><input type="checkbox" checked={extra === "true"} onChange={(e) => setExtra(String(e.target.checked))} />
+          Use one spelling for similar party names</label>}
         <Button type="submit" disabled={pending || !ready}>{pending ? "Working…" : spec.button}</Button>
         {spec.sample && <Button type="button" variant="secondary" disabled={pending} onClick={() => go(() => caTool(`${spec.path}/sample`, null, clientId), open)}>Try the sample</Button>}
       </div>

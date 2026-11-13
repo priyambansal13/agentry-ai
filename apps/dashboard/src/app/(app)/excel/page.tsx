@@ -14,9 +14,12 @@ export default async function ExcelPage() {
     <div className="space-y-6">
       <header>
         <h1 className="font-display text-3xl font-bold tracking-tight">Excel desk</h1>
-        <p className="mt-1 max-w-3xl text-muted">Tables out of PDFs, two sheets reconciled, and questions answered from a sheet. The AI only reads tables and turns
+        <p className="mt-1 max-w-3xl text-muted">Messy sheets cleaned, tables out of PDFs, two sheets reconciled, and questions answered from a sheet. The cleaner works by fixed rules. The AI only reads tables and turns
           questions into a calculation; every number is worked out from your file.</p>
       </header>
+      <Card><CardHeader><CardTitle>Clean a messy sheet</CardTitle></CardHeader><CardBody>
+        <ToolForm spec={{ key: "clean", path: "/org/ca/excel/clean", files: [{ name: "file", label: "Sheet", accept: SHEETS }], extra: "standardise_names", sample: true,
+          button: "Clean it", hint: "The register or ledger a client sent: title lines, totals and repeated headers removed; \"1,200 Dr\", \"(500)\" and \"₹5,000\" made numbers; dates in one format; GSTIN / PAN checked; duplicates removed; similar party names grouped. Every change is listed." }} /></CardBody></Card>
       <div className="grid gap-4 lg:grid-cols-3">
         <Card><CardHeader><CardTitle>PDF or photo to Excel</CardTitle></CardHeader><CardBody>
           <ToolForm spec={{ key: "table", path: "/org/ca/excel/table", files: [{ name: "file", label: "PDF, photo or text", accept: ".pdf,.jpg,.jpeg,.png,.webp,.txt" }],

@@ -8,7 +8,7 @@ import { api } from "@/lib/session";
 const SHEET = ".csv,.xlsx";
 export const AGENT_LABEL: Record<string, string> = {
   ca_gst_reconciliation: "GST reconciliation", ca_itr_prep: "ITR computation", ca_capital_gains: "Capital gains", ca_bank_classifier: "Bank statement",
-  ca_notice_handler: "Notice", ca_tds_returns: "TDS returns", ca_tax_audit: "Tax audit (3CD)", excel_desk: "Excel desk",
+  ca_notice_handler: "Notice", ca_tds_returns: "TDS returns", ca_tax_audit: "Tax audit (3CD)", excel_desk: "Excel desk", excel_cleaner: "Excel cleaner",
 };
 
 function specs(cid: string): (ToolSpec & { agent: string; title: string })[] {

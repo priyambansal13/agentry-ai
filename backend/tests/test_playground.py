@@ -21,7 +21,7 @@ def public_sites(monkeypatch):
     monkeypatch.setattr(settings, "audit_daily_budget_usd", 1000.0)  # whatever else the shared database spent today
 
 
-@pytest.mark.parametrize("kind", ["itr", "capital-gains", "tds", "audit-3cd", "gst", "bank", "tax-docs"])
+@pytest.mark.parametrize("kind", ["itr", "capital-gains", "tds", "audit-3cd", "gst", "bank", "tax-docs", "excel-clean"])
 async def test_calculations_run_on_their_samples(client, kind):
     s = (await client.get(f"/public/playground/{kind}/sample")).json()
     r = await client.post(f"/public/playground/{kind}", headers=visitor(), json={"input": s})

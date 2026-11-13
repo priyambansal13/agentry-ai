@@ -275,7 +275,13 @@ def msme_calc(p: dict) -> dict:
             "rate": msme.annual_rate(), "bank_rate": msme.rules.num("msme.bank_rate"), "credit_days": cd, "written": written}
 
 
-CALC = {"msme": msme_calc, "itr": itr, "capital-gains": capital_gains, "tds": tds, "audit-3cd": audit_3cd, "gst": gst, "calendar": calendar,
+def excel_clean(p: dict) -> dict:
+    from agentry.automations.ca import cleaner
+    r = cleaner.clean(_rows(p.get("rows")), standardise_names=bool(p.get("standardise_names")))
+    return _jsonable(r)
+
+
+CALC = {"msme": msme_calc, "excel-clean": excel_clean, "itr": itr, "capital-gains": capital_gains, "tds": tds, "audit-3cd": audit_3cd, "gst": gst, "calendar": calendar,
         "chaser": chaser, "tax-docs": tax_docs, "renewals": renewals}
 
 
@@ -612,6 +618,10 @@ def sample(kind: str) -> dict:
     if kind == "excel":
         return {"rows": _csv(ca / "tds_register_sample.csv"),
                 "questions": ["Total TDS deducted by section", "Which payments were over ₹50,000?", "How many deductees are there?"]}
+    if kind == "excel-clean":
+        raw = list(csv.reader(io.StringIO((ca / "messy_sales_register_sample.csv").read_text(encoding="utf-8-sig"))))
+        width = max(len(r) for r in raw)
+        return {"rows": [r + [""] * (width - len(r)) for r in raw]}
     if kind == "notice":
         return {"text": _text_sample("notice_143_1_sample.txt")}
     if kind == "tax-docs":
@@ -683,6 +693,10 @@ _TEXT = {  # what the other boxes rest on: (basis, [(label, source, url)])
         ("Checklists", "Agentry's checklist per filing (ITR, GST, TDS, audit, ROC); each firm can edit its own", None)]),
     "ca-notice-handler": ("Only the notice's own text: the dates, demand and DIN read are checked against it before they're shown.", [
         ("The notice", "As issued by the Income Tax Department (verify it on the e-filing portal with its DIN)", "https://www.incometax.gov.in/iec/foportal/")]),
+    "ca-excel-cleaner": ("Your sheet and fixed rules: the same file always gives the same result, and every change is listed.", [
+        ("GSTIN check digit", "GST registration rules (the 15th character is a checksum of the first 14)", "https://www.gst.gov.in/"),
+        ("PAN format", "Income Tax Department: five letters, four digits, a letter", "https://www.incometax.gov.in/iec/foportal/"),
+        ("Dates", "Read day first (as in India) unless the column itself proves month first; ambiguous columns are flagged", None)]),
     "excel-desk": ("Your sheet. The AI only picks the columns and the calculation; the numbers are computed by code.", []),
     "ca-filing-tracker": ("The firm's own filing board: the answer to the client is read from the card's status.", []),
     "recurring-books": ("Your entries. EMIs are split with the standard reducing-balance loan formula.", []),

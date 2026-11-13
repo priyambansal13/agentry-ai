@@ -21,6 +21,7 @@ from agentry.automations.ca import (
     calendar,
     capgains,
     chaser,
+    cleaner,
     core,
     excel,
     gst,
@@ -565,6 +566,8 @@ async def work_sheet(wid: str, ctx: Any) -> Response:
         body = excel.sheet_reco(r) if "counts" in r else excel.sheet_table(r) if "columns" in r else core.xlsx_bytes({"Answer": [["Question", w["title"]], ["Answer", json.dumps(r.get("answer"))]]})
     elif w["agent"] == "ca_gst_reconciliation":
         body = gst.sheet(r)
+    elif w["agent"] == "excel_cleaner":
+        body = cleaner.sheet(r)
     elif w["agent"] in SHEETS:
         body = SHEETS[w["agent"]](r)
     else:
@@ -774,7 +777,7 @@ async def notice_sample(cid: str, ctx: NoticeOn) -> dict:
 @router.get("/excel")
 async def excel_list(ctx: ExcelOn) -> dict:
     async with tenant_session(ctx.org_id) as conn:
-        rows = (await conn.execute(text("""select id::text, title, created_at, params from app.ca_work where agent = 'excel_desk'
+        rows = (await conn.execute(text("""select id::text, title, created_at, params from app.ca_work where agent in ('excel_desk', 'excel_cleaner')
             order by created_at desc limit 50"""))).mappings().all()
     return {"items": [dict(r) for r in rows]}
 
@@ -820,6 +823,25 @@ async def excel_ask(ctx: ExcelOn, file: Annotated[UploadFile, File()], question:
     except (core.CaError, ValueError, IndexError) as e:
         raise _read_error(e) from e
     return await _save(ctx, None, "excel_desk", question, r, [], {"kind": "ask", "file": file.filename})
+
+
+@router.post("/excel/clean", status_code=201)
+async def excel_clean(ctx: ExcelOn, file: Annotated[UploadFile, File()], standardise_names: Annotated[bool, Form()] = False) -> dict:
+    """The Excel cleaner (docs/PLAN-CA-DESK-2.md #1): a messy sheet in, a clean one out with a log of every change. No AI."""
+    _work(ctx)
+    data = await file.read()
+    try:
+        r = cleaner.compute(data, _mime(file, data), standardise_names)
+    except (core.CaError, ValueError, IndexError) as e:
+        raise _read_error(e) from e
+    return await _save(ctx, None, "excel_cleaner", f"Cleaned: {file.filename}", r, [], {"kind": "clean", "file": file.filename})
+
+
+@router.post("/excel/clean/sample", status_code=201)
+async def excel_clean_sample(ctx: ExcelOn) -> dict:
+    _work(ctx)
+    r = cleaner.compute((SAMPLE / "messy_sales_register_sample.csv").read_bytes(), "text/csv")
+    return await _save(ctx, None, "excel_cleaner", "Cleaned: messy sales register (sample)", r, [], {"kind": "clean", "file": "sample"})
 
 
 # ---------- recurring entries (the firm's own books) ----------

@@ -5,6 +5,7 @@ from agentry.automations.ca import (  # noqa: F401
     calendar,
     capgains,
     chaser,
+    cleaner,
     core,
     excel,
     gst,

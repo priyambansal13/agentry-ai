@@ -150,6 +150,24 @@ function Excel({ r, title }: { r: any; title: string }) {
   </CardBody></Card>);
 }
 
+function Cleaner({ r }: { r: any }) {
+  const s = r.summary;
+  const shown = r.rows.slice(0, 100);
+  return (<>
+    <Card><CardBody><dl className="grid gap-x-8 sm:grid-cols-2">
+      <Row k="Rows in → clean rows out" v={`${s.rows_in} → ${s.rows_out}`} /><Row k="Header found on line" v={s.header_row} />
+      <Row k="Columns" v={`${s.columns} (${s.dates} date, ${s.numbers} number)`} /><Row k="To check" v={r.issue_count ? <Badge tone="warning">{r.issue_count}</Badge> : "nothing"} /></dl></CardBody></Card>
+    <Card><CardHeader><CardTitle>What was done</CardTitle></CardHeader><CardBody className="p-0">
+      <Table head={["Change", "How many", "Examples"]} rows={r.changes.map((c: any) => [c.what, c.count, <span key="e" className="text-muted">{c.examples.join(" · ")}</span>])} /></CardBody></Card>
+    {r.issues.length > 0 && <Card><CardHeader><CardTitle>To check</CardTitle></CardHeader><CardBody className="p-0">
+      <Table head={["Row", "Column", "Value", "Why"]} rows={r.issues.map((i: any) => [i.row ?? "whole column", i.column, i.value, i.problem])} /></CardBody></Card>}
+    {r.name_groups.length > 0 && <Card><CardHeader><CardTitle>Similar names{r.name_column ? ` (${r.name_column})` : ""}</CardTitle></CardHeader><CardBody className="p-0">
+      <Table head={["Use", "Also written as", "Rows"]} rows={r.name_groups.map((g: any) => [g.use, g.variants.join(" · "), g.rows])} /></CardBody></Card>}
+    <Card><CardHeader><CardTitle>Clean sheet{r.rows.length > shown.length ? ` (first ${shown.length} of ${r.rows.length} rows; download for all)` : ""}</CardTitle></CardHeader>
+      <CardBody className="p-0"><Table head={r.columns} rows={shown.map((row: any[]) => row.map((v) => (v === null ? "" : String(v))))} /></CardBody></Card>
+  </>);
+}
+
 export default async function WorkPage({ params }: { params: Promise<{ wid: string }> }) {
   const active = await getActiveOrg();
   if (!active) redirect("/home");
@@ -183,6 +201,7 @@ export default async function WorkPage({ params }: { params: Promise<{ wid: stri
       {w.agent === "ca_tds_returns" && <Tds r={r} />}
       {w.agent === "ca_tax_audit" && <Audit r={r} />}
       {w.agent === "excel_desk" && <Excel r={r} title={w.title} />}
+      {w.agent === "excel_cleaner" && <Cleaner r={r} />}
     </div>
   );
 }

@@ -1,0 +1,16 @@
+Mehta Traders
+Sales Register
+1-Oct-2026 to 31-Oct-2026
+
+Date,Particulars,Party GSTIN,Voucher No,Mobile,Taxable Value,IGST,CGST,SGST,Amount
+01/10/2026,Sharma Traders Pvt Ltd,27aapfs1234q1zk,S-1001,98100 00011,"1,00,000.00",,"9,000.00","9,000.00","1,18,000.00 Dr"
+02-10-2026,SHARMA TRADERS,27AAPFS1234Q1ZK,S-1002,+91 9810000011,20000,,1800,1800,"23,600.00 Dr"
+3 Oct 2026,Bharat Steel Traders,29AAFCB7707D1ZQ,S-1003,9845011122,"₹50,000","9,000",,,"59,000.00 Dr"
+  04/10/2026,  Kumar   Logistics ,27AAGCK4521M1ZB,S-1004,,12000,,1080,1080,14160
+Date,Particulars,Party GSTIN,Voucher No,Mobile,Taxable Value,IGST,CGST,SGST,Amount
+05/10/2026,M/s. Sai Packaging Pvt. Ltd.,27AABCS1429B1ZX,S-1005,,"(2,000)",,(180),(180),"2,360.00 Cr"
+46302,Patel Enterprises,24AAKFP3311R1ZY,S-1006,,30000,5400,,,35400
+06/10/2026,Rao Medical Stores,,S-1007,,"8,500",,765,765,10030
+06/10/2026,Rao Medical Stores,,S-1007,,"8,500",,765,765,10030
+
+Total,,,,,"2,26,500.00","14,400.00","12,465.00","12,465.00","2,62,190.00"

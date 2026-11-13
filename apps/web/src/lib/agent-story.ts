@@ -403,6 +403,16 @@ export const stories: Record<string, Story> = {
     before: ["The same entries typed every month", "EMI splits worked out by hand", "Overspending noticed at year end"],
     after: ["Routine entries post themselves", "Correct interest and principal every month", "Budget alerts while there's still time"],
   },
+  "ca-excel-cleaner": {
+    flow: ["Client's messy sheet", "Header found", "Junk rows out", "Numbers, dates, GSTINs fixed", "Clean sheet + change log"], highlight: 3,
+    steps: [["customer", "Sends the sales register, ledger or party list in whatever shape their software exports."],
+      ["you", "Upload it to the Excel desk (or try the sample)."],
+      ["agent", "Finds the real header, removes title lines, totals and page-break headers, and makes every amount and date usable."],
+      ["agent", "Checks every GSTIN and PAN, removes duplicate rows and groups the same party spelt differently."],
+      ["you", "Look at the short “to check” list, then download the clean workbook for Tally or the next agent."]],
+    before: ["An hour of retyping and Find & Replace per client file", "Totals and duplicates slipping into the books", "Wrong GSTINs found at GSTR-1 time"],
+    after: ["Clean in seconds, the same way every time", "Every change listed for the audit trail", "Bad GSTINs and PANs caught on day one"],
+  },
   "excel-desk": {
     flow: ["PDF or sheet", "Your Excel layout", "Reconcile", "Ask a question", "Exact answer"], highlight: 1,
     steps: [["you", "Drop in a PDF or spreadsheet: bank statement, ledger, invoice list."],
